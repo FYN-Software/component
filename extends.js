@@ -1,6 +1,6 @@
 'use strict';
 
-import { Event } from '/js/utilities.js';
+import { Event } from './utilities.js';
 
 Number.couldBeNumber = function(val)
 {
@@ -20,6 +20,11 @@ String.prototype.upperCaseFirst = function()
 {
     return this.replace(/^[a-zA-Z]/, m => m.toUpperCase());
 }
+
+String.prototype.capitalize = function()
+{
+    return this.charAt(0).toUpperCase() + this.slice(1);
+};
 
 Array.compare = function(arr1, arr2)
 {
@@ -355,7 +360,7 @@ Promise.prototype.stage = function(cb)
     });
 };
 
-Promise.__proto__.chain = function (array, callback, delay = 0) {
+Promise.prototype.chain = function (array, callback, delay = 0) {
     let options = { delay };
 
     try
@@ -367,6 +372,10 @@ Promise.__proto__.chain = function (array, callback, delay = 0) {
     {
         return Promise.resolve(null);
     }
+};
+
+Promise.prototype.log = function () {
+    return this.stage((...args) => console.log(...args));
 };
 
 DocumentFragment.fromString = function(str) {
