@@ -1,12 +1,13 @@
 'use strict';
 
 import Base from './base.js';
-import Loop from './loop.js';
+// import Loop from './loop.js';
 import Collection from './collection.js';
 import Gunslinger from './utilities/gunslinger.js';
 
 const parser = Gunslinger.instanciate();
 const specialProperties = [ 'if', 'for' ];
+let loop = null;
 
 export default class ObservingElement extends Base
 {
@@ -181,40 +182,44 @@ export default class ObservingElement extends Base
                     return s.children.map(c => transform(c)).join('');
 
                 case 'Loop':
-                    if((binding.loop instanceof Loop) !== true)
-                    {
-                        let c = new Collection();
-                        let key = null;
-                        let methods = s.tokens.reduce((m, t) => {
-                            switch(t.name)
-                            {
-                                case 'loopKeyword':
-                                    key = t.value;
-                                    m[key] = [];
-                                    break;
+                    ObservingElement.loop.then(Loop => {
+                        console.log(Loop);
 
-                                case 'child':
-                                    m[key].push(s.children[t.value]);
-                                    break;
+                        if((binding.loop instanceof Loop) !== true)
+                        {
+                            let c = new Collection();
+                            let key = null;
+                            let methods = s.tokens.reduce((m, t) => {
+                                switch(t.name)
+                                {
+                                    case 'loopKeyword':
+                                        key = t.value;
+                                        m[key] = [];
+                                        break;
+
+                                    case 'child':
+                                        m[key].push(s.children[t.value]);
+                                        break;
+                                }
+
+                                return m;
+                            }, {});
+
+                            for(let [method, parameters] of Object.entries(methods))
+                            {
+                                c[method](...parameters.map(p => this._resolve({ tree: p }) || p.tokens[0].value));
                             }
 
-                            return m;
-                        }, {});
-
-                        for(let [method, parameters] of Object.entries(methods))
-                        {
-                            c[method](...parameters.map(p => this._resolve({ tree: p }) || p.tokens[0].value));
+                            binding.loop = new Loop(binding.nodes[0].ownerElement, c);
+                            binding.methods = methods;
                         }
-
-                        binding.loop = new Loop(binding.nodes[0].ownerElement, c);
-                        binding.methods = methods;
-                    }
-                    else
-                    {
-                        binding.loop.data.items = binding.methods.in.map(
-                            p => this._resolve({ tree: p }) || p.tokens[0].value
-                        )[0];
-                    }
+                        else
+                        {
+                            binding.loop.data.items = binding.methods.in.map(
+                                p => this._resolve({ tree: p }) || p.tokens[0].value
+                            )[0];
+                        }
+                    });
 
                     return 'null';
 
@@ -461,5 +466,15 @@ export default class ObservingElement extends Base
     static get properties()
     {
         return {};
+    }
+
+    static get loop()
+    {
+        if(loop === null)
+        {
+            loop = import('./loop.js');
+        }
+
+        return loop;
     }
 }

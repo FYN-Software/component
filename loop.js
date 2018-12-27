@@ -1,8 +1,7 @@
 'use strict';
 
-import Component from './component.js';
 import Generic from './generic.js';
-import * as Fyn from '/js/fyn.js';
+import * as Glp from '../glp/index.js';
 
 export default class Loop
 {
@@ -26,10 +25,10 @@ export default class Loop
             if(this.children.length <= c)
             {
                 const C = window.customElements.get(`fyn${name.upperCaseFirst()}LoopItem`.toDashCase())
-                    || new Fyn.Utilities.Code.Generation.Class(`${name.upperCaseFirst()}LoopItem`)
+                    || new Glp.Generation.Class(`${name.upperCaseFirst()}LoopItem`)
                         .extends(Generic)
                         .addMethod(
-                            new Fyn.Utilities.Code.Generation.Method('properties')
+                            new Glp.Generation.Method('properties')
                                 .static()
                                 .getter()
                                 .body(`return { ${name}: null };`)
