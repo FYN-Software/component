@@ -2,6 +2,7 @@
 
 import * as Extends from './extends.js';
 import ObservingElement from './observingElement.js';
+import Composer from './composer.js';
 
 let names = {};
 let templates = {};
@@ -10,6 +11,8 @@ export default class Component extends ObservingElement
 {
     constructor(url = null)
     {
+        // Component.register(new.target);
+
         super();
 
         this._template = '';
@@ -23,7 +26,10 @@ export default class Component extends ObservingElement
         {
             if(url === null && names.hasOwnProperty(this.constructor.name))
             {
-                url = `/html/${ names[this.constructor.name].replace(/\-/g, '/') }.html`
+                const [ vendor, packet, path ] = names[this.constructor.name].split('.');
+
+                url = `http://${vendor}.cpb/${packet}/html/${path.replace(/-/g, '/')}.html`;
+                // url = `/html/${ names[this.constructor.name].replace(/\-/g, '/') }.html`
             }
 
             let p;
@@ -203,7 +209,9 @@ export default class Component extends ObservingElement
 
     static register(classDef, name = null)
     {
-        let n = name || `fyn-${ classDef.prototype.constructor.name.replace(/[A-Z]/g, m => `-${m.toLowerCase()}`).substr(1) }`;
+        let n = name || `${ classDef.prototype.constructor.name.replace(/[A-Z]/g, m => `-${m.toLowerCase()}`).substr(1) }`;
+
+        console.log(n);
 
         if(window.customElements.get(n) === undefined)
         {
@@ -221,7 +229,7 @@ export default class Component extends ObservingElement
 
         return r !== undefined
             ? Promise.resolve(r)
-            : import(`/js/${el.replace(/\-/g, '/')}.js`)
+            : import(Composer.resolve(el))
                 .then(r => Component.register(r.default, el));
     }
 
