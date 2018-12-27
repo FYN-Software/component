@@ -2,12 +2,10 @@
 
 export default class Composer
 {
-    static resolve(element)
+    static resolve(name)
     {
-        const parts = element.localName.split('.');
+        const [ vendor = '', packet = '', path = '' ] = name.split('.');
 
-        console.log(element, parts);
-
-        return Promise.resolve(null);
+        return `http://${vendor}.cpb/${packet}/js/${path.replace(/-/g, '/')}.js`;
     }
 }
