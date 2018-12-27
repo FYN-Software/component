@@ -1,8 +1,6 @@
 'use strict';
 
-import Grammar from './code/grammar.js';
-import Token from './code/token.js';
-import Parser from './code/parser.js';
+import { Grammar, Token, Parser } from '../../glp/index.js';
 
 export default class Gunslinger extends Grammar
 {
