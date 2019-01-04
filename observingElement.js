@@ -1,13 +1,12 @@
 'use strict';
 
 import Base from './base.js';
-// import Loop from './loop.js';
+import Loop from './loop.js';
 import Collection from './collection.js';
 import Gunslinger from './utilities/gunslinger.js';
 
 const parser = Gunslinger.instanciate();
 const specialProperties = [ 'if', 'for' ];
-let loop = null;
 
 export default class ObservingElement extends Base
 {
@@ -96,10 +95,7 @@ export default class ObservingElement extends Base
             }
         });
         observer.observe(this.shadow, {
-            attributes: true,
-            attributeOldValue: true,
             childList: true,
-            subtree: true,
             characterData: true,
             characterDataOldValue: true,
         });
@@ -168,58 +164,63 @@ export default class ObservingElement extends Base
             }
         }
 
-        requestAnimationFrame(this._render.bind(this));
+        setTimeout(this._render.bind(this), 250);
+        // requestAnimationFrame();
     }
 
     _resolve(binding)
     {
         const __values__ = {};
         const transform = s => {
+            if(s === undefined)
+            {
+                return;
+            }
+
             switch(s.name)
             {
                 case 'root':
                 case 'child':
                     return s.children.map(c => transform(c)).join('');
 
+                case 'Range':
+                    return `[${Array.from(s.children, c => transform(c) || 0).join(', ')}]`;
+
                 case 'Loop':
-                    ObservingElement.loop.then(Loop => {
-                        console.log(Loop);
-
-                        if((binding.loop instanceof Loop) !== true)
-                        {
-                            let c = new Collection();
-                            let key = null;
-                            let methods = s.tokens.reduce((m, t) => {
-                                switch(t.name)
-                                {
-                                    case 'loopKeyword':
-                                        key = t.value;
-                                        m[key] = [];
-                                        break;
-
-                                    case 'child':
-                                        m[key].push(s.children[t.value]);
-                                        break;
-                                }
-
-                                return m;
-                            }, {});
-
-                            for(let [method, parameters] of Object.entries(methods))
+                    if((binding.loop instanceof Loop) !== true)
+                    {
+                        let c = new Collection();
+                        let key = null;
+                        let methods = s.tokens.reduce((m, t) => {
+                            switch(t.name)
                             {
-                                c[method](...parameters.map(p => this._resolve({ tree: p }) || p.tokens[0].value));
+                                case 'loopKeyword':
+                                    key = t.value;
+                                    m[key] = [];
+                                    break;
+
+                                case 'child':
+                                    m[key].push(s.children[t.value]);
+                                    break;
                             }
 
-                            binding.loop = new Loop(binding.nodes[0].ownerElement, c);
-                            binding.methods = methods;
-                        }
-                        else
+                            return m;
+                        }, {});
+
+                        for(let [method, parameters] of Object.entries(methods))
                         {
-                            binding.loop.data.items = binding.methods.in.map(
-                                p => this._resolve({ tree: p }) || p.tokens[0].value
-                            )[0];
+                            c[method](...parameters.map(p => this._resolve({ tree: p }) || p.tokens[0].value));
                         }
-                    });
+
+                        binding.loop = new Loop(binding.nodes[0].ownerElement, c);
+                        binding.methods = methods;
+                    }
+                    else
+                    {
+                        binding.loop.data.items = binding.methods.in.map(
+                            p => this._resolve({ tree: p }) || p.tokens[0].value
+                        )[0];
+                    }
 
                     return 'null';
 
@@ -258,6 +259,10 @@ export default class ObservingElement extends Base
                                 value += `.`;
                                 break;
 
+                            case 'child':
+                                value += `[${ transform(s.children[token.value]) }]`;
+                                break;
+
                             default:
                                 // console.log(token.name);
                                 break;
@@ -267,9 +272,16 @@ export default class ObservingElement extends Base
                     return value;
 
                 case 'Function':
-                    // console.log(s, s.tokens);
+                    // TODO(Chris Kruining)
+                    // This is a VERY crude
+                    // implementation of the
+                    // function, this needs
+                    // to be improved as this
+                    // is very error prone
+                    return `${ s.children[0].tokens[0].value }(${ s.tokens.slice(1).map(t => transform(s.children[t.value])).join(', ') })`;
 
-                    return '';
+                case 'Scope':
+                    return `(${ s.tokens.map(t => transform(s.children[t.value])).join(', ') })`;
 
                 case 'Expression':
                     return s.tokens.map(t => t.value).join('');
@@ -310,6 +322,11 @@ export default class ObservingElement extends Base
 
     __set(name, value, source = null, force = false)
     {
+        if(typeof value === 'string' && value.match(/^{{\s*.+\s*}}$/g) !== null)
+        {
+            return;
+        }
+
         if(this.__initialized === false && (typeof value !== 'string' || value.match(/{{\s*.+\s*}}/g) === null))
         {
             this._setQueue.push([ name, value, source, force ]);
@@ -453,6 +470,11 @@ export default class ObservingElement extends Base
                 break;
 
             default:
+                if(this.__initialized !== true)
+                {
+                    return;
+                }
+
                 this.__set(name.toCamelCase(), newValue, Array.from(this.attributes).find(a => a.nodeName === name), false);
                 break;
         }
@@ -466,15 +488,5 @@ export default class ObservingElement extends Base
     static get properties()
     {
         return {};
-    }
-
-    static get loop()
-    {
-        if(loop === null)
-        {
-            loop = import('./loop.js');
-        }
-
-        return loop;
     }
 }

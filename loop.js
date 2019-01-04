@@ -1,6 +1,7 @@
 'use strict';
 
 import Generic from './generic.js';
+import * as Extends from './extends.js';
 import * as Glp from '../glp/index.js';
 
 export default class Loop
@@ -10,13 +11,63 @@ export default class Loop
         this._node = node;
         this._data = data;
         this._template = new DocumentFragment();
+    
+        const name = this._data.name;
+        const n = `${name.upperCaseFirst()}LoopItem`;
+        this._item = window.customElements.get(n.toDashCase()) ||
+            new Glp.Generation.Class(n)
+                .extends(Generic)
+                .addMethod(
+                    new Glp.Generation.Method('properties')
+                    .getter()
+                    .body(`return this._properties.${name};`)
+                )
+                .addMethod(
+                    new Glp.Generation.Method('properties')
+                    .static()
+                    .getter()
+                    .body(`return { ${name}: null };`)
+                )
+                .code;
+        
+        Array.from(node.children).forEach(n => {
+            if(n instanceof HTMLSlotElement)
+            {
+                const r = () => {
+                    this._template = new DocumentFragment();
+    
+                    for(let el of n.assignedElements({flatten: true}))
+                    {
+                        this._template.appendChild(el.cloneNode(true))
+                    }
+    
+                    Array.from(this.children).forEach(c => c.template = this._template.cloneNode(true));
+                };
+                
+                n.on({
+                    slotchange: e => r(),
+                });
+                
+                r();
+                n.style.display = 'none';
+            }
+            else
+            {
+                this._template.appendChild(n.extract());
+            }
+        });
 
-        Array.from(node.children).forEach(n => this._template.appendChild(node.removeChild(n)));
+        node.setAttribute('scroller', '');
+        
+        Object.defineProperty(node, '__loop__', {
+            value: this,
+            writable: false,
+        });
     }
 
     render()
     {
-        const name = this._data.name;
+        this._node.style.setProperty('--scroller-height', `${50 * this._data.length}px`);
 
         for(let [i, item, c] of this._data)
         {
@@ -24,18 +75,7 @@ export default class Loop
 
             if(this.children.length <= c)
             {
-                const C = window.customElements.get(`fyn${name.upperCaseFirst()}LoopItem`.toDashCase())
-                    || new Glp.Generation.Class(`${name.upperCaseFirst()}LoopItem`)
-                        .extends(Generic)
-                        .addMethod(
-                            new Glp.Generation.Method('properties')
-                                .static()
-                                .getter()
-                                .body(`return { ${name}: null };`)
-                        )
-                        .code;
-
-                node = new C(this._template.cloneNode(true));
+                node = new (this._item)(this._template.cloneNode(true));
 
                 this._node.appendChild(node);
             }
@@ -44,7 +84,7 @@ export default class Loop
                 node = this.children[c];
             }
 
-            node[name] = item;
+            node[this._data.name] = item;
         }
 
         while(this._data.length < this.children.length)
@@ -60,6 +100,6 @@ export default class Loop
 
     get children()
     {
-        return this._node.children;
+        return this._node.querySelectorAll(':scope > :not(slot)');
     }
 }

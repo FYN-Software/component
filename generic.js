@@ -18,6 +18,13 @@ export default class Generic extends Component
 
         this.shadow.appendChild(style);
         this.shadow.appendChild(slot);
+        
+        this.template = node;
+    }
+    
+    set template(node)
+    {
+        this.childNodes.clear();
         this.appendChild(this._parseHtml(node));
     }
 }

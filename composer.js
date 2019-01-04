@@ -2,10 +2,24 @@
 
 export default class Composer
 {
-    static resolve(name)
+    static resolve(name, type = 'js')
     {
-        const [ vendor = '', packet = '', path = '' ] = name.split('.');
+        const [ ns, ...el ] = name.split('-');
+        let prefix;
 
-        return `http://${vendor}.cpb/${packet}/js/${path.replace(/-/g, '/')}.js`;
+        switch (ns) {
+            case 'fyn':
+                prefix = `http://fyn-software.cpb/suite/${type}`;
+                break;
+
+            case 'cpb':
+                prefix = `http://a.g.e.cpb/${type}`;
+                break;
+            default:
+                prefix = '';
+                break;
+        }
+
+        return `${prefix}/${el.join('/')}.${type}`;
     }
 }

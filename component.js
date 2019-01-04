@@ -11,8 +11,6 @@ export default class Component extends ObservingElement
 {
     constructor(url = null)
     {
-        // Component.register(new.target);
-
         super();
 
         this._template = '';
@@ -26,10 +24,7 @@ export default class Component extends ObservingElement
         {
             if(url === null && names.hasOwnProperty(this.constructor.name))
             {
-                const [ vendor, packet, path ] = names[this.constructor.name].split('.');
-
-                url = `http://${vendor}.cpb/${packet}/html/${path.replace(/-/g, '/')}.html`;
-                // url = `/html/${ names[this.constructor.name].replace(/\-/g, '/') }.html`
+                url = Composer.resolve(names[this.constructor.name], 'html');
             }
 
             let p;
@@ -210,11 +205,11 @@ export default class Component extends ObservingElement
     static register(classDef, name = null)
     {
         let n = name || `${ classDef.prototype.constructor.name.replace(/[A-Z]/g, m => `-${m.toLowerCase()}`).substr(1) }`;
-
-        console.log(n);
-
+        
         if(window.customElements.get(n) === undefined)
         {
+            console.log(n);
+            
             names[classDef.prototype.constructor.name] = n;
 
             window.customElements.define(n, classDef);

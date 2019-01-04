@@ -43,6 +43,11 @@ export default class Collection
         {
             this._items = [];
         }
+        else if(Array.isArray(items) && items.length === 2 && items.every(i => Number.isInteger(i)))
+        {
+            this.lower = items[0];
+            this.upper = items[1];
+        }
         else if(!Array.isArray(items) && items.__isProxy)
         {
             this._items = [];

@@ -9,7 +9,7 @@ Number.couldBeNumber = function(val)
 
 String.prototype.toDashCase = function()
 {
-    return this.replace(/([A-Z])/g, (w, u) => `-${ u.toLowerCase() }`);
+    return this.replace(/([A-Z])/g, (w, u) => `-${ u.toLowerCase() }`).replace(/^-+|-+$/g, '');
 }
 
 String.prototype.toCamelCase = function()
@@ -375,7 +375,7 @@ Promise.prototype.chain = function (array, callback, delay = 0) {
 };
 
 Promise.prototype.log = function () {
-    return this.stage((...args) => console.log(...args));
+    return this.stage(console.log);
 };
 
 DocumentFragment.fromString = function(str) {
