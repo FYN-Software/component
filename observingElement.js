@@ -8,15 +8,26 @@ import Gunslinger from './utilities/gunslinger.js';
 const parser = Gunslinger.instanciate();
 const specialProperties = [ 'if', 'for' ];
 
-export default class ObservingElement extends Base
+// TODO(Chris Kruining)
+//  Offload this to separate thread
+//  using a web worker (most likely
+//  add a wrapper class so the API
+//  will be simelar to C# task API)
+let elements = new Set();
+const render = setInterval(() => {
+    for(const el of elements)
+    {
+        if(el._queue.length > 0 || el._setQueue.length > 0)
+        {
+            el._render();
+        }
+    }
+}, 100);
+
+export default abstract(class ObservingElement extends Base
 {
     constructor()
     {
-        if(new.target === ObservingElement)
-        {
-            throw new Error('Class is abstract, needs an concrete implementation to function properly');
-        }
-
         if(new.target.prototype.attributeChangedCallback !== ObservingElement.prototype.attributeChangedCallback)
         {
             throw new Error('method attributeChangedCallback is final and should therefor not be extended');

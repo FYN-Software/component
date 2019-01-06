@@ -1,16 +1,12 @@
 'use strict';
 
 import * as Extends from './extends.js';
+import abstract from './mixins/abstract.js';
 
-export default class Base extends HTMLElement
+export default abstract(class Base extends HTMLElement
 {
     constructor()
     {
-        if(new.target === Base)
-        {
-            throw new Error('Class is abstract, needs an concrete implementation to function properly');
-        }
-
         super();
 
         const shadowRoot = this.attachShadow({ mode: 'open' });
@@ -21,4 +17,4 @@ export default class Base extends HTMLElement
     {
         return this._shadow;
     }
-}
+})
