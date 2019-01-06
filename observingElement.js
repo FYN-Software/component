@@ -106,7 +106,10 @@ export default abstract(class ObservingElement extends Base
             }
         });
         observer.observe(this.shadow, {
+            attributes: true,
+            attributeOldValue: true,
             childList: true,
+            subtree: true,
             characterData: true,
             characterDataOldValue: true,
         });
