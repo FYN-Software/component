@@ -150,24 +150,35 @@ NamedNodeMap.prototype.setOnAssert = function (condition, name, value = '')
     return this;
 }
 
-HTMLElement.prototype.trigger = function(name)
+EventTarget.prototype.trigger = function(name)
 {
     Event.trigger(this, name);
 
     return this;
 }
 
-HTMLElement.prototype.delegate = function(selector, settings)
+EventTarget.prototype.delegate = function(selector, settings)
 {
     Event.delegate(this, selector, settings);
 
     return this;
 };
 
-HTMLElement.prototype.on = function(settings)
+EventTarget.prototype.on = function(settings)
 {
     Event.on(this, settings);
 
+    return this;
+};
+
+EventTarget.prototype.emit = function(name, data = {}, composed = false)
+{
+    this.dispatchEvent(new CustomEvent(name, {
+        detail: data,
+        bubbles: true,
+        composed
+    }));
+    
     return this;
 };
 

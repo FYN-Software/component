@@ -159,11 +159,6 @@ export default class Component extends ObservingElement
         return this;
     }
 
-    emit(name, data = {}, composed = false)
-    {
-        this.dispatchEvent(new CustomEvent(name, { detail: data, bubbles: true, composed }));
-    }
-
     setTemplate(str)
     {
         this._template = str instanceof DocumentFragment
@@ -208,11 +203,16 @@ export default class Component extends ObservingElement
         
         if(window.customElements.get(n) === undefined)
         {
-            console.log(n);
-            
             names[classDef.prototype.constructor.name] = n;
 
-            window.customElements.define(n, classDef);
+            try
+            {
+                window.customElements.define(n, classDef);
+            }
+            catch(e)
+            {
+                console.error(e);
+            }
         }
 
         return classDef;
