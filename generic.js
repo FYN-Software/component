@@ -1,6 +1,5 @@
 'use strict';
 
-import { clone } from './extends.js';
 import Component from './component.js';
 
 export default class Generic extends Component
@@ -8,7 +7,7 @@ export default class Generic extends Component
     constructor(node)
     {
         Component.register(new.target);
-
+    
         super(false);
 
         const style = document.createElement('style');
