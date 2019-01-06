@@ -4,6 +4,7 @@ import Base from './base.js';
 import Loop from './loop.js';
 import Collection from './collection.js';
 import Gunslinger from './utilities/gunslinger.js';
+import abstract from './mixins/abstract.js';
 
 const parser = Gunslinger.instanciate();
 const specialProperties = [ 'if', 'for' ];
@@ -113,8 +114,6 @@ export default abstract(class ObservingElement extends Base
             characterData: true,
             characterDataOldValue: true,
         });
-
-        this._render();
     }
 
     observe(config)
@@ -164,7 +163,7 @@ export default abstract(class ObservingElement extends Base
                         break;
 
                     case 'for':
-                        values[0].loop.render()
+                        values[0].loop.render();
                         break;
                 }
             }
@@ -177,32 +176,38 @@ export default abstract(class ObservingElement extends Base
                 node.nodeValue = v;
             }
         }
-
-        setTimeout(this._render.bind(this), 250);
-        // requestAnimationFrame();
     }
 
     _resolve(binding)
     {
-        const __values__ = {};
-        const transform = s => {
-            if(s === undefined)
-            {
-                return;
-            }
-
-            switch(s.name)
-            {
-                case 'root':
-                case 'child':
-                    return s.children.map(c => transform(c)).join('');
-
-                case 'Range':
-                    return `[${Array.from(s.children, c => transform(c) || 0).join(', ')}]`;
-
-                case 'Loop':
-                    if((binding.loop instanceof Loop) !== true)
-                    {
+        if(binding.hasOwnProperty('loop') && binding.loop instanceof Loop)
+        {
+            binding.loop.data.items = binding.methods.in.map(
+                p => this._resolve({tree: p}) || p.tokens[0].value
+            )[0];
+            
+            return null;
+        }
+        
+        if(binding.__expr__ === undefined)
+        {
+            binding.__values__ = new Set();
+            const transform = s => {
+                if(s === undefined)
+                {
+                    return;
+                }
+        
+                switch(s.name)
+                {
+                    case 'root':
+                    case 'child':
+                        return s.children.map(c => transform(c)).join('');
+            
+                    case 'Range':
+                        return `[${Array.from(s.children, c => transform(c) || 0).join(', ')}]`;
+            
+                    case 'Loop':
                         let c = new Collection();
                         let key = null;
                         let methods = s.tokens.reduce((m, t) => {
@@ -212,110 +217,101 @@ export default abstract(class ObservingElement extends Base
                                     key = t.value;
                                     m[key] = [];
                                     break;
-
+            
                                 case 'child':
                                     m[key].push(s.children[t.value]);
                                     break;
                             }
-
+        
                             return m;
                         }, {});
-
+    
                         for(let [method, parameters] of Object.entries(methods))
                         {
-                            c[method](...parameters.map(p => this._resolve({ tree: p }) || p.tokens[0].value));
+                            c[method](...parameters.map(p => this._resolve({tree: p}) || p.tokens[0].value));
                         }
-
+    
                         binding.loop = new Loop(binding.nodes[0].ownerElement, c);
                         binding.methods = methods;
-                    }
-                    else
-                    {
-                        binding.loop.data.items = binding.methods.in.map(
-                            p => this._resolve({ tree: p }) || p.tokens[0].value
-                        )[0];
-                    }
-
-                    return 'null';
-
-                case 'Property':
-                    let value = '';
-
-                    for(let [ i, token] of Object.entries(s.tokens))
-                    {
-                        i = Number.parseInt(i);
-
-                        if(value === undefined)
+                
+                        return 'null';
+            
+                    case 'Property':
+                        let value = '';
+                
+                        for(let [ i, token] of Object.entries(s.tokens))
                         {
-                            break;
+                            i = Number.parseInt(i);
+                    
+                            if(value === undefined)
+                            {
+                                break;
+                            }
+                    
+                            switch(token.name)
+                            {
+                                case 'variable':
+                                    if(i === 0)
+                                    {
+                                        value = `__values__['${token.value}']`;
+                                        binding.__values__.add(token.value);
+                                    }
+                                    else
+                                    {
+                                        value += token.value;
+                                    }
+                                    break;
+                        
+                                case 'arrayAccess':
+                                    let v = transform(s.children[token.value]);
+                                    value += `[${v}]`;
+                                    break;
+                        
+                                case 'propertyAccessor':
+                                    value += `.`;
+                                    break;
+                        
+                                case 'child':
+                                    value += `[${ transform(s.children[token.value]) }]`;
+                                    break;
+                        
+                                default:
+                                    // console.log(token.name);
+                                    break;
+                            }
                         }
-
-                        switch(token.name)
-                        {
-                            case 'variable':
-                                if(i === 0)
-                                {
-                                    value = `__values__['${token.value}']`;
-                                    __values__[token.value] = JSON.tryParse(this[token.value]);
-                                }
-                                else
-                                {
-                                    value += token.value;
-                                }
-                                break;
-
-                            case 'arrayAccess':
-                                let v = transform(s.children[token.value]);
-                                value += `[${v}]`;
-                                break;
-
-                            case 'propertyAccessor':
-                                value += `.`;
-                                break;
-
-                            case 'child':
-                                value += `[${ transform(s.children[token.value]) }]`;
-                                break;
-
-                            default:
-                                // console.log(token.name);
-                                break;
-                        }
-                    }
-
-                    return value;
-
-                case 'Function':
-                    // TODO(Chris Kruining)
-                    // This is a VERY crude
-                    // implementation of the
-                    // function, this needs
-                    // to be improved as this
-                    // is very error prone
-                    return `${ s.children[0].tokens[0].value }(${ s.tokens.slice(1).map(t => transform(s.children[t.value])).join(', ') })`;
-
-                case 'Scope':
-                    return `(${ s.tokens.map(t => transform(s.children[t.value])).join(', ') })`;
-
-                case 'Expression':
-                    return s.tokens.map(t => t.value).join('');
-
-                default:
-                    return '';
-            }
-        };
-
-        let expr = transform(binding.tree);
-        let res;
-
-        if(expr instanceof Loop)
-        {
-            return expr;
+                
+                        return value;
+            
+                    case 'Function':
+                        // TODO(Chris Kruining)
+                        // This is a VERY crude
+                        // implementation of the
+                        // function, this needs
+                        // to be improved as this
+                        // is very error prone
+                        return `${ s.children[0].tokens[0].value }(${ s.tokens.slice(1).map(t => transform(s.children[t.value])).join(', ') })`;
+            
+                    case 'Scope':
+                        return `(${ s.tokens.map(t => transform(s.children[t.value])).join(', ') })`;
+            
+                    case 'Expression':
+                        return s.tokens.map(t => t.value).join('');
+            
+                    default:
+                        return '';
+                }
+            };
+            
+            binding.__expr__ = Function(`'use strict'; return __values__ => ${transform(binding.tree)};`)();
         }
+        
+        let res;
 
         try
         {
-            res = Function(`'use strict'; return __values__ => ${expr};`)()(__values__);
+            let values = Array.from(binding.__values__).reduce((t, v) => ({ ...t, [v]: JSON.tryParse(this[v]) }), {});
+            res = binding.__expr__(values);
         }
         catch(e)
         {
@@ -353,7 +349,7 @@ export default abstract(class ObservingElement extends Base
 
         value = m(value);
         const old = this._properties[name];
-
+        
         if(old === value && force === false)
         {
             return;
@@ -368,7 +364,7 @@ export default abstract(class ObservingElement extends Base
 
         let bindings = this._bindings.filter(b => b.properties.includes(name) && b.nodes.includes(source) !== true);
         let nodes = bindings.map(b => b.nodes).reduce((t, n) => [ ...t, ...n ], []).unique();
-
+    
         bindings.forEach(b => b.value = this._resolve(b));
         this._queue.push(...nodes);
     }
@@ -473,6 +469,21 @@ export default abstract(class ObservingElement extends Base
             );
         });
     }
+    
+    connectedCallback()
+    {
+        elements.add(this);
+    }
+    
+    adoptedCallback()
+    {
+        elements.add(this);
+    }
+    
+    disconnectedCallback()
+    {
+        elements.delete(this);
+    }
 
     attributeChangedCallback(name, oldValue, newValue)
     {
@@ -503,4 +514,4 @@ export default abstract(class ObservingElement extends Base
     {
         return {};
     }
-}
+})
