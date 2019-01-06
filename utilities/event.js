@@ -1,5 +1,3 @@
-'use strict';
-
 export default class Event
 {
     static debounce(delay, callback)

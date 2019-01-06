@@ -1,5 +1,3 @@
-'use strict';
-
 export default class Cookie
 {
     static set(key, value = '', expiration = 1)

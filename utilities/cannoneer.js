@@ -1,5 +1,3 @@
-'use strict';
-
 import { Grammar, Token, Parser } from '../../glp/index.js';
 
 export default class Cannoneer extends Grammar

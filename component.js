@@ -1,5 +1,3 @@
-'use strict';
-
 import * as Extends from './extends.js';
 import ObservingElement from './observingElement.js';
 import Composer from './composer.js';

@@ -1,5 +1,3 @@
-'use strict';
-
 import { Event } from './utilities.js';
 
 Number.couldBeNumber = function(val)

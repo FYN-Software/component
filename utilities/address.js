@@ -1,5 +1,3 @@
-'use strict';
-
 export default class Address
 {
     static set(key, value, url = '')

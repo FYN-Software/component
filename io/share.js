@@ -1,5 +1,3 @@
-'use strict';
-
 const _worker = new SharedWorker('sharedWorker.js');
 const _listeners = {};
 let _store = {};

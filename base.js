@@ -1,5 +1,3 @@
-'use strict';
-
 import * as Extends from './extends.js';
 import abstract from './mixins/abstract.js';
 

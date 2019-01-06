@@ -1,5 +1,3 @@
-'use strict';
-
 export function ease(callback, options = {}) {
     let { duration, easing } = Object.assign({
         duration: 300,

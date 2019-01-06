@@ -1,5 +1,3 @@
-'use strict';
-
 import Base from './base.js';
 import Loop from './loop.js';
 import Collection from './collection.js';

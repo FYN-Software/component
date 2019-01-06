@@ -1,5 +1,3 @@
-'use strict';
-
 // NOTE(Chris Kruining)
 // The lib does not yet
 // export a module and

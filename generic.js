@@ -1,5 +1,3 @@
-'use strict';
-
 import Component from './component.js';
 
 export default class Generic extends Component

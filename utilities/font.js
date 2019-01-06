@@ -1,5 +1,3 @@
-'use strict';
-
 function url(font, variants, onlyCharacters)
 {
     const f = font.family.replace(/ /g, '+');
