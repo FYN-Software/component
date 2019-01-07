@@ -1,5 +1,3 @@
-"use strict";
-
 import DynamicObject from './dynamicObject.js';
 
 export default class Css extends DynamicObject
@@ -34,7 +32,7 @@ export default class Css extends DynamicObject
             }
             catch(e)
             {
-
+                // Suppresses exceptions
             }
         }
 
