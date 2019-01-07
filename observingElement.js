@@ -52,7 +52,7 @@ export default abstract(class ObservingElement extends Base
                     // This block is to counter the browsers
                     // Logic to remove the text node, I do
                     // This for persistency(bindings) reasons
-                    case'childList':
+                    case 'childList':
                         let nodes = Array.from(record.removedNodes)
                             .filter(n => n.nodeType === 3 && n.hasOwnProperty('template'));
 
@@ -92,7 +92,7 @@ export default abstract(class ObservingElement extends Base
 
                         break;
 
-                    case'characterData':
+                    case 'characterData':
                         let bindings = this._bindings.filter(
                             b => b.nodes.includes(record.target) && b.properties.length === 1
                         );
@@ -146,24 +146,24 @@ export default abstract(class ObservingElement extends Base
 
         while((node = this._queue.shift()) !== undefined)
         {
-            let values = this._bindings.filter(b => b.nodes.includes(node)),
-                v = values.length === 1 && values[0].original === node.template
-                    ? values[0].value
-                    : node.template.replace(
-                        /{{\s*(.+?)\s*}}/g,
-                        (a, m) => this._bindings.find(b => b.expression === m).value
-                    );
+            let values = this._bindings.filter(b => b.nodes.includes(node));
+            let v = values.length === 1 && values[0].original === node.template
+                ? values[0].value
+                : node.template.replace(
+                    /{{\s*(.+?)\s*}}/g,
+                    (a, m) => this._bindings.find(b => b.expression === m).value
+                );
 
             if(node.nodeType === 2 && specialProperties.includes(node.nodeName))
             {
                 switch(node.nodeName)
                 {
-                    case'if':
+                    case 'if':
                         node.ownerElement.attributes.setOnAssert(v !== true, 'hidden');
 
                         break;
 
-                    case'for':
+                    case 'for':
                         values[0].loop.render();
 
                         break;
@@ -203,28 +203,27 @@ export default abstract(class ObservingElement extends Base
 
                 switch(s.name)
                 {
-                    case'root':
-
-                    case'child':
+                    case 'root':
+                    case 'child':
                         return s.children.map(c => transform(c)).join('');
 
-                    case'Range':
+                    case 'Range':
                         return `[${Array.from(s.children, c => transform(c) || 0).join(', ')}]`;
 
-                    case'Loop':
+                    case 'Loop':
                         let c = new Collection();
                         let key = null;
                         let methods = s.tokens.reduce((m, t) =>
                         {
                             switch(t.name)
                             {
-                                case'loopKeyword':
+                                case 'loopKeyword':
                                     key = t.value;
                                     m[key] = [];
 
                                     break;
 
-                                case'child':
+                                case 'child':
                                     m[key].push(s.children[t.value]);
 
                                     break;
@@ -243,7 +242,7 @@ export default abstract(class ObservingElement extends Base
 
                         return 'null';
 
-                    case'Property':
+                    case 'Property':
                         let value = '';
 
                         for(let [ i, token ] of Object.entries(s.tokens))
@@ -257,7 +256,7 @@ export default abstract(class ObservingElement extends Base
 
                             switch(token.name)
                             {
-                                case'variable':
+                                case 'variable':
                                     if(i === 0)
                                     {
                                         value = `__values__['${token.value}']`;
@@ -270,18 +269,18 @@ export default abstract(class ObservingElement extends Base
 
                                     break;
 
-                                case'arrayAccess':
+                                case 'arrayAccess':
                                     let v = transform(s.children[token.value]);
                                     value += `[${v}]`;
 
                                     break;
 
-                                case'propertyAccessor':
+                                case 'propertyAccessor':
                                     value += '.';
 
                                     break;
 
-                                case'child':
+                                case 'child':
                                     value += `[${ transform(s.children[token.value]) }]`;
 
                                     break;
@@ -294,20 +293,25 @@ export default abstract(class ObservingElement extends Base
 
                         return value;
 
-                    case'Function':
+                    case 'Function':
                         // TODO(Chris Kruining)
                         // This is a VERY crude
                         // Implementation of the
                         // Function, this needs
                         // To be improved as this
                         // Is very error prone
-                        return `${ s.children[0].tokens[0].value }(${ s.tokens.slice(1).map(t => transform(s.children[t.value]))
-                            .join(', ') })`;
+                        const v = s.children[0].tokens[0].value;
+                        const a = s.tokens
+                            .slice(1)
+                            .map(t => transform(s.children[t.value]))
+                            .join(', ');
 
-                    case'Scope':
+                        return `${v}(${a})`;
+
+                    case 'Scope':
                         return `(${ s.tokens.map(t => transform(s.children[t.value])).join(', ') })`;
 
-                    case'Expression':
+                    case 'Expression':
                         return s.tokens.map(t => t.value).join('');
 
                     default:
@@ -375,9 +379,11 @@ export default abstract(class ObservingElement extends Base
             this._observers[name].changed(old, value);
         }
 
-        let bindings = this._bindings.filter(b => b.properties.includes(name) && b.nodes.includes(source) !== true),
-            nodes = bindings.map(b => b.nodes).reduce((t, n) => [ ...t, ...n ], [])
-                .unique();
+        let bindings = this._bindings.filter(b => b.properties.includes(name) && b.nodes.includes(source) !== true);
+
+
+        let nodes = bindings.map(b => b.nodes).reduce((t, n) => [ ...t, ...n ], [])
+            .unique();
 
         bindings.forEach(b => b.value = this._resolve(b));
         this._queue.push(...nodes);
@@ -387,45 +393,48 @@ export default abstract(class ObservingElement extends Base
     {
         let nodes = [];
 
-        const regex = /{{\s*(.+?)\s*}}/g,
-            iterator = node =>
+        const regex = /{{\s*(.+?)\s*}}/g;
+
+
+        const iterator = node =>
+        {
+            switch(node.nodeType)
             {
-                switch(node.nodeType)
-                {
-                    case 1:
-                        Array.from(node.attributes).forEach(a => iterator(a));
+                case 1:
+                    Array.from(node.attributes).forEach(a => iterator(a));
 
-                        if(Array.from(node.attributes).some(a => a.name === 'for'))
-                        {
-                            return;
-                        }
-
-                    case 11:
-                        Array.from(node.childNodes).forEach(a => iterator(a));
-
+                    if(Array.from(node.attributes).some(a => a.name === 'for'))
+                    {
                         return;
+                    }
 
-                    case 2:
+                case 11:
+                    Array.from(node.childNodes).forEach(a => iterator(a));
 
-                    case 3:
-                        let m = node.nodeValue.match(regex);
+                    return;
 
-                        if(m !== null)
-                        {
-                            node.matches = m;
-                            nodes.push(node);
-                        }
+                case 2:
+                case 3:
+                    let m = node.nodeValue.match(regex);
 
-                        return;
-                }
-            };
+                    if(m !== null)
+                    {
+                        node.matches = m;
+                        nodes.push(node);
+                    }
+
+                    return;
+            }
+        };
 
         iterator(html);
 
         for(let node of nodes)
         {
-            let str = node.nodeValue,
-                match;
+            let str = node.nodeValue;
+
+
+            let match;
 
             Object.defineProperty(node, 'template', { value: str });
 
@@ -439,8 +448,10 @@ export default abstract(class ObservingElement extends Base
                         .map(c => iterator(c))
                         .reduce((t, c) => [ ...t, ...c ], []),
                 ].unique();
-                let tree = parser.parse(match[1]),
-                    binding = this._bindings.find(b => b.expression === match[1]);
+                let tree = parser.parse(match[1]);
+
+
+                let binding = this._bindings.find(b => b.expression === match[1]);
 
                 if(binding === undefined)
                 {
@@ -463,7 +474,7 @@ export default abstract(class ObservingElement extends Base
             }
         }
 
-        Object.entries(this.constructor.properties).forEach(([ k, v ]) =>
+        Object.entries(this.constructor.properties).forEach(([ k ]) =>
         {
             Reflect.defineProperty(this, k, {
                 get: () => this.__get(k),
@@ -509,9 +520,8 @@ export default abstract(class ObservingElement extends Base
     {
         switch(name)
         {
-            case'if':
-
-            case'for':
+            case 'if':
+            case 'for':
                 // Console.log(name, oldValue, newValue);
                 break;
 
@@ -521,7 +531,12 @@ export default abstract(class ObservingElement extends Base
                     return;
                 }
 
-                this.__set(name.toCamelCase(), newValue, Array.from(this.attributes).find(a => a.nodeName === name), false);
+                this.__set(
+                    name.toCamelCase(),
+                    newValue,
+                    Array.from(this.attributes).find(a => a.nodeName === name),
+                    false
+                );
 
                 break;
         }
