@@ -296,7 +296,7 @@ export default abstract(class ObservingElement extends Base
                     )();
 
                     binding = {
-                        original: match[0];
+                        original: match[0],
                         expression: match[1],
                         nodes: new Set(),
                         value: null,
