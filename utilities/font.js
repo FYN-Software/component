@@ -29,7 +29,8 @@ function load(font, selector = null, variants = [], preview = false)
         l.onerror = rev;
 
         document.head.appendChild(l);
-    });
+    })
+        .catch(e => e);
 }
 
 export default class Font
