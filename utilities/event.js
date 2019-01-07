@@ -4,9 +4,11 @@ export default class Event
     {
         let timeout;
 
-        return function(...args) {
+        return function(...args)
+{
             clearTimeout(timeout);
-            timeout = setTimeout(() => {
+            timeout = setTimeout(() =>
+{
                 timeout = null;
 
                 callback.apply(this, args);
@@ -18,12 +20,14 @@ export default class Event
     {
         let timeout = null;
 
-        return function(...args) {
+        return function(...args)
+{
             if(timeout === null)
             {
                 callback.apply(this, args);
 
-                timeout = setTimeout(() => {
+                timeout = setTimeout(() =>
+{
                     timeout = null;
                 }, delay);
             }
@@ -32,7 +36,8 @@ export default class Event
 
     static delay(delay, callback)
     {
-        return function(...args) {
+        return function(...args)
+{
             setTimeout(() => callback.apply(this, args), delay);
         };
     }
@@ -43,10 +48,10 @@ export default class Event
 
         options = {
             ...{ capture: false, passive: false },
-            ...options
+            ...options,
         };
 
-        for(let [event, callback] of Object.entries(events))
+        for(let [ event, callback ] of Object.entries(events))
         {
             el.addEventListener(
                 event,
@@ -65,9 +70,10 @@ export default class Event
                 continue;
             }
 
-            let c = settings[e]
+            let c = settings[e];
 
-            settings[e] = e => {
+            settings[e] = e =>
+{
                 let t = Array.from(el.querySelectorAll(selector)).find(el => e.path.includes(el));
 
                 if(t === undefined)

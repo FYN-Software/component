@@ -6,10 +6,11 @@ export default class Address
         value = encodeURI(value);
         url = url || document.location.search;
 
-        let str = [key, value].join('=');
-        let parts = url.substr(url.indexOf('?') + 1).split('&').filter((el) => { return el.length > 0; });
-        let changed = false;
-        let i;
+        let str = [ key, value ].join('='),
+         parts = url.substr(url.indexOf('?') + 1).split('&')
+.filter(el => el.length > 0),
+         changed = false,
+         i;
 
         for(i = 0; i < parts.length; i++)
         {
@@ -17,7 +18,7 @@ export default class Address
 
             if(x.length !== 2)
             {
-                continue
+                continue;
             }
 
             if(x[0] === key)
@@ -40,7 +41,7 @@ export default class Address
 
         return {
             changed: changed,
-            url: window.location.pathname + '?' + parts.join('&')
+            url: window.location.pathname + '?' + parts.join('&'),
         };
     }
 
@@ -48,7 +49,8 @@ export default class Address
     {
         key = encodeURI(key);
 
-        let parts = document.location.search.substr(1).split('&').filter((el) => { return el.length > 0; });
+        let parts = document.location.search.substr(1).split('&')
+.filter(el => el.length > 0);
 
         for(let i = 0; i < parts.length; i++)
         {
@@ -56,7 +58,7 @@ export default class Address
 
             if(x.length !== 2)
             {
-                continue
+                continue;
             }
 
             if(x[0] === key)

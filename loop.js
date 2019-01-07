@@ -10,58 +10,59 @@ export default class Loop
             value: this,
             writable: false,
         });
-        
+
         this._node = node;
         this._data = data;
         this._template = new DocumentFragment();
-        
-        Array.from(node.children).forEach(n => {
+
+        Array.from(node.children).forEach(n =>
+{
             if(n instanceof HTMLSlotElement)
             {
-                const r = () => {
+                const r = () =>
+{
                     const old = this._template;
                     this._template = new DocumentFragment();
-                    
-                    for(let el of n.assignedElements({flatten: true}))
+
+                    for(let el of n.assignedElements({ flatten: true }))
                     {
-                        this._template.appendChild(el.cloneNode(true))
+                        this._template.appendChild(el.cloneNode(true));
                     }
-                    
+
                     Array.from(this.children).forEach(c => c.template = this._template.cloneNode(true));
-                    
+
                     this._node.emit('templatechange', {
                         old,
                         new: this._template,
-                        loop: this
+                        loop: this,
                     });
                 };
-                
-                n.on({
-                    slotchange: e => r(),
-                });
-                
+
+                n.on({ slotchange: e => r() });
+
                 r();
                 n.style.display = 'none';
-            }else
+            }
+else
             {
                 this._template.appendChild(n.extract());
             }
         });
-        
+
         node.setAttribute('scroller', '');
     }
-    
+
     render()
     {
         // TODO(Chris Kruining) Implement virtual scrolling
-        
+
         // NOTE(Chris Kruining) This is disabled until proper virtual scrolling is implemented
-        // this._node.style.setProperty('--scroller-height', `${50 * this._data.length}px`);
-        
-        for(let [i, item, c] of this._data)
+        // This._node.style.setProperty('--scroller-height', `${50 * this._data.length}px`);
+
+        for(let [ i, item, c ] of this._data)
         {
             let node;
-            
+
             if(this.children.length <= c)
             {
                 try
@@ -71,43 +72,44 @@ export default class Loop
                 catch(e)
                 {
                     console.log(this._item, this._template);
-                    
+
                     throw e;
                 }
-                
+
                 this._node.appendChild(node);
-            }else
+            }
+else
             {
                 node = this.children[c];
             }
-            
+
             node[this._data.name] = item;
         }
-        
+
         while(this._data.length < this.children.length)
         {
             this.children[this._data.length].remove();
         }
     }
-    
+
     get data()
     {
         return this._data;
     }
-    
+
     get children()
     {
         return this._node.querySelectorAll(':scope > :not(slot)');
     }
-    
+
     get item()
     {
         if(this._item === undefined)
         {
-            const name = this._data.name;
-            const n = `${name.upperCaseFirst()}LoopItem`;
-            this._item = window.customElements.get(n.toDashCase()) ||
-                new Glp.Generation.Class(n)
+            const name = this._data.name,
+             n = `${name.upperCaseFirst()}LoopItem`;
+            this._item = window.customElements.get(n.toDashCase())
+                || new Glp.Generation.Class(n)
                     .extends(Generic)
                     .addMethod(
                         new Glp.Generation.Method('properties')
@@ -122,7 +124,7 @@ export default class Loop
                     )
                     .code;
         }
-        
+
         return new (this._item)(this._template.cloneNode(true));
     }
 }

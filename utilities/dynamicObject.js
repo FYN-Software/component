@@ -3,12 +3,12 @@ class DynamicObject
     constructor()
     {
         return new Proxy({}, {
-            get: (c, p) => {
-                return this.hasOwnProperty(p)
+            get: (c, p) =>
+this.hasOwnProperty(p)
                     ? this[p]
-                    : this.__get(p);
-            },
-            set: (c, p, v) => {
+                    : this.__get(p),
+            set: (c, p, v) =>
+{
                 this.__set(p, v);
 
                 return true;
@@ -38,13 +38,12 @@ class DynamicObject
 }
 
 DynamicObject = new Proxy(DynamicObject, {
-    get: (c, p, r) => {
-        return c.hasOwnProperty(p)
+    get: (c, p, r) =>
+c.hasOwnProperty(p)
             ? c[p]
-            : r.__get(p);
-    },
-    set: (c, p, v, r) => {
-
+            : r.__get(p),
+    set: (c, p, v, r) =>
+{
         if(c.hasOwnProperty(p))
         {
             c[p] = v;

@@ -1,14 +1,16 @@
-const _worker = new SharedWorker('sharedWorker.js');
-const _listeners = {};
-let _store = {};
-let _connected = false
+const _worker = new SharedWorker('sharedWorker.js'),
+ _listeners = {};
+let _store = {},
+ _connected = false;
 
-_worker.port.onmessage = e => {
+_worker.port.onmessage = e =>
+{
     if(
-        typeof e.data !== 'object' ||
-        e.data.hasOwnProperty('__event__') === false ||
-        e.data.hasOwnProperty('__value__') === false
-    ) {
+        typeof e.data !== 'object'
+        || e.data.hasOwnProperty('__event__') === false
+        || e.data.hasOwnProperty('__value__') === false
+    )
+{
         return;
     }
 
@@ -40,7 +42,7 @@ export default class Share
 
     static on(options)
     {
-        for(let [key, listener] of Object.entries(options))
+        for(let [ key, listener ] of Object.entries(options))
         {
             if(_listeners.hasOwnProperty(key) === false)
             {
@@ -67,7 +69,8 @@ let t;
 Share.on({
     __value_changed__: e => _store[e.key] = e.value,
     __connecting__: e => Share.fire('__connected__', _store),
-    __connected__: e => {
+    __connected__: e =>
+{
         clearTimeout(t);
 
         _store = e;
@@ -76,6 +79,7 @@ Share.on({
 });
 Share.fire('__connecting__');
 
-t = setTimeout(() => {
+t = setTimeout(() =>
+{
     _listeners['__connected__'].forEach(l => l({}));
 }, 1500);
