@@ -11,7 +11,7 @@ const specialProperties = [ 'if', 'for' ];
 //  Offload this to separate thread
 //  Using a web worker (most likely
 //  Add a wrapper class so the API
-//  Will be simelar to C# task API)
+//  Will be similar to C# task API)
 let elements = new Set();
 setInterval(() =>
 {
