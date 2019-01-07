@@ -39,14 +39,12 @@ export default class Database
                     return true;
                 }
 
-                if(!container._stores.hasOwnProperty(property))
-                {
-                    container._stores[property] = new Store(property, this, value);
-                }
-                else
+                if(container._stores.hasOwnProperty(property))
                 {
                     return this.put(property, ...value);
                 }
+
+                container._stores[property] = new Store(property, this, value);
 
                 return true;
             },

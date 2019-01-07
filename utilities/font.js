@@ -1,8 +1,7 @@
 function url(font, variants, onlyCharacters)
 {
-    const f = font.family.replace(/ /g, '+'),
-     v = variants.join(',');
-
+    const f = font.family.replace(/ /g, '+');
+    const v = variants.join(',');
     let url = `https://fonts.googleapis.com/css?family=${f}:${v}`;
 
     if(onlyCharacters === true)
@@ -21,7 +20,7 @@ function url(font, variants, onlyCharacters)
 function load(font, selector = null, variants = [], preview = false)
 {
     return new Promise((res, rev) =>
-{
+    {
         const l = document.createElement('link');
         l.rel = 'stylesheet';
         l.href = url(font, variants, preview);
@@ -48,7 +47,10 @@ export default class Font
 
     static list(key)
     {
-        return fetch(`https://www.googleapis.com/webfonts/v1/webfonts?sort=popularity&key=${key}`, { headers: { 'content-type': 'application/json' } })
+        return fetch(
+            `https://www.googleapis.com/webfonts/v1/webfonts?sort=popularity&key=${key}`,
+            { headers: { 'content-type': 'application/json' } }
+        )
             .then(r => r.json());
     }
 }

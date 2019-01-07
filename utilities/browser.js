@@ -11,14 +11,14 @@ export default class Browser
         {
             e.preventDefault();
 
-            let key = e.state !== null
-                ? e.state.key
-                : '__no_state__';
+            let key = e.state === null
+                ? '__no_state__'
+                : e.state.key;
 
 
-            let data = e.state !== null
-                ? e.state.data
-                : {};
+            let data = e.state === null
+                ? {}
+                : e.state.data;
 
             if(!this._callbacks.hasOwnProperty(key))
             {

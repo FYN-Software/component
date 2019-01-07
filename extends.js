@@ -217,13 +217,13 @@ HTMLElement.prototype.cloneStyle = function(src, s = null)
 
 HTMLElement.prototype.insertAfter = function(newChild, refChild)
 {
-    if(refChild.nextSibling !== null)
+    if(refChild.nextSibling === null)
     {
-        this.insertBefore(newChild, refChild.nextSibling);
+        this.appendChild(newChild);
     }
     else
     {
-        this.appendChild(newChild);
+        this.insertBefore(newChild, refChild.nextSibling);
     }
 
     return this;

@@ -5,10 +5,10 @@ export default class Event
         let timeout;
 
         return function(...args)
-{
+        {
             clearTimeout(timeout);
             timeout = setTimeout(() =>
-{
+            {
                 timeout = null;
 
                 callback.apply(this, args);
@@ -21,13 +21,13 @@ export default class Event
         let timeout = null;
 
         return function(...args)
-{
+        {
             if(timeout === null)
             {
                 callback.apply(this, args);
 
                 timeout = setTimeout(() =>
-{
+                {
                     timeout = null;
                 }, delay);
             }
@@ -37,7 +37,7 @@ export default class Event
     static delay(delay, callback)
     {
         return function(...args)
-{
+        {
             setTimeout(() => callback.apply(this, args), delay);
         };
     }
@@ -63,17 +63,15 @@ export default class Event
 
     static delegate(el, selector, settings)
     {
-        for(let e in settings)
+        for(let [ e, c ] of Object.entries(settings))
         {
             if(e === 'options')
             {
                 continue;
             }
 
-            let c = settings[e];
-
             settings[e] = e =>
-{
+            {
                 let t = Array.from(el.querySelectorAll(selector)).find(el => e.path.includes(el));
 
                 if(t === undefined)
@@ -85,7 +83,7 @@ export default class Event
             };
         }
 
-        FYNEvent.on(document.body, settings);
+        Event.on(document.body, settings);
     }
 
     static trigger(el, name)

@@ -68,7 +68,7 @@ let t;
 
 Share.on({
     __valueChanged__: e => _store[e.key] = e.value,
-    __connecting__: e => Share.fire('__connected__', _store),
+    __connecting__: () => Share.fire('__connected__', _store),
     __connected__: e =>
     {
         clearTimeout(t);
