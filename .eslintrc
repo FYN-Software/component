@@ -1,4 +1,15 @@
 {
+	"parserOptions": {
+		"ecmaVersion": 9,
+		"sourceType": "module",
+		"ecmaFeatures": {}
+	},
+	"env": {
+		"browser": true,
+		"worker": true,
+		"serviceworker": true,
+		"es6": true
+	},
 	"extends": "eslint:recommended",
 	"rules": {
 		"semi": [ "error", "always" ],
