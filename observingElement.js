@@ -163,7 +163,8 @@ export default abstract(class ObservingElement extends Base
 
                     case 'for':
                         // TODO(Chris Kruining) Re-implement loops
-                        // values[0].loop.render();
+                        new Collection();
+                        new Loop(node, []);
 
                         break;
                 }
@@ -291,6 +292,7 @@ export default abstract(class ObservingElement extends Base
                 if(binding === undefined)
                 {
                     const self = this;
+                    const keys = Object.keys(this._properties).join(', ');
                     const callable = Function(
                         `'use strict'; try { return (${keys}) => ${match[1]}; } catch(e){ return undefined; }`
                     )();
@@ -302,7 +304,7 @@ export default abstract(class ObservingElement extends Base
                         value: callable(...Object.values(self._properties)),
                         resolve()
                         {
-                            this.value = callable(...Object.values(self._properties))
+                            this.value = callable(...Object.values(self._properties));
                         },
                     };
 
