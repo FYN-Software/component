@@ -170,7 +170,7 @@ rules:
   semi-spacing:
     - error
     - before: false
-      after: false
+      after: true
   semi-style: error
   space-in-parens: error
   space-infix-ops: error
