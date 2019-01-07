@@ -12,6 +12,6 @@ export default class Cookie
         return document.cookie
             .split(';')
             .map(p => p.split('='))
-            .find(([ k, v ]) => k === key)[1] || null;
+            .find(([ k ]) => k === key)[1] || null;
     }
 }
