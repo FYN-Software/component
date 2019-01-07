@@ -24,6 +24,131 @@ setInterval(() =>
     }
 }, 100);
 
+function transform(s, binding)
+{
+    if(s === undefined)
+    {
+        return;
+    }
+
+    switch(s.name)
+    {
+        case 'root':
+        case 'child':
+            return s.children.map(c => transform(c, binding)).join('');
+
+        case 'Range':
+            return `[${Array.from(s.children, c => transform(c, binding) || 0).join(', ')}]`;
+
+        case 'Loop':
+            let c = new Collection();
+            let key = null;
+            let methods = s.tokens.reduce((m, t) =>
+            {
+                switch(t.name)
+                {
+                    case 'loopKeyword':
+                        key = t.value;
+                        m[key] = [];
+
+                        break;
+
+                    case 'child':
+                        m[key].push(s.children[t.value]);
+
+                        break;
+                }
+
+                return m;
+            }, {});
+
+            for(let [ method, parameters ] of Object.entries(methods))
+            {
+                c[method](...parameters.map(p => this._resolve({ tree: p }) || p.tokens[0].value));
+            }
+
+            binding.loop = new Loop(binding.nodes[0].ownerElement, c);
+            binding.methods = methods;
+
+            return 'null';
+
+        case 'Property':
+            let value = '';
+
+            for(let [ i, token ] of Object.entries(s.tokens))
+            {
+                i = Number.parseInt(i);
+
+                if(value === undefined)
+                {
+                    break;
+                }
+
+                switch(token.name)
+                {
+                    case 'variable':
+                        if(i === 0)
+                        {
+                            value = `__values__['${token.value}']`;
+                            binding.__values__.add(token.value);
+                        }
+                        else
+                        {
+                            value += token.value;
+                        }
+
+                        break;
+
+                    case 'arrayAccess':
+                        let v = transform(s.children[token.value], binding);
+                        value += `[${v}]`;
+
+                        break;
+
+                    case 'propertyAccessor':
+                        value += '.';
+
+                        break;
+
+                    case 'child':
+                        value += `[${transform(s.children[token.value], binding)}]`;
+
+                        break;
+
+                    default:
+                        // Console.log(token.name);
+                        break;
+                }
+            }
+
+            return value;
+
+        case 'Function':
+            // TODO(Chris Kruining)
+            // This is a VERY crude
+            // Implementation of the
+            // Function, this needs
+            // To be improved as this
+            // Is very error prone
+            const v = s.children[0].tokens[0].value;
+            const a = s.tokens
+                .slice(1)
+                .map(t => transform(s.children[t.value], binding))
+                .join(', ');
+
+            return `${v}(${a})`;
+
+        case 'Scope':
+            return `(${s.tokens.map(t => transform(s.children[t.value], binding)).join(', ')})`;
+
+        case 'Expression':
+            return s.tokens.map(t => t.value).join('');
+
+        default:
+            return '';
+    }
+}
+
 export default abstract(class ObservingElement extends Base
 {
     constructor()
@@ -194,132 +319,7 @@ export default abstract(class ObservingElement extends Base
         if(binding.__expr__ === undefined)
         {
             binding.__values__ = new Set();
-            const transform = s =>
-            {
-                if(s === undefined)
-                {
-                    return;
-                }
-
-                switch(s.name)
-                {
-                    case 'root':
-                    case 'child':
-                        return s.children.map(c => transform(c)).join('');
-
-                    case 'Range':
-                        return `[${Array.from(s.children, c => transform(c) || 0).join(', ')}]`;
-
-                    case 'Loop':
-                        let c = new Collection();
-                        let key = null;
-                        let methods = s.tokens.reduce((m, t) =>
-                        {
-                            switch(t.name)
-                            {
-                                case 'loopKeyword':
-                                    key = t.value;
-                                    m[key] = [];
-
-                                    break;
-
-                                case 'child':
-                                    m[key].push(s.children[t.value]);
-
-                                    break;
-                            }
-
-                            return m;
-                        }, {});
-
-                        for(let [ method, parameters ] of Object.entries(methods))
-                        {
-                            c[method](...parameters.map(p => this._resolve({ tree: p }) || p.tokens[0].value));
-                        }
-
-                        binding.loop = new Loop(binding.nodes[0].ownerElement, c);
-                        binding.methods = methods;
-
-                        return 'null';
-
-                    case 'Property':
-                        let value = '';
-
-                        for(let [ i, token ] of Object.entries(s.tokens))
-                        {
-                            i = Number.parseInt(i);
-
-                            if(value === undefined)
-                            {
-                                break;
-                            }
-
-                            switch(token.name)
-                            {
-                                case 'variable':
-                                    if(i === 0)
-                                    {
-                                        value = `__values__['${token.value}']`;
-                                        binding.__values__.add(token.value);
-                                    }
-                                    else
-                                    {
-                                        value += token.value;
-                                    }
-
-                                    break;
-
-                                case 'arrayAccess':
-                                    let v = transform(s.children[token.value]);
-                                    value += `[${v}]`;
-
-                                    break;
-
-                                case 'propertyAccessor':
-                                    value += '.';
-
-                                    break;
-
-                                case 'child':
-                                    value += `[${ transform(s.children[token.value]) }]`;
-
-                                    break;
-
-                                default:
-                                    // Console.log(token.name);
-                                    break;
-                            }
-                        }
-
-                        return value;
-
-                    case 'Function':
-                        // TODO(Chris Kruining)
-                        // This is a VERY crude
-                        // Implementation of the
-                        // Function, this needs
-                        // To be improved as this
-                        // Is very error prone
-                        const v = s.children[0].tokens[0].value;
-                        const a = s.tokens
-                            .slice(1)
-                            .map(t => transform(s.children[t.value]))
-                            .join(', ');
-
-                        return `${v}(${a})`;
-
-                    case 'Scope':
-                        return `(${ s.tokens.map(t => transform(s.children[t.value])).join(', ') })`;
-
-                    case 'Expression':
-                        return s.tokens.map(t => t.value).join('');
-
-                    default:
-                        return '';
-                }
-            };
-
-            binding.__expr__ = Function(`'use strict'; return __values__ => ${transform(binding.tree)};`)();
+            binding.__expr__ = Function(`'use strict'; return __values__ => ${transform(binding.tree, this)};`)();
         }
 
         let res;
