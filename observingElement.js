@@ -1,10 +1,8 @@
 import Base from './base.js';
 import Loop from './loop.js';
 import Collection from './collection.js';
-import Gunslinger from './utilities/gunslinger.js';
 import abstract from './mixins/abstract.js';
 
-const parser = Gunslinger.instanciate();
 const specialProperties = [ 'if', 'for' ];
 
 // TODO(Chris Kruining)
@@ -23,131 +21,6 @@ setInterval(() =>
         }
     }
 }, 100);
-
-function transform(s, binding)
-{
-    if(s === undefined)
-    {
-        return;
-    }
-
-    switch(s.name)
-    {
-        case 'root':
-        case 'child':
-            return s.children.map(c => transform(c, binding)).join('');
-
-        case 'Range':
-            return `[${Array.from(s.children, c => transform(c, binding) || 0).join(', ')}]`;
-
-        case 'Loop':
-            let c = new Collection();
-            let key = null;
-            let methods = s.tokens.reduce((m, t) =>
-            {
-                switch(t.name)
-                {
-                    case 'loopKeyword':
-                        key = t.value;
-                        m[key] = [];
-
-                        break;
-
-                    case 'child':
-                        m[key].push(s.children[t.value]);
-
-                        break;
-                }
-
-                return m;
-            }, {});
-
-            for(let [ method, parameters ] of Object.entries(methods))
-            {
-                c[method](...parameters.map(p => this._resolve({ tree: p }) || p.tokens[0].value));
-            }
-
-            binding.loop = new Loop(binding.nodes[0].ownerElement, c);
-            binding.methods = methods;
-
-            return 'null';
-
-        case 'Property':
-            let value = '';
-
-            for(let [ i, token ] of Object.entries(s.tokens))
-            {
-                i = Number.parseInt(i);
-
-                if(value === undefined)
-                {
-                    break;
-                }
-
-                switch(token.name)
-                {
-                    case 'variable':
-                        if(i === 0)
-                        {
-                            value = `__values__['${token.value}']`;
-                            binding.__values__.add(token.value);
-                        }
-                        else
-                        {
-                            value += token.value;
-                        }
-
-                        break;
-
-                    case 'arrayAccess':
-                        let v = transform(s.children[token.value], binding);
-                        value += `[${v}]`;
-
-                        break;
-
-                    case 'propertyAccessor':
-                        value += '.';
-
-                        break;
-
-                    case 'child':
-                        value += `[${transform(s.children[token.value], binding)}]`;
-
-                        break;
-
-                    default:
-                        // Console.log(token.name);
-                        break;
-                }
-            }
-
-            return value;
-
-        case 'Function':
-            // TODO(Chris Kruining)
-            // This is a VERY crude
-            // Implementation of the
-            // Function, this needs
-            // To be improved as this
-            // Is very error prone
-            const v = s.children[0].tokens[0].value;
-            const a = s.tokens
-                .slice(1)
-                .map(t => transform(s.children[t.value], binding))
-                .join(', ');
-
-            return `${v}(${a})`;
-
-        case 'Scope':
-            return `(${s.tokens.map(t => transform(s.children[t.value], binding)).join(', ')})`;
-
-        case 'Expression':
-            return s.tokens.map(t => t.value).join('');
-
-        default:
-            return '';
-    }
-}
 
 export default abstract(class ObservingElement extends Base
 {
@@ -289,7 +162,8 @@ export default abstract(class ObservingElement extends Base
                         break;
 
                     case 'for':
-                        values[0].loop.render();
+                        // TODO(Chris Kruining) Re-implement loops
+                        // values[0].loop.render();
 
                         break;
                 }
@@ -303,38 +177,6 @@ export default abstract(class ObservingElement extends Base
                 node.nodeValue = v;
             }
         }
-    }
-
-    _resolve(binding)
-    {
-        if(binding.hasOwnProperty('loop') && binding.loop instanceof Loop)
-        {
-            binding.loop.data.items = binding.methods.in.map(
-                p => this._resolve({ tree: p }) || p.tokens[0].value
-            )[0];
-
-            return null;
-        }
-
-        if(binding.__expr__ === undefined)
-        {
-            binding.__values__ = new Set();
-            binding.__expr__ = Function(`'use strict'; return __values__ => ${transform(binding.tree, this)};`)();
-        }
-
-        let res;
-
-        try
-        {
-            let values = Array.from(binding.__values__).reduce((t, v) => ({ ...t, [v]: JSON.tryParse(this[v]) }), {});
-            res = binding.__expr__(values);
-        }
-        catch(e)
-        {
-            res = undefined;
-        }
-
-        return res;
     }
 
     __get(name)
@@ -385,17 +227,23 @@ export default abstract(class ObservingElement extends Base
         let nodes = bindings.map(b => b.nodes).reduce((t, n) => [ ...t, ...n ], [])
             .unique();
 
-        bindings.forEach(b => b.value = this._resolve(b));
+        bindings.forEach(b => b.resolve());
         this._queue.push(...nodes);
     }
 
     _parseHtml(html)
     {
+        Object.entries(this.constructor.properties).forEach(([ k ]) =>
+        {
+            Reflect.defineProperty(this, k, {
+                get: () => this.__get(k),
+                set: v => this.__set(k, v),
+                enumerable: true,
+            });
+        });
+
         let nodes = [];
-
         const regex = /{{\s*(.+?)\s*}}/g;
-
-
         const iterator = node =>
         {
             switch(node.nodeType)
@@ -432,56 +280,40 @@ export default abstract(class ObservingElement extends Base
         for(let node of nodes)
         {
             let str = node.nodeValue;
-
-
             let match;
 
             Object.defineProperty(node, 'template', { value: str });
 
             while((match = regex.exec(str)) !== null)
             {
-                const iterator = s => [
-                    ...s.children
-                        .filter(c => c.name === 'Property' && c.tokens.length > 0)
-                        .map(c => c.tokens[0].value),
-                    ...s.children
-                        .map(c => iterator(c))
-                        .reduce((t, c) => [ ...t, ...c ], []),
-                ].unique();
-                let tree = parser.parse(match[1]);
-
-
                 let binding = this._bindings.find(b => b.expression === match[1]);
 
                 if(binding === undefined)
                 {
+                    const self = this;
+                    const callable = Function(
+                        `'use strict'; try { return (${keys}) => ${match[1]}; } catch(e){ return undefined; }`
+                    )();
+
                     binding = {
-                        properties: iterator(tree),
-                        original: match[0],
+                        original: match[0];
                         expression: match[1],
-                        value: match[1],
-                        nodes: [],
-                        tree,
+                        nodes: new Set(),
+                        value: null,
+                        resolve()
+                        {
+                            this.value = callable(...Object.values(self._properties))
+                        },
                     };
+
+                    binding.resolve();
 
                     this._bindings.push(binding);
                 }
 
-                if(binding.nodes.includes(node) !== true)
-                {
-                    binding.nodes.push(node);
-                }
+                binding.nodes.add(node);
             }
         }
-
-        Object.entries(this.constructor.properties).forEach(([ k ]) =>
-        {
-            Reflect.defineProperty(this, k, {
-                get: () => this.__get(k),
-                set: v => this.__set(k, v),
-                enumerable: true,
-            });
-        });
 
         return html;
     }
