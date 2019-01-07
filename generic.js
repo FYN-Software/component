@@ -5,7 +5,7 @@ export default class Generic extends Component
     constructor(node)
     {
         Component.register(new.target);
-    
+
         super(false);
 
         const style = document.createElement('style');
@@ -15,10 +15,10 @@ export default class Generic extends Component
 
         this.shadow.appendChild(style);
         this.shadow.appendChild(slot);
-        
+
         this.template = node;
     }
-    
+
     set template(node)
     {
         this.childNodes.clear();

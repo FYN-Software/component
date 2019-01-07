@@ -7,7 +7,7 @@ export default class Collection
         this.increment = 1;
         this.name = '';
         this.index = null;
-        this.group = null
+        this.group = null;
         this._items;
     }
 
@@ -128,7 +128,8 @@ export default class Collection
 
         if(this.group !== null && Array.isArray(items))
         {
-            items = Object.values(items.reduce((t, i) => {
+            items = Object.values(items.reduce((t, i) =>
+{
                 let key = i[this.group];
                 t[key instanceof NodeList ? undefined : key] = i;
 
@@ -136,13 +137,13 @@ export default class Collection
             }, {}));
         }
 
-        let upper = this.upper * this.increment;
+        let upper = this.upper * this.increment,
 
-        let c = 0;
+         c = 0;
 
-        for(let i = this.lower; i < (Array.isArray(items) ? items.length : upper) && i < upper; i += this.increment)
+        for(let i = this.lower;i < (Array.isArray(items) ? items.length : upper) && i < upper;i += this.increment)
         {
-            yield [i, Array.isArray(items) ? items[i] : i, c];
+            yield [ i, Array.isArray(items) ? items[i] : i, c ];
 
             c++;
         }

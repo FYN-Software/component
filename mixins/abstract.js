@@ -1,4 +1,4 @@
-export default (C) => class extends C
+export default C => class extends C
 {
     constructor()
     {
@@ -6,7 +6,7 @@ export default (C) => class extends C
         {
             throw new Error('Class is abstract, needs an concrete implementation to function properly');
         }
-        
+
         super();
     }
 };
