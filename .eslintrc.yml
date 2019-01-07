@@ -22,9 +22,6 @@ rules:
   object-curly-spacing:
     - error
     - always
-  arrow-body-style:
-    - error
-    - as-needed
   curly:
     - error
     - all
@@ -43,13 +40,15 @@ rules:
   array-element-newline:
     - error
     - multiline: true
+  arrow-body-style:
+    - error
+    - as-needed
+  arrow-parens:
+    - error
+    - as-needed
+  arrow-spacing:
+    - error
   eol-last:
-    - error
-    - always
-  function-paren-newline:
-    - error
-    - multiline
-  multiline-ternary:
     - error
     - always
   newline-per-chained-call: error
@@ -58,6 +57,7 @@ rules:
   brace-style:
     - error
     - allman
+    - allowSingleLine: true
   capitalized-comments:
     - error
     - always
@@ -77,9 +77,6 @@ rules:
   func-call-spacing:
     - error
     - never
-  implicit-arrow-linebreak:
-    - error
-    - beside
   indent:
     - error
     - 4
@@ -94,7 +91,26 @@ rules:
   keyword-spacing:
     - error
     - before: true
-      after: false
+      after: true
+      overrides:
+        if:
+          after: false
+        for:
+          after: false
+        while:
+          after: false
+        catch:
+          after: false
+        default:
+          after: false
+        case:
+          after: false
+        finally:
+          after: false
+        super:
+          after: false
+        switch:
+          after: false
   line-comment-position:
     - error
     - above
@@ -104,7 +120,9 @@ rules:
   lines-between-class-members:
     - error
   max-depth: error
-  max-len: error
+  max-len:
+    - error
+    - 120
   max-lines:
     - warn
     - 600
