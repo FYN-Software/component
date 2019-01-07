@@ -6,14 +6,15 @@ export default class Browser
     {
         this._callbacks = {};
 
-        window.addEventListener('popstate', (e) => {
+        window.addEventListener('popstate', e =>
+{
             e.preventDefault();
 
             let key = e.state !== null
                 ? e.state.key
-                : '__no_state__';
+                : '__no_state__',
 
-            let data = e.state !== null
+             data = e.state !== null
                 ? e.state.data
                 : {};
 
@@ -46,7 +47,8 @@ export default class Browser
         try
         {
             return Array.from(new URL(document.getElementById(name).src).searchParams)
-                .reduce((t, [k, v]) => {
+                .reduce((t, [ k, v ]) =>
+{
                     t[k] = v;
 
                     return t;
@@ -60,8 +62,8 @@ export default class Browser
 
     static set(page, obj, data, replace = false)
     {
-        let update = false;
-        let url = '';
+        let update = false,
+         url = '';
 
         for(let key in obj)
         {
