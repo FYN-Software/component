@@ -1,4 +1,5 @@
 import Generic from './generic.js';
+// eslint-disable-next-line no-unused-vars
 import * as Extends from './extends.js';
 import * as Glp from '../glp/index.js';
 
@@ -16,11 +17,11 @@ export default class Loop
         this._template = new DocumentFragment();
 
         Array.from(node.children).forEach(n =>
-{
+        {
             if(n instanceof HTMLSlotElement)
             {
                 const r = () =>
-{
+                {
                     const old = this._template;
                     this._template = new DocumentFragment();
 
@@ -38,12 +39,12 @@ export default class Loop
                     });
                 };
 
-                n.on({ slotchange: e => r() });
+                n.on({ slotchange: () => r() });
 
                 r();
                 n.style.display = 'none';
             }
-else
+            else
             {
                 this._template.appendChild(n.extract());
             }
@@ -59,7 +60,7 @@ else
         // NOTE(Chris Kruining) This is disabled until proper virtual scrolling is implemented
         // This._node.style.setProperty('--scroller-height', `${50 * this._data.length}px`);
 
-        for(let [ i, item, c ] of this._data)
+        for(let [ , item, c ] of this._data)
         {
             let node;
 
@@ -71,14 +72,14 @@ else
                 }
                 catch(e)
                 {
-                    console.log(this._item, this._template);
+                    console.error(this._item, this._template);
 
                     throw e;
                 }
 
                 this._node.appendChild(node);
             }
-else
+            else
             {
                 node = this.children[c];
             }
@@ -106,8 +107,10 @@ else
     {
         if(this._item === undefined)
         {
-            const name = this._data.name,
-             n = `${name.upperCaseFirst()}LoopItem`;
+            const name = this._data.name;
+
+
+            const n = `${name.upperCaseFirst()}LoopItem`;
             this._item = window.customElements.get(n.toDashCase())
                 || new Glp.Generation.Class(n)
                     .extends(Generic)

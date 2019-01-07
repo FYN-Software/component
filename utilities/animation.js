@@ -1,11 +1,12 @@
 export function ease(callback, options = {})
 {
     let { duration, easing } = {
-duration: 300,
+        duration: 300,
         easing: 'easeInOutCubic', ...options,
-},
+    };
 
-     easingFunctions = {
+
+    let easingFunctions = {
         linear: t => t,
         easeInQuad: t => easingFunctions.easeIn(t, 2),
         easeOutQuad: t => easingFunctions.easeOut(t, 2),
@@ -22,9 +23,10 @@ duration: 300,
         easeIn: (t, d = 2) => t ** d,
         easeOut: (t, d = 2) => 1 - t ** d,
         easeInOut: (t, d = 2) => t ** d / (t ** d + (1 - t) ** d),
-    },
+    };
 
-     match = easing.match(/(.+)-(\d+)/);
+
+    let match = easing.match(/(.+)-(\d+)/);
 
     switch(true)
     {
@@ -43,12 +45,15 @@ duration: 300,
     }
 
     return new Promise((res, rev) =>
-{
-        let start,
-         elapsed,
+    {
+        let start;
 
-         animation = (time = 0) =>
-{
+
+        let elapsed;
+
+
+        let animation = (time = 0) =>
+        {
             if(!start)
             {
                 start = time;

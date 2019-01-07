@@ -16,6 +16,7 @@ const Utilities = {
     Code: Glp,
     Font,
     Css,
+    Animation,
 };
 
 export {

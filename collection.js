@@ -129,7 +129,7 @@ export default class Collection
         if(this.group !== null && Array.isArray(items))
         {
             items = Object.values(items.reduce((t, i) =>
-{
+            {
                 let key = i[this.group];
                 t[key instanceof NodeList ? undefined : key] = i;
 
@@ -137,9 +137,8 @@ export default class Collection
             }, {}));
         }
 
-        let upper = this.upper * this.increment,
-
-         c = 0;
+        let upper = this.upper * this.increment;
+        let c = 0;
 
         for(let i = this.lower; i < (Array.isArray(items) ? items.length : upper) && i < upper; i += this.increment)
         {

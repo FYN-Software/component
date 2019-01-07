@@ -6,14 +6,18 @@ export default class Database
     {
         let prototype = this.__proto__;
         this.__proto__ = new Proxy({
-            driver: window.indexedDB || window.mozIndexedDB || window.webkitIndexedDB || window.msIndexedDB || window.shimIndexedDB,
+            driver: window.indexedDB
+                || window.mozIndexedDB
+                || window.webkitIndexedDB
+                || window.msIndexedDB
+                || window.shimIndexedDB,
             name: name,
             connection: null,
             context: null,
             _stores: {},
         }, {
             get: (container, property) =>
-{
+            {
                 if(prototype.hasOwnProperty(property))
                 {
                     return prototype[property];
@@ -27,7 +31,7 @@ export default class Database
                 return container._stores[property];
             },
             set: (container, property, value) =>
-{
+            {
                 if(container.hasOwnProperty(property))
                 {
                     container[property] = value;
@@ -62,16 +66,16 @@ export default class Database
     open(version = undefined)
     {
         return new Promise((resolve, revoke) =>
-{
+        {
             this.connection = this.driver.open(this.name, version);
 
             this.connection.onerror = e =>
-{
+            {
                 revoke(e);
             };
 
             this.connection.onupgradeneeded = () =>
-{
+            {
                 this.context = this.connection.result;
 
                 for(let store of Object.values(this._stores))
@@ -81,7 +85,7 @@ export default class Database
             };
 
             this.connection.onsuccess = () =>
-{
+            {
                 this.context = this.connection.result;
 
                 return resolve(this);
@@ -91,14 +95,14 @@ export default class Database
 
     transaction(store)
     {
-        return new Promise((resolve, revoke) =>
-{
+        return new Promise(resolve =>
+        {
             let transaction = this.context.transaction(store, 'readwrite');
 
             resolve(transaction.objectStore(store));
 
             transaction.oncomplete = () =>
-{
+            {
                 this.context.close();
             };
         });
@@ -107,13 +111,13 @@ export default class Database
     get(name, query)
     {
         return new Promise((resolve, revoke) =>
-{
+        {
             this.transaction(name).then(table =>
-{
+            {
                 let key = table.get(query);
 
                 key.onsuccess = () =>
-{
+                {
                     key.result
                         ? resolve(key.result)
                         : revoke({
@@ -124,7 +128,7 @@ export default class Database
                 };
 
                 key.onerror = e =>
-{
+                {
                     revoke(e);
                 };
             });
@@ -136,13 +140,13 @@ export default class Database
         let parts = name.split('.');
 
         return (new Database(parts.shift())).open()
-.then(db => db.get(...parts));
+            .then(db => db.get(...parts));
     }
 
     put(name, ...rows)
     {
         return this.transaction(name).then(table =>
-{
+        {
             for(let row of rows)
             {
                 table.put(row);
@@ -155,13 +159,13 @@ export default class Database
         let parts = name.split('.');
 
         return (new Database(parts[0])).open()
-.then(db => db.put(parts[1], ...rows))
-.then(() => rows);
+            .then(db => db.put(parts[1], ...rows))
+            .then(() => rows);
     }
 
     static init(name, stores, version = undefined)
     {
         return (new Database(name)).stores(stores)
-.open(version);
+            .open(version);
     }
 }

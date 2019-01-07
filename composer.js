@@ -6,13 +6,13 @@ export default class Composer
         let prefix;
 
         switch(ns)
-{
-            case'fyn':
+        {
+            case 'fyn':
                 prefix = `http://fyn-software.cpb/suite/${type}`;
 
                 break;
 
-            case'cpb':
+            case 'cpb':
                 prefix = `http://a.g.e.cpb/${type}`;
 
                 break;

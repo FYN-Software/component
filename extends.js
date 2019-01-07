@@ -183,8 +183,8 @@ EventTarget.prototype.emit = function(name, data = {}, composed = false)
 
 HTMLElement.prototype.getOuterClientRect = function()
 {
-    let style = window.getComputedStyle(this),
-        rect = this.getBoundingClientRect();
+    let style = window.getComputedStyle(this);
+    let rect = this.getBoundingClientRect();
 
     return {
         height: rect.height + parseFloat(style.marginBottom) + parseFloat(style.marginTop),
@@ -410,9 +410,6 @@ DOMRect.prototype.contains = function(x, y)
 {
     return (x > this.left && x < this.right) && (y > this.top && y < this.bottom);
 };
-
-export function init()
-{}
 
 export function clone(obj, root = null)
 {

@@ -20,23 +20,23 @@ export default class Cannoneer extends Grammar
             token: /./,
         }, {
             Escape: tokens =>
-tokens.length === 0 || tokens.first.name !== 'escapeCharacter'
+                tokens.length === 0 || tokens.first.name !== 'escapeCharacter'
                     ? [ [], [], tokens ]
                     : [ tokens.slice(0, 1), [], tokens.slice(1) ],
             Number: tokens =>
-tokens.length === 0 || tokens.first.name !== 'digit'
+                tokens.length === 0 || tokens.first.name !== 'digit'
                     ? [ [], [], tokens ]
                     : [ tokens.slice(0, 1), [], tokens.slice(1) ],
             Count: tokens =>
-tokens.length === 0 || tokens.first.name !== 'quantifier'
+                tokens.length === 0 || tokens.first.name !== 'quantifier'
                     ? [ [], [], tokens ]
                     : [ tokens.slice(0, 1), [], tokens.slice(1) ],
             GroupName: tokens =>
-tokens.length === 0 || tokens.first.name !== 'groupName'
+                tokens.length === 0 || tokens.first.name !== 'groupName'
                     ? [ [], [], tokens ]
                     : [ tokens.slice(0, 1), [], tokens.slice(1) ],
             Range: tokens =>
-{
+            {
                 if(tokens.length === 0 || tokens.first.name !== 'rangeOpenTag')
                 {
                     return [ [], [], tokens ];
@@ -44,13 +44,19 @@ tokens.length === 0 || tokens.first.name !== 'groupName'
 
                 if(tokens.map(t => t.name).includes('rangeCloseTag') !== true)
                 {
-                    throw new Error(`Syntax error missing ']' in regex`);
+                    throw new Error('Syntax error missing \']\' in regex');
                 }
 
-                let depth = 0,
-                 index = -1,
-                 buffer = [ new Token('child', 0, -1, -1) ],
-                 children = [ [] ];
+                let depth = 0;
+
+
+                let index = -1;
+
+
+                let buffer = [ new Token('child', 0, -1, -1) ];
+
+
+                let children = [ [] ];
 
                 for(let [ i, t ] of Object.entries(tokens))
                 {
@@ -86,7 +92,7 @@ tokens.length === 0 || tokens.first.name !== 'groupName'
                 return [ buffer, children, tokens.slice(index + 1) ];
             },
             Group: tokens =>
-{
+            {
                 if(tokens.length === 0 || tokens.first.name !== 'groupOpenTag')
                 {
                     return [ [], [], tokens ];
@@ -94,13 +100,19 @@ tokens.length === 0 || tokens.first.name !== 'groupName'
 
                 if(tokens.map(t => t.name).includes('groupCloseTag') !== true)
                 {
-                    throw new Error(`Syntax error missing ']' in regex`);
+                    throw new Error('Syntax error missing \']\' in regex');
                 }
 
-                let depth = 0,
-                 index = -1,
-                 buffer = [ new Token('child', 0, -1, -1) ],
-                 children = [ [] ];
+                let depth = 0;
+
+
+                let index = -1;
+
+
+                let buffer = [ new Token('child', 0, -1, -1) ];
+
+
+                let children = [ [] ];
 
                 for(let [ i, t ] of Object.entries(tokens))
                 {
@@ -136,7 +148,7 @@ tokens.length === 0 || tokens.first.name !== 'groupName'
                 return [ buffer, children, tokens.slice(index + 1) ];
             },
             Expression: tokens =>
-{
+            {
                 if(tokens.length === lastLength && lastLength > 0)
                 {
                     return [ [ tokens[0] ], [], tokens.slice(1) ];

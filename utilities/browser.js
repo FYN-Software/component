@@ -1,4 +1,5 @@
 import Address from './address.js';
+import Cookie from './cookie.js';
 
 export default class Browser
 {
@@ -7,14 +8,15 @@ export default class Browser
         this._callbacks = {};
 
         window.addEventListener('popstate', e =>
-{
+        {
             e.preventDefault();
 
             let key = e.state !== null
                 ? e.state.key
-                : '__no_state__',
+                : '__no_state__';
 
-             data = e.state !== null
+
+            let data = e.state !== null
                 ? e.state.data
                 : {};
 
@@ -48,7 +50,7 @@ export default class Browser
         {
             return Array.from(new URL(document.getElementById(name).src).searchParams)
                 .reduce((t, [ k, v ]) =>
-{
+                {
                     t[k] = v;
 
                     return t;
@@ -62,8 +64,10 @@ export default class Browser
 
     static set(page, obj, data, replace = false)
     {
-        let update = false,
-         url = '';
+        let update = false;
+
+
+        let url = '';
 
         for(let key in obj)
         {

@@ -3,33 +3,40 @@
 // Export a module and
 // Sets itself onto the
 // global variable
+var mqtt;
+
+// eslint-disable-next-line no-unused-vars
 import * as mqttLib from 'https://unpkg.com/mqtt/dist/mqtt.min.js';
 import { Browser } from '../utilities.js';
 
-const sessionId = Browser.meta('session-id'),
- client = mqtt.connect('mqtts://mqtt.fyn.nl:1885', {
-        clientId: sessionId,
-        username: 'Websocket',
-        password: 'WatIsDitEenKutWachtwoord^%*(#!',
-        will: {
-            topic: 'game-over',
-            payload: sessionId,
-            qos: 2,
-            retain: true,
-        },
-    }),
- subscribers = {};
+const sessionId = Browser.meta('session-id');
+
+
+const client = mqtt.connect('mqtts://mqtt.fyn.nl:1885', {
+    clientId: sessionId,
+    username: 'Websocket',
+    password: 'WatIsDitEenKutWachtwoord^%*(#!',
+    will: {
+        topic: 'game-over',
+        payload: sessionId,
+        qos: 2,
+        retain: true,
+    },
+});
+
+
+const subscribers = {};
 
 export default class Mqtt
 {
     static publish(topic, content, headers = [])
     {
         let message = {
- Callback: sessionId,
+            Callback: sessionId,
             MessageID: Math.random(),
             Type: Mqtt.types.IncommingCall,
             Content: content, ...headers,
-};
+        };
 
         Mqtt.client.publish(topic, JSON.stringify(message), { qos: 2 });
 
