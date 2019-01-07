@@ -299,14 +299,12 @@ export default abstract(class ObservingElement extends Base
                         original: match[0],
                         expression: match[1],
                         nodes: new Set(),
-                        value: null,
+                        value: callable(...Object.values(self._properties)),
                         resolve()
                         {
                             this.value = callable(...Object.values(self._properties))
                         },
                     };
-
-                    binding.resolve();
 
                     this._bindings.push(binding);
                 }
