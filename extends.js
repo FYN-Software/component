@@ -3,21 +3,21 @@ import { Event } from './utilities.js';
 Number.couldBeNumber = function(val)
 {
     return Number.isNaN(Number.parseInt(val)) !== true;
-}
+};
 
 String.prototype.toDashCase = function()
 {
     return this.replace(/([A-Z])/g, (w, u) => `-${ u.toLowerCase() }`).replace(/^-+|-+$/g, '');
-}
+};
 
 String.prototype.toCamelCase = function()
 {
     return this.replace(/-([a-z])/g, (w, m) => m.toUpperCase());
-}
+};
 String.prototype.upperCaseFirst = function()
 {
     return this.replace(/^[a-zA-Z]/, m => m.toUpperCase());
-}
+};
 
 String.prototype.capitalize = function()
 {
@@ -28,7 +28,7 @@ Array.compare = function(arr1, arr2)
 {
     return arr1.compare(arr2);
 };
-Object.defineProperty(Array, 'compare', {enumerable: false});
+Object.defineProperty(Array, 'compare', { enumerable: false });
 
 Array.prototype.compare = function(arr2)
 {
@@ -37,7 +37,7 @@ Array.prototype.compare = function(arr2)
         return false;
     }
 
-    for(let i = 0; i < this.length; i++)
+    for(let i = 0;i < this.length;i++)
     {
         if(this[i] instanceof Array && arr2[i] instanceof Array)
         {
@@ -55,23 +55,26 @@ Array.prototype.compare = function(arr2)
     return true;
 };
 
-Object.defineProperty(Array.prototype, 'compare', {enumerable: false});
+Object.defineProperty(Array.prototype, 'compare', { enumerable: false });
 Object.defineProperty(Array.prototype, 'first', {
     enumerable: false,
-    get: function(){
+    get: function()
+    {
         return this[0];
     },
 });
 Object.defineProperty(Array.prototype, 'last', {
     enumerable: false,
-    get: function(){
+    get: function()
+    {
         return this[this.length - 1];
     },
 });
 Object.defineProperty(Array.prototype, 'sum', {
     enumerable: false,
-    get: function(){
-        return this.reduce((t, v) => t+v, 0);
+    get: function()
+    {
+        return this.reduce((t, v) => t + v, 0);
     },
 });
 
@@ -87,7 +90,7 @@ Math.clamp = function(lower, upper, value)
 
 Math.mod = function(n, m)
 {
-    return ((n % m) + m ) % m;
+    return ((n % m) + m) % m;
 };
 
 DOMTokenList.prototype.toggle = function(name)
@@ -105,7 +108,7 @@ DOMTokenList.prototype.setOnAssert = function(condition, name, alt = null)
 
         if(alt !== null)
         {
-            this.remove(...Array.isArray(alt) ? alt : [alt]);
+            this.remove(...Array.isArray(alt) ? alt : [ alt ]);
         }
     }
     else
@@ -114,7 +117,7 @@ DOMTokenList.prototype.setOnAssert = function(condition, name, alt = null)
 
         if(alt !== null)
         {
-            this.add(...Array.isArray(alt) ? alt : [alt]);
+            this.add(...Array.isArray(alt) ? alt : [ alt ]);
         }
     }
 
@@ -131,29 +134,27 @@ NamedNodeMap.prototype.setOnAssert = function (condition, name, value = '')
         }
     }
     else
+    if(condition === true)
     {
-        if(condition === true)
-        {
-            let attr = document.createAttribute(name);
-            attr.value = value;
+        let attr = document.createAttribute(name);
+        attr.value = value;
 
-            this.setNamedItem(attr);
-        }
-        else if(condition === false && this.getNamedItem(name) !== null)
-        {
-            this.removeNamedItem(name);
-        }
+        this.setNamedItem(attr);
+    }
+    else if(condition === false && this.getNamedItem(name) !== null)
+    {
+        this.removeNamedItem(name);
     }
 
     return this;
-}
+};
 
 EventTarget.prototype.trigger = function(name)
 {
     Event.trigger(this, name);
 
     return this;
-}
+};
 
 EventTarget.prototype.delegate = function(selector, settings)
 {
@@ -174,16 +175,16 @@ EventTarget.prototype.emit = function(name, data = {}, composed = false)
     this.dispatchEvent(new CustomEvent(name, {
         detail: data,
         bubbles: true,
-        composed
+        composed,
     }));
-    
+
     return this;
 };
 
 HTMLElement.prototype.getOuterClientRect = function()
 {
-    let style = window.getComputedStyle(this);
-    let rect = this.getBoundingClientRect();
+    let style = window.getComputedStyle(this),
+        rect = this.getBoundingClientRect();
 
     return {
         height: rect.height + parseFloat(style.marginBottom) + parseFloat(style.marginTop),
@@ -191,7 +192,7 @@ HTMLElement.prototype.getOuterClientRect = function()
         top: rect.top,
         bottom: rect.bottom,
         left: rect.left,
-        right: rect.right
+        right: rect.right,
     };
 };
 
@@ -204,11 +205,12 @@ HTMLElement.prototype.cloneStyle = function(src, s = null)
 {
     const style = window.getComputedStyle(src);
 
-    Array.from(style).filter(k => s === null || s.some(p => k.includes(p))).forEach(k => this.style.setProperty(
-        k,
-        style.getPropertyValue(k),
-        style.getPropertyPriority(k)
-    ));
+    Array.from(style).filter(k => s === null || s.some(p => k.includes(p)))
+        .forEach(k => this.style.setProperty(
+            k,
+            style.getPropertyValue(k),
+            style.getPropertyPriority(k)
+        ));
 
     return this;
 };
@@ -231,9 +233,8 @@ HTMLFormElement.prototype.toObject = function(useLabel = false)
 {
     return objectFromEntries(Array.from(this)
         .filter(i => i.id.length > 0 && (i.type === 'checkbox' ? i.checked : true))
-        .map(f => [useLabel ? f.label : f.name, f.value])
-        .filter(([n, v]) => v.length > 0)
-    );
+        .map(f => [ useLabel ? f.label : f.name, f.value ])
+        .filter(([ , v ]) => v.length > 0));
 };
 
 Node.prototype.childOf = function(parent)
@@ -267,7 +268,7 @@ HTMLElement.prototype.extract = function(template = true)
 
 NodeList.prototype.first = function(callback, ...args)
 {
-    if(this.length == 0)
+    if(this.length === 0)
     {
         return null;
     }
@@ -282,11 +283,9 @@ NodeList.prototype.first = function(callback, ...args)
 
 NodeList.prototype.on = function(settings, ...args)
 {
-    if(!settings instanceof Object)
+    if(!(settings instanceof Object))
     {
-        throw new MissingArgumentError(
-            'first argument must be an object'
-        );
+        throw new Error('first argument must be an object');
     }
 
     this.forEach(el => el.on.apply(el, [ settings, ...args ]));
@@ -314,13 +313,15 @@ NamedNodeMap.prototype.apply    = Array.prototype.apply;
 NodeList.prototype.apply        = Array.prototype.apply;
 HTMLCollection.prototype.apply  = Array.prototype.apply;
 
-CSSStyleDeclaration.prototype.toggle = function(name, a, b) {
+CSSStyleDeclaration.prototype.toggle = function(name, a, b)
+{
     this[name] = this[name] === a
         ? b
         : a;
 };
 
-NamedNodeMap.prototype.toggle = function(key) {
+NamedNodeMap.prototype.toggle = function(key)
+{
     if(Array.from(this).some(i => i.name === key))
     {
         this.removeNamedItem(key);
@@ -333,12 +334,14 @@ NamedNodeMap.prototype.toggle = function(key) {
     }
 };
 
-JSON.tryParse = function(str, ret = false){
+JSON.tryParse = function(str, ret = false)
+{
     try
     {
         str = JSON.parse(str);
     }
-    catch(e){
+    catch(e)
+    {
         if(ret === true)
         {
             return null;
@@ -358,24 +361,29 @@ Promise.delay = function(d)
 };
 Promise.prototype.stage = function(cb)
 {
-    return this.then(data => {
+    return this.then(data =>
+    {
         let res = cb(data);
 
         if((res instanceof Promise) === false)
         {
             res = Promise.resolve(null);
         }
+
         return res.then(() => data);
     });
 };
 
-Promise.prototype.chain = function (array, callback, delay = 0) {
+Promise.prototype.chain = function (array, callback, delay = 0)
+{
     let options = { delay };
 
     try
     {
-        return Promise.resolve(array.map(i => p => new Promise(r => setTimeout(() => r(callback(i, options)), options.delay)))
-            .reduce((p, p2) => p.then(p2), Promise.resolve()));
+        return Promise.resolve(array
+            .map(i => () => new Promise(r => setTimeout(() => r(callback(i, options)), options.delay)))
+            .reduce((p, p2) => p.then(p2), Promise.resolve())
+        );
     }
     catch(e)
     {
@@ -383,11 +391,14 @@ Promise.prototype.chain = function (array, callback, delay = 0) {
     }
 };
 
-Promise.prototype.log = function () {
+Promise.prototype.log = function ()
+{
+    // eslint-disable-next-line no-console
     return this.stage(console.log);
 };
 
-DocumentFragment.fromString = function(str) {
+DocumentFragment.fromString = function(str)
+{
     const temp = document.createElement('template');
     temp.innerHTML = str;
 
@@ -400,15 +411,18 @@ DOMRect.prototype.contains = function(x, y)
     return (x > this.left && x < this.right) && (y > this.top && y < this.bottom);
 };
 
+export function init()
+{}
+
 export function clone(obj, root = null)
 {
-    if (obj === null || typeof obj !== 'object')
+    if(obj === null || typeof obj !== 'object')
     {
         return obj;
     }
 
     // Handle Date
-    if (obj instanceof Date)
+    if(obj instanceof Date)
     {
         let copy = new Date();
         copy.setTime(obj.getTime());
@@ -422,9 +436,10 @@ export function clone(obj, root = null)
     }
 
     // Handle Array
-    if (obj instanceof Array)
+    if(obj instanceof Array)
     {
-        return obj.reduce((t, i) => {
+        return obj.reduce((t, i) =>
+        {
             if(!Object.is(i, root))
             {
                 t.push(clone(i));
@@ -435,9 +450,10 @@ export function clone(obj, root = null)
     }
 
     // Handle Object
-    if (obj instanceof Object)
+    if(obj instanceof Object)
     {
-        return Object.entries(obj).reduce((t, [k, v]) => {
+        return Object.entries(obj).reduce((t, [ k, v ]) =>
+        {
             if(!Object.is(v, root) && !k.startsWith('__'))
             {
                 t[k] = clone(v, root);
@@ -447,12 +463,13 @@ export function clone(obj, root = null)
         }, {});
     }
 
-    throw new Error("Unable to copy obj! Its type isn't supported.");
+    throw new Error('Unable to copy obj! Its type isn\'t supported.');
 }
 
 export function objectFromEntries(arr)
 {
-    return arr.reduce((t, [n, v]) => {
+    return arr.reduce((t, [ n, v ]) =>
+    {
         t[n] = v;
 
         return t;
