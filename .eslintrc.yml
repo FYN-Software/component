@@ -137,7 +137,6 @@ rules:
       - error
   no-fallthrough: off
   no-lonely-if: error
-  no-mixed-operators: error
   no-multiple-empty-lines: error
   no-negated-condition: warn
   no-new-object: error
