@@ -138,7 +138,9 @@ rules:
   no-trailing-spaces: error
   no-unneeded-ternary: error
   no-whitespace-before-property: error
-  one-var: error
+  one-var:
+    - error
+    - never
   operator-assignment: error
   operator-linebreak:
     - error
