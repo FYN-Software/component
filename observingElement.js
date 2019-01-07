@@ -4,8 +4,8 @@ import Collection from './collection.js';
 import Gunslinger from './utilities/gunslinger.js';
 import abstract from './mixins/abstract.js';
 
-const parser = Gunslinger.instanciate(),
- specialProperties = [ 'if', 'for' ];
+const parser = Gunslinger.instanciate();
+const specialProperties = [ 'if', 'for' ];
 
 // TODO(Chris Kruining)
 //  Offload this to separate thread
@@ -13,7 +13,7 @@ const parser = Gunslinger.instanciate(),
 //  Add a wrapper class so the API
 //  Will be simelar to C# task API)
 let elements = new Set();
-const render = setInterval(() =>
+setInterval(() =>
 {
     for(const el of elements)
     {
@@ -43,7 +43,7 @@ export default abstract(class ObservingElement extends Base
         this.__initialized = false;
 
         const observer = new MutationObserver(r =>
-{
+        {
             for(let record of r)
             {
                 switch(record.type)
@@ -147,12 +147,12 @@ export default abstract(class ObservingElement extends Base
         while((node = this._queue.shift()) !== undefined)
         {
             let values = this._bindings.filter(b => b.nodes.includes(node)),
-             v = values.length === 1 && values[0].original === node.template
-                ? values[0].value
-                : node.template.replace(
-                    /{{\s*(.+?)\s*}}/g,
-                    (a, m) => this._bindings.find(b => b.expression === m).value
-                );
+                v = values.length === 1 && values[0].original === node.template
+                    ? values[0].value
+                    : node.template.replace(
+                        /{{\s*(.+?)\s*}}/g,
+                        (a, m) => this._bindings.find(b => b.expression === m).value
+                    );
 
             if(node.nodeType === 2 && specialProperties.includes(node.nodeName))
             {
@@ -195,7 +195,7 @@ export default abstract(class ObservingElement extends Base
         {
             binding.__values__ = new Set();
             const transform = s =>
-{
+            {
                 if(s === undefined)
                 {
                     return;
@@ -215,7 +215,7 @@ export default abstract(class ObservingElement extends Base
                         let c = new Collection();
                         let key = null;
                         let methods = s.tokens.reduce((m, t) =>
-{
+                        {
                             switch(t.name)
                             {
                                 case'loopKeyword':
@@ -277,7 +277,7 @@ export default abstract(class ObservingElement extends Base
                                     break;
 
                                 case'propertyAccessor':
-                                    value += `.`;
+                                    value += '.';
 
                                     break;
 
@@ -302,7 +302,7 @@ export default abstract(class ObservingElement extends Base
                         // To be improved as this
                         // Is very error prone
                         return `${ s.children[0].tokens[0].value }(${ s.tokens.slice(1).map(t => transform(s.children[t.value]))
-.join(', ') })`;
+                            .join(', ') })`;
 
                     case'Scope':
                         return `(${ s.tokens.map(t => transform(s.children[t.value])).join(', ') })`;
@@ -376,8 +376,8 @@ export default abstract(class ObservingElement extends Base
         }
 
         let bindings = this._bindings.filter(b => b.properties.includes(name) && b.nodes.includes(source) !== true),
-         nodes = bindings.map(b => b.nodes).reduce((t, n) => [ ...t, ...n ], [])
-.unique();
+            nodes = bindings.map(b => b.nodes).reduce((t, n) => [ ...t, ...n ], [])
+                .unique();
 
         bindings.forEach(b => b.value = this._resolve(b));
         this._queue.push(...nodes);
@@ -388,44 +388,44 @@ export default abstract(class ObservingElement extends Base
         let nodes = [];
 
         const regex = /{{\s*(.+?)\s*}}/g,
-         iterator = node =>
-{
-            switch(node.nodeType)
+            iterator = node =>
             {
-                case 1:
-                    Array.from(node.attributes).forEach(a => iterator(a));
+                switch(node.nodeType)
+                {
+                    case 1:
+                        Array.from(node.attributes).forEach(a => iterator(a));
 
-                    if(Array.from(node.attributes).some(a => a.name === 'for'))
-                    {
+                        if(Array.from(node.attributes).some(a => a.name === 'for'))
+                        {
+                            return;
+                        }
+
+                    case 11:
+                        Array.from(node.childNodes).forEach(a => iterator(a));
+
                         return;
-                    }
 
-                case 11:
-                    Array.from(node.childNodes).forEach(a => iterator(a));
+                    case 2:
 
-                    return;
+                    case 3:
+                        let m = node.nodeValue.match(regex);
 
-                case 2:
+                        if(m !== null)
+                        {
+                            node.matches = m;
+                            nodes.push(node);
+                        }
 
-                case 3:
-                    let m = node.nodeValue.match(regex);
-
-                    if(m !== null)
-                    {
-                        node.matches = m;
-                        nodes.push(node);
-                    }
-
-                    return;
-            }
-        };
+                        return;
+                }
+            };
 
         iterator(html);
 
         for(let node of nodes)
         {
             let str = node.nodeValue,
-             match;
+                match;
 
             Object.defineProperty(node, 'template', { value: str });
 
@@ -440,7 +440,7 @@ export default abstract(class ObservingElement extends Base
                         .reduce((t, c) => [ ...t, ...c ], []),
                 ].unique();
                 let tree = parser.parse(match[1]),
-                 binding = this._bindings.find(b => b.expression === match[1]);
+                    binding = this._bindings.find(b => b.expression === match[1]);
 
                 if(binding === undefined)
                 {
@@ -464,7 +464,7 @@ export default abstract(class ObservingElement extends Base
         }
 
         Object.entries(this.constructor.properties).forEach(([ k, v ]) =>
-{
+        {
             Reflect.defineProperty(this, k, {
                 get: () => this.__get(k),
                 set: v => this.__set(k, v),
@@ -478,7 +478,7 @@ export default abstract(class ObservingElement extends Base
     _populate()
     {
         Object.entries(this.constructor.properties).forEach(([ k, v ]) =>
-{
+        {
             const attr = k.toDashCase();
 
             this.__set(
