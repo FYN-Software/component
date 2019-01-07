@@ -103,8 +103,6 @@ rules:
           after: false
         default:
           after: false
-        case:
-          after: false
         finally:
           after: false
         super:
@@ -119,7 +117,9 @@ rules:
     - unix
   lines-between-class-members:
     - error
-  max-depth: error
+  max-depth:
+    - error
+    - 6
   max-len:
     - error
     - 120
@@ -130,6 +130,8 @@ rules:
     - error
     - max: 1
   new-cap: error
+  no-case-declarations: off
+  no-fallthrough: off
   no-lonely-if: error
   no-mixed-operators: error
   no-multiple-empty-lines: error
@@ -158,6 +160,9 @@ rules:
       next: return
     - blankLine: always
       prev: "*"
+      next: case
+    - blankLine: any
+      prev: case
       next: case
     - blankLine: always
       prev: "*"
