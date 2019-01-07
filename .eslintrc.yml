@@ -18,7 +18,7 @@ rules:
     - single
   object-curly-newline:
     - error
-    - multiline
+    - multiline: true
   object-curly-spacing:
     - error
     - always
@@ -36,13 +36,13 @@ rules:
     - always
   array-bracket-newline:
     - error
-    - multiline
+    - multiline: true
   array-bracket-spacing:
     - error
     - always
   array-element-newline:
     - error
-    - multiline
+    - multiline: true
   eol-last:
     - error
     - always
@@ -83,9 +83,9 @@ rules:
   indent:
     - error
     - 4
-    - switchCase: 1
-      variableDeclerator: 1
-      memberExpression: 1
+    - SwitchCase: 1
+      VariableDeclarator: 1
+      MemberExpression: 1
   key-spacing:
     - error
     - beforeColon: false
@@ -96,14 +96,13 @@ rules:
     - before: true
       after: false
   line-comment-position:
-    - errpr
+    - error
     - above
   linebreak-style:
     - error
     - unix
   lines-between-class-members:
     - error
-    - ''
   max-depth: error
   max-len: error
   max-lines:
@@ -131,19 +130,19 @@ rules:
     - never
   padding-line-between-statements:
     - error
-    - blankline: always
+    - blankLine: always
       prev: "*"
       next: break
-    - blankline: always
+    - blankLine: always
       prev: "*"
       next: return
-    - blankline: always
+    - blankLine: always
       prev: "*"
       next: case
-    - blankline: always
+    - blankLine: always
       prev: "*"
       next: default
-    - blankline: always
+    - blankLine: always
       prev: "*"
       next: throw
   prefer-object-spread: error
