@@ -37,7 +37,7 @@ Array.prototype.compare = function(arr2)
         return false;
     }
 
-    for(let i = 0;i < this.length;i++)
+    for(let i = 0; i < this.length; i++)
     {
         if(this[i] instanceof Array && arr2[i] instanceof Array)
         {

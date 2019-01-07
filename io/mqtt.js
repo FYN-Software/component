@@ -1,13 +1,13 @@
 // NOTE(Chris Kruining)
 // The lib does not yet
-// export a module and
-// sets itself onto the
+// Export a module and
+// Sets itself onto the
 // global variable
 import * as mqttLib from 'https://unpkg.com/mqtt/dist/mqtt.min.js';
 import { Browser } from '../utilities.js';
 
-const sessionId = Browser.meta('session-id');
-const client = mqtt.connect('mqtts://mqtt.fyn.nl:1885', {
+const sessionId = Browser.meta('session-id'),
+ client = mqtt.connect('mqtts://mqtt.fyn.nl:1885', {
         clientId: sessionId,
         username: 'Websocket',
         password: 'WatIsDitEenKutWachtwoord^%*(#!',
@@ -16,24 +16,22 @@ const client = mqtt.connect('mqtts://mqtt.fyn.nl:1885', {
             payload: sessionId,
             qos: 2,
             retain: true,
-        }
-    });
-const subscribers = {};
+        },
+    }),
+ subscribers = {};
 
 export default class Mqtt
 {
     static publish(topic, content, headers = [])
     {
-        let message = Object.assign({
-            Callback: sessionId,
+        let message = {
+ Callback: sessionId,
             MessageID: Math.random(),
             Type: Mqtt.types.IncommingCall,
-            Content: content,
-        }, headers);
+            Content: content, ...headers,
+};
 
-        Mqtt.client.publish(topic, JSON.stringify(message), {
-            qos: 2,
-        });
+        Mqtt.client.publish(topic, JSON.stringify(message), { qos: 2 });
 
         return message.MessageID;
     }
@@ -76,13 +74,13 @@ export default class Mqtt
 
 client.stream.on('error', () => client.end());
 
-client.on('connect', () => {
-    client.subscribe(sessionId, {
-        qos: 2,
-    });
+client.on('connect', () =>
+{
+    client.subscribe(sessionId, { qos: 2 });
 });
 
-client.on('message', (t, m) => {
+client.on('message', (t, m) =>
+{
     let data = JSON.tryParse(m.toString(), true);
 
     if(data === null)
