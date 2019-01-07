@@ -17,7 +17,8 @@ export default class Gunslinger extends Grammar
             propertyAccessor: /\./,
             token: /./,
         }, {
-            Range: tokens => {
+            Range: tokens =>
+            {
                 if(tokens.length === 0 || tokens[0].name !== 'arrayOpenTag')
                 {
                     return [ [], [], tokens ];
@@ -56,6 +57,7 @@ export default class Gunslinger extends Grammar
                         {
                             buffer.push(new Token('child', childrenIndex, start, t.end));
                             index = Number.parseInt(i);
+
                             break;
                         }
                     }
@@ -81,22 +83,20 @@ export default class Gunslinger extends Grammar
                 {
                     console.error(depth, index);
 
-                    throw new Error('Range could not be parsed properly')
+                    throw new Error('Range could not be parsed properly');
                 }
 
                 return [ buffer, children, tokens.slice(index + 1) ];
             },
-            Loop: tokens => {
+            Loop: tokens =>
+            {
                 if(tokens.every(t => t.name !== 'loopKeyword'))
                 {
                     return [ [], [], tokens ];
                 }
 
                 let index = -1;
-                let buffer = [
-                    new Token('loopKeyword', 'target', -1, -1),
-                    new Token('child', 0, -1, -1)
-                ];
+                let buffer = [ new Token('loopKeyword', 'target', -1, -1), new Token('child', 0, -1, -1) ];
                 let children = [ [] ];
                 let childIndex = 0;
 
@@ -120,7 +120,8 @@ export default class Gunslinger extends Grammar
 
                 return [ buffer, children, [] ];
             },
-            Property: tokens => {
+            Property: tokens =>
+            {
                 if(tokens.length === 0 || tokens[0].name !== 'variable')
                 {
                     return [ [], [], tokens ];
@@ -135,7 +136,7 @@ export default class Gunslinger extends Grammar
 
                 for(let [ i, t ] of Object.entries(tokens))
                 {
-                    if(depth === 0 && [ 'arrayOpenTag', 'propertyAccessor', 'variable'].includes(t.name) !== true)
+                    if(depth === 0 && [ 'arrayOpenTag', 'propertyAccessor', 'variable' ].includes(t.name) !== true)
                     {
                         break;
                     }
@@ -178,12 +179,13 @@ export default class Gunslinger extends Grammar
 
                 if(depth !== 0 || index === -1)
                 {
-                    throw new Error('Property could not be parsed properly')
+                    throw new Error('Property could not be parsed properly');
                 }
 
                 return [ buffer, children, tokens.slice(index + 1) ];
             },
-            Function: (tokens, stream) => {
+            Function: (tokens, stream) =>
+            {
                 if(tokens.length === 0 || tokens[0].name !== 'scopeOpenTag' || stream.length === 0 || stream.last.name !== 'Property')
                 {
                     return [ [], [], tokens ];
@@ -214,9 +216,10 @@ export default class Gunslinger extends Grammar
                         {
                             // TODO(Chris Kruining)
                             //  Fix start, the value
-                            //  is never updated
+                            //  Is never updated
                             buffer.push(new Token('child', childrenIndex, start, t.end));
                             index = Number.parseInt(i);
+
                             break;
                         }
                     }
@@ -240,12 +243,13 @@ export default class Gunslinger extends Grammar
 
                 if(depth !== 0 || index === -1)
                 {
-                    throw new Error('Function could not be parsed properly')
+                    throw new Error('Function could not be parsed properly');
                 }
 
                 return [ buffer, children, tokens.slice(index + 1) ];
             },
-            Scope: (tokens) => {
+            Scope: tokens =>
+            {
                 if(tokens.length === 0 || tokens[0].name !== 'scopeOpenTag')
                 {
                     return [ [], [], tokens ];
@@ -268,6 +272,7 @@ export default class Gunslinger extends Grammar
                         {
                             buffer.push(new Token('child', childrenIndex, start, t.end));
                             index = Number.parseInt(i);
+
                             break;
                         }
                     }
@@ -297,18 +302,20 @@ export default class Gunslinger extends Grammar
 
                 if(depth !== 0 || index === -1)
                 {
-                    throw new Error('Function could not be parsed properly')
+                    throw new Error('Function could not be parsed properly');
                 }
 
                 return [ buffer, children, tokens.slice(index + 1) ];
             },
-            Expression: tokens => {
+            Expression: tokens =>
+            {
                 if(tokens.length === lastLength && lastLength > 0)
                 {
                     return [ [ tokens[0] ], [], tokens.slice(1) ];
                 }
 
                 lastLength = tokens.length;
+
                 return [ [], [], tokens ];
             },
         });

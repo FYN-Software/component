@@ -21,7 +21,7 @@ export default class Store
             indexes: data.indexes,
         }, {
             get: (container, property) =>
-{
+            {
                 if(prototype.hasOwnProperty(property))
                 {
                     return prototype[property];
@@ -35,7 +35,7 @@ export default class Store
                 return this.database.get(this.name, property);
             },
             set: (container, property, value) =>
-{
+            {
                 if(container.hasOwnProperty(property))
                 {
                     container[property] = value;
