@@ -1,3 +1,5 @@
+[![CodeFactor](https://www.codefactor.io/repository/github/fyn-software/component/badge/master)](https://www.codefactor.io/repository/github/fyn-software/component/overview/master)
+
 # component
 Web component suite
 
