@@ -20,7 +20,7 @@ export default class Loop
         {
             if(n instanceof HTMLSlotElement)
             {
-                const r = e =>
+                const r = () =>
                 {
                     const old = this._template;
                     this._template = new DocumentFragment();

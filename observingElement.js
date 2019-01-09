@@ -316,11 +316,6 @@ export default abstract(class ObservingElement extends Base
                         };
                     `)();
 
-                    if(variable === undefined)
-                    {
-                        console.log(match);
-                    }
-
                     binding = {
                         original: match[0],
                         expression: match[1],
