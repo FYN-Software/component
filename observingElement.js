@@ -91,7 +91,7 @@ export default abstract(class ObservingElement extends Base
 
                     case 'characterData':
                         let bindings = this._bindings.filter(
-                            b => b.nodes.includes(record.target) && b.properties.length === 1
+                            b => Array.from(b.nodes).includes(record.target) && b.properties.length === 1
                         );
 
                         for(let binding of bindings)
@@ -143,9 +143,9 @@ export default abstract(class ObservingElement extends Base
 
         while((node = this._queue.shift()) !== undefined)
         {
-            let values = this._bindings.filter(b => b.nodes.includes(node));
-            let v = values.length === 1 && values[0].original === node.template
-                ? values[0].value
+            let bindings = this._bindings.filter(b => Array.from(b.nodes).includes(node));
+            let v = bindings.length === 1 && bindings[0].original === node.template
+                ? bindings[0].value
                 : node.template.replace(
                     /{{\s*(.+?)\s*}}/g,
                     (a, m) => this._bindings.find(b => b.expression === m).value
@@ -157,13 +157,6 @@ export default abstract(class ObservingElement extends Base
                 {
                     case 'if':
                         node.ownerElement.attributes.setOnAssert(v !== true, 'hidden');
-
-                        break;
-
-                    case 'for':
-                        // TODO(Chris Kruining) Re-implement loops
-                        new Collection();
-                        new Loop(node, []);
 
                         break;
                 }
@@ -221,9 +214,8 @@ export default abstract(class ObservingElement extends Base
             this._observers[name].changed(old, value);
         }
 
-        let bindings = this._bindings.filter(b => b.properties.includes(name) && b.nodes.includes(source) !== true);
-
-
+        let bindings = this._bindings
+            .filter(b => b.properties.includes(name) && Array.from(b.nodes).includes(source) !== true);
         let nodes = bindings.map(b => b.nodes).reduce((t, n) => [ ...t, ...n ], [])
             .unique();
 
@@ -290,20 +282,56 @@ export default abstract(class ObservingElement extends Base
 
                 if(binding === undefined)
                 {
+                    let variable = match[1];
+                    let cb = () => {};
+
+                    if(node.nodeType === 2 && node.localName === 'for')
+                    {
+                        let name;
+
+                        [ name, variable ] = variable.split(/ in /);
+
+                        const loop = new Loop(node.ownerElement, name);
+
+                        cb = v =>
+                        {
+                            loop.data = v;
+                            loop.render();
+                        };
+                    }
+
                     const self = this;
-                    const keys = Object.keys(this._properties).join(', ');
-                    const callable = Function(
-                        `'use strict'; try { return (${keys}) => ${match[1]}; } catch(e){ return undefined; }`
-                    )();
+                    const keys = Object.keys(this._properties);
+                    const callable = Function(`
+                        'use strict'; 
+                        return (${keys.join(', ')}) => { 
+                            try
+                            { 
+                                return ${variable}; 
+                            }
+                            catch(e)
+                            { 
+                                return undefined; 
+                            } 
+                        };
+                    `)();
+
+                    if(variable === undefined)
+                    {
+                        console.log(match);
+                    }
 
                     binding = {
                         original: match[0],
                         expression: match[1],
+                        properties: keys.filter(k => variable.includes(k)),
                         nodes: new Set(),
                         value: callable(...Object.values(self._properties)),
                         resolve()
                         {
                             this.value = callable(...Object.values(self._properties));
+
+                            cb(this.value);
                         },
                     };
 

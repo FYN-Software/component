@@ -4,7 +4,7 @@ import * as Glp from '../glp/index.js';
 
 export default class Loop
 {
-    constructor(node, data)
+    constructor(node, name)
     {
         Object.defineProperty(node, 'loop', {
             value: this,
@@ -12,19 +12,20 @@ export default class Loop
         });
 
         this._node = node;
-        this._data = data;
+        this._name = name;
+        this._data = [];
         this._template = new DocumentFragment();
 
         Array.from(node.children).forEach(n =>
         {
             if(n instanceof HTMLSlotElement)
             {
-                const r = () =>
+                const r = e =>
                 {
                     const old = this._template;
                     this._template = new DocumentFragment();
 
-                    for(let el of n.assignedElements({ flatten: true }))
+                    for(let el of n.assignedNodes({ flatten: true }))
                     {
                         this._template.appendChild(el.cloneNode(true));
                     }
@@ -38,10 +39,10 @@ export default class Loop
                     });
                 };
 
-                n.on({ slotchange: () => r() });
-
-                r();
+                n.on({ slotchange: r });
                 n.style.display = 'none';
+
+                setTimeout(r, 0);
             }
             else
             {
@@ -54,12 +55,16 @@ export default class Loop
 
     render()
     {
-        // TODO(Chris Kruining) Implement virtual scrolling
-
-        // NOTE(Chris Kruining) This is disabled until proper virtual scrolling is implemented
+        // TODO(Chris Kruining)
+        //  Implement virtual scrolling
         // This._node.style.setProperty('--scroller-height', `${50 * this._data.length}px`);
 
-        for(let [ , item, c ] of this._data)
+        // NOTE(Chris Kruining)
+        // This double entries allows me to also iterate over objects
+        const d = Object.entries(Object.entries(this._data))
+            .map(([ c, i ]) => [ Number(c), i ]);
+
+        for(const [ c, [ , it ] ] of d)
         {
             let node;
 
@@ -83,7 +88,7 @@ export default class Loop
                 node = this.children[c];
             }
 
-            node[this._data.name] = item;
+            node[this._name] = it;
         }
 
         while(this._data.length < this.children.length)
@@ -97,6 +102,11 @@ export default class Loop
         return this._data;
     }
 
+    set data(d)
+    {
+        this._data = d;
+    }
+
     get children()
     {
         return this._node.querySelectorAll(':scope > :not(slot)');
@@ -106,23 +116,21 @@ export default class Loop
     {
         if(this._item === undefined)
         {
-            const name = this._data.name;
+            const n = `${this._name.upperCaseFirst()}LoopItem`;
 
-
-            const n = `${name.upperCaseFirst()}LoopItem`;
             this._item = window.customElements.get(n.toDashCase())
                 || new Glp.Generation.Class(n)
                     .extends(Generic)
                     .addMethod(
                         new Glp.Generation.Method('properties')
                             .getter()
-                            .body(`return this._properties.${name};`)
+                            .body(`return this._properties.${this._name};`)
                     )
                     .addMethod(
                         new Glp.Generation.Method('properties')
                             .static()
                             .getter()
-                            .body(`return { ${name}: null };`)
+                            .body(`return { ${this._name}: null };`)
                     )
                     .code;
         }
