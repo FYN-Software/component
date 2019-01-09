@@ -254,16 +254,9 @@ Node.prototype.childOf = function(parent)
     return false;
 };
 
-HTMLElement.prototype.extract = function(template = true)
+HTMLElement.prototype.extract = function()
 {
-    let item = this.parentNode.removeChild(this);
-
-    if(template === true)
-    {
-        item.removeAttribute('template');
-    }
-
-    return item;
+    return this.parentNode.removeChild(this);
 };
 
 NodeList.prototype.first = function(callback, ...args)
