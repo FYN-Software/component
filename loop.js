@@ -1,6 +1,5 @@
+import './extends.js';
 import Generic from './generic.js';
-// eslint-disable-next-line no-unused-vars
-import * as Extends from './extends.js';
 import * as Glp from '../glp/index.js';
 
 export default class Loop

@@ -1,4 +1,4 @@
-export default C => class extends C
+export const abstract = C => class extends C
 {
     constructor()
     {

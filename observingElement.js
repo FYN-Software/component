@@ -1,7 +1,6 @@
 import Base from './base.js';
 import Loop from './loop.js';
-import Collection from './collection.js';
-import abstract from './mixins/abstract.js';
+import { abstract } from './mixins.js';
 
 const specialProperties = [ 'if', 'for' ];
 

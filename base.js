@@ -1,6 +1,5 @@
-// eslint-disable-next-line no-unused-vars
-import * as Extends from './extends.js';
-import abstract from './mixins/abstract.js';
+import './extends.js';
+import { abstract } from './mixins.js';
 
 export default abstract(class Base extends HTMLElement
 {
