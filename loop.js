@@ -4,7 +4,7 @@ import * as Glp from '../glp/index.js';
 
 export default class Loop
 {
-    constructor(node, name)
+    constructor(node, name, parent = null)
     {
         Object.defineProperty(node, 'loop', {
             value: this,
@@ -13,6 +13,7 @@ export default class Loop
 
         this._node = node;
         this._name = name;
+        this._parent = parent;
         this._data = [];
         this._template = new DocumentFragment();
 
@@ -88,6 +89,7 @@ export default class Loop
                 node = this.children[c];
             }
 
+            node.__this__ = this._parent;
             node[this._name] = it;
         }
 
@@ -104,7 +106,18 @@ export default class Loop
 
     set data(d)
     {
-        this._data = d;
+        if(d instanceof Promise)
+        {
+            d.then(d => {
+                this._data = d;
+
+                this.render();
+            });
+        }
+        else
+        {
+            this._data = d;
+        }
     }
 
     get children()
@@ -130,7 +143,7 @@ export default class Loop
                         new Glp.Generation.Method('properties')
                             .static()
                             .getter()
-                            .body(`return { ${this._name}: null };`)
+                            .body(`return { ${this._name}: null, __this__: null };`)
                     )
                     .code;
         }
