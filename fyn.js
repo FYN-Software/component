@@ -1,5 +1,6 @@
 import Loop from './loop.js';
 import Component from './component.js';
+import Composer from './composer.js';
 import Collection from './collection.js';
 import * as Extends from './extends.js';
 
@@ -10,7 +11,7 @@ import Gunslinger from './utilities/gunslinger.js';
 import Cannoneer from './utilities/cannoneer.js';
 import * as Animation from './utilities/animation.js';
 
-import * as Glp from '/glp/index.js';
+import * as Glp from '../glp/index.js';
 
 const Utilities = {
     Code: Glp,
@@ -21,6 +22,7 @@ const Utilities = {
 
 export {
     Component,
+    Composer,
     Loop,
     Collection,
     Gunslinger,
