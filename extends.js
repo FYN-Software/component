@@ -369,14 +369,18 @@ Promise.prototype.stage = function(cb)
 
 Promise.prototype.chain = function (array, callback, delay = 0)
 {
+    return Promise.chain(array, callback, delay);
+};
+
+Promise.chain = function (array, callback, delay = 0)
+{
     let options = { delay };
 
     try
     {
-        return Promise.resolve(array
+        return array
             .map(i => () => new Promise(r => setTimeout(() => r(callback(i, options)), options.delay)))
-            .reduce((p, p2) => p.then(p2), Promise.resolve())
-        );
+            .reduce((p, p2) => p.then(p2), Promise.resolve());
     }
     catch(e)
     {
