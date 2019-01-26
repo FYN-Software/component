@@ -1,8 +1,10 @@
 import Base from './base.js';
 import Loop from './loop.js';
 import { abstract } from './mixins.js';
+import { objectFromEntries } from './extends.js';
 
 const specialProperties = [ 'if', 'for' ];
+const regex = /{{\s*(.+?)\s*}}/gs;
 
 // TODO(Chris Kruining)
 //  Offload this to separate thread
@@ -143,32 +145,33 @@ export default abstract(class ObservingElement extends Base
 
         while((node = this._queue.shift()) !== undefined)
         {
-            let bindings = this._bindings.filter(b => Array.from(b.nodes).includes(node));
-            let v = bindings.length === 1 && bindings[0].original === node.template
-                ? bindings[0].value
-                : node.template.replace(
-                    /{{\s*(.+?)\s*}}/g,
-                    (a, m) => this._bindings.find(b => b.expression === m).value
-                );
+            const n = node;
+            const v = n.bindings.length === 1 && n.bindings[0].original === n.template
+                ? n.bindings[0].value
+                : Promise.all(n.bindings.map(b => b.value.then(v => [ b.expression, v ])))
+                    .then(objectFromEntries)
+                    .then(v => n.template.replace(regex, (a, m) => v[m]));
 
-            if(node.nodeType === 2 && specialProperties.includes(node.nodeName))
-            {
-                switch(node.nodeName)
+            v.then(v => {
+                if(n.nodeType === 2 && specialProperties.includes(n.nodeName))
                 {
-                    case 'if':
-                        node.ownerElement.attributes.setOnAssert(v !== true, 'hidden');
+                    switch(n.nodeName)
+                    {
+                        case 'if':
+                            n.ownerElement.attributes.setOnAssert(v !== true, 'hidden');
 
-                        break;
+                            break;
+                    }
                 }
-            }
-            else if(node.nodeType === 2 && node.ownerElement.hasOwnProperty(node.nodeName))
-            {
-                node.ownerElement[node.nodeName] = v;
-            }
-            else
-            {
-                node.nodeValue = v;
-            }
+                else if(n.nodeType === 2 && n.ownerElement.hasOwnProperty(n.nodeName))
+                {
+                    n.ownerElement[n.nodeName] = v;
+                }
+                else
+                {
+                    n.nodeValue = v;
+                }
+            });
         }
     }
 
@@ -188,7 +191,12 @@ export default abstract(class ObservingElement extends Base
             return;
         }
 
-        if(this.__initialized === false && (typeof value !== 'string' || value.match(/{{\s*.+\s*}}/g) === null))
+        if(value instanceof Promise)
+        {
+            return value.then(v => this.__set(name, v, source, force));
+        }
+
+        if(this.__initialized === false)
         {
             this._setQueue.push([ name, value, source, force ]);
 
@@ -274,7 +282,7 @@ export default abstract(class ObservingElement extends Base
             let str = node.nodeValue;
             let match;
 
-            Object.defineProperty(node, 'template', { value: str });
+            const bindings = new Set();
 
             while((match = regex.exec(str)) !== null)
             {
@@ -291,7 +299,7 @@ export default abstract(class ObservingElement extends Base
 
                         [ name, variable ] = variable.split(/ in /);
 
-                        const loop = new Loop(node.ownerElement, name);
+                        const loop = new Loop(node.ownerElement, name, this);
 
                         cb = v =>
                         {
@@ -304,7 +312,8 @@ export default abstract(class ObservingElement extends Base
                     const keys = Object.keys(this._properties);
                     const callable = Function(`
                         'use strict'; 
-                        return (${keys.join(', ')}) => { 
+                        return function(${keys.join(', ')})
+                        { 
                             try
                             { 
                                 return ${variable}; 
@@ -324,17 +333,27 @@ export default abstract(class ObservingElement extends Base
                         value: callable(...Object.values(self._properties)),
                         resolve()
                         {
-                            this.value = callable(...Object.values(self._properties));
+                            let t = self;
+
+                            while(t._properties.hasOwnProperty('__this__') === true)
+                            {
+                                t = t._properties.__this__;
+                            }
+
+                            this.value = Promise.resolve(callable.apply(t, Object.values(self._properties)));
 
                             cb(this.value);
                         },
                     };
-
                     this._bindings.push(binding);
                 }
 
+                bindings.add(binding);
                 binding.nodes.add(node);
             }
+
+            Object.defineProperty(node, 'template', { value: str });
+            Object.defineProperty(node, 'bindings', { value: Array.from(bindings) });
         }
 
         return html;
@@ -344,6 +363,13 @@ export default abstract(class ObservingElement extends Base
     {
         Object.entries(this.constructor.properties).forEach(([ k, v ]) =>
         {
+            if(this._setQueue.find(i => i[0] === k) !== undefined)
+            {
+                // NOTE(Chris Kruining)
+                // Skip if already queued
+                return;
+            }
+
             const attr = k.toDashCase();
 
             this.__set(
