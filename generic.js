@@ -23,5 +23,11 @@ export default class Generic extends Component
     {
         this.childNodes.clear();
         this.appendChild(this._parseHtml(node));
+
+        const nodes = Array.from(this.querySelectorAll(':not(:defined)'));
+        const dependencies = nodes.map(n => n.localName);
+
+        Promise.all(dependencies.unique().map(n => Component.load(n)))
+            .stage(() => Promise.all(nodes.filter(n => n instanceof Component).map(n => n.__ready)));
     }
 }
