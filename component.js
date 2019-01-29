@@ -188,11 +188,20 @@ export default class Component extends ObservingElement
         }
 
         let animation = super.animate(...options);
-        let duration = animation.effect.getTiming().duration;
 
-        return timing !== null
-            ? Promise.delay(duration * timing).then(() => animation)
-            : animation.finished;
+        if(animation.finished === undefined)
+        {
+            animation.finished = new Promise(r => animation.onfinish = r);
+        }
+
+        if(animation.effect !== undefined && timing !== null)
+        {
+            const duration = animation.effect.getTiming().duration;
+
+            return Promise.delay(duration * timing).then(() => animation);
+        }
+
+        return animation.finished;
     }
 
     static register(classDef, name = null)
