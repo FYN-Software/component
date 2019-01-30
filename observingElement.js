@@ -161,6 +161,12 @@ export default abstract(class ObservingElement extends Base
                             n.ownerElement.attributes.setOnAssert(v !== true, 'hidden');
 
                             break;
+
+                        case 'for':
+                            n.ownerElement.loop.data = v;
+                            n.ownerElement.loop.render();
+
+                            break;
                     }
                 }
                 else if(n.nodeType === 2 && n.ownerElement.hasOwnProperty(n.nodeName))
@@ -291,7 +297,6 @@ export default abstract(class ObservingElement extends Base
                 if(binding === undefined)
                 {
                     let variable = match[1];
-                    let cb = () => {};
 
                     if(node.nodeType === 2 && node.localName === 'for')
                     {
@@ -300,12 +305,6 @@ export default abstract(class ObservingElement extends Base
                         [ name, variable ] = variable.split(/ in /);
 
                         const loop = new Loop(node.ownerElement, name, this);
-
-                        cb = v =>
-                        {
-                            loop.data = v;
-                            loop.render();
-                        };
                     }
 
                     const self = this;
@@ -337,12 +336,15 @@ export default abstract(class ObservingElement extends Base
 
                             while(t._properties.hasOwnProperty('__this__') === true)
                             {
+                                if(t._properties.__this__ === null)
+                                {
+                                    console.log(t._properties);
+                                }
+
                                 t = t._properties.__this__;
                             }
 
                             this.value = Promise.resolve(callable.apply(t, Object.values(self._properties)));
-
-                            cb(this.value);
                         },
                     };
                     this._bindings.push(binding);
