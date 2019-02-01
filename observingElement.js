@@ -41,78 +41,87 @@ export default abstract(class ObservingElement extends Base
         this._properties = this.constructor.properties;
         this.__initialized = false;
 
-        const observer = new MutationObserver(r =>
+        Object.entries(this.constructor.properties).forEach(([ k ]) =>
         {
-            for(let record of r)
-            {
-                switch(record.type)
-                {
-                    // NOTE(Chris Kruining)
-                    // This block is to counter the browsers
-                    // Logic to remove the text node, I do
-                    // This for persistency(bindings) reasons
-                    case 'childList':
-                        let nodes = Array.from(record.removedNodes)
-                            .filter(n => n.nodeType === 3 && n.hasOwnProperty('template'));
-
-                        for(let node of nodes)
-                        {
-                            record.target.appendChild(node);
-                        }
-
-                        const existing = Array.from(record.target.childNodes)
-                            .find(c => c.hasOwnProperty('template'));
-
-                        if(existing !== undefined)
-                        {
-                            let nodes = Array.from(record.addedNodes)
-                                .filter(n => n.nodeType === 3 && n.hasOwnProperty('template') !== true);
-
-                            for(let node of nodes)
-                            {
-                                existing.textContent = node.textContent;
-
-                                node.remove();
-
-                                if(record.target.focused === true)
-                                {
-                                    let range = document.createRange();
-                                    range.setStart(record.target.childNodes[0], 1);
-                                    range.collapse(true);
-
-                                    let selection = window.getSelection();
-                                    selection.removeAllRanges();
-                                    selection.addRange(range);
-                                }
-
-                                break;
-                            }
-                        }
-
-                        break;
-
-                    case 'characterData':
-                        let bindings = this._bindings.filter(
-                            b => Array.from(b.nodes).includes(record.target) && b.properties.length === 1
-                        );
-
-                        for(let binding of bindings)
-                        {
-                            this.__set(binding.expression, record.target.textContent, record.target, false);
-                        }
-
-                        break;
-                }
-            }
+            Reflect.defineProperty(this, k, {
+                get: () => this.__get(k),
+                set: v => this.__set(k, v),
+                enumerable: true,
+            });
         });
-        observer.observe(this.shadow, {
-            attributes: true,
-            attributeOldValue: true,
-            childList: true,
-            subtree: true,
-            characterData: true,
-            characterDataOldValue: true,
-        });
+
+        // const observer = new MutationObserver(r =>
+        // {
+        //     for(let record of r)
+        //     {
+        //         switch(record.type)
+        //         {
+        //             // NOTE(Chris Kruining)
+        //             // This block is to counter the browsers
+        //             // Logic to remove the text node, I do
+        //             // This for persistency(bindings) reasons
+        //             case 'childList':
+        //                 let nodes = Array.from(record.removedNodes)
+        //                     .filter(n => n.nodeType === 3 && n.hasOwnProperty('template'));
+        //
+        //                 for(let node of nodes)
+        //                 {
+        //                     record.target.appendChild(node);
+        //                 }
+        //
+        //                 const existing = Array.from(record.target.childNodes)
+        //                     .find(c => c.hasOwnProperty('template'));
+        //
+        //                 if(existing !== undefined)
+        //                 {
+        //                     let nodes = Array.from(record.addedNodes)
+        //                         .filter(n => n.nodeType === 3 && n.hasOwnProperty('template') !== true);
+        //
+        //                     for(let node of nodes)
+        //                     {
+        //                         existing.textContent = node.textContent;
+        //
+        //                         node.remove();
+        //
+        //                         if(record.target.focused === true)
+        //                         {
+        //                             let range = document.createRange();
+        //                             range.setStart(record.target.childNodes[0], 1);
+        //                             range.collapse(true);
+        //
+        //                             let selection = window.getSelection();
+        //                             selection.removeAllRanges();
+        //                             selection.addRange(range);
+        //                         }
+        //
+        //                         break;
+        //                     }
+        //                 }
+        //
+        //                 break;
+        //
+        //             case 'characterData':
+        //                 let bindings = this._bindings.filter(
+        //                     b => Array.from(b.nodes).includes(record.target) && b.properties.length === 1
+        //                 );
+        //
+        //                 for(let binding of bindings)
+        //                 {
+        //                     this.__set(binding.expression, record.target.textContent, record.target, false);
+        //                 }
+        //
+        //                 break;
+        //         }
+        //     }
+        // });
+        // observer.observe(this.shadow, {
+        //     attributes: true,
+        //     attributeOldValue: true,
+        //     childList: true,
+        //     subtree: true,
+        //     characterData: true,
+        //     characterDataOldValue: true,
+        // });
     }
 
     observe(config)
@@ -190,7 +199,7 @@ export default abstract(class ObservingElement extends Base
         return m(this._properties[name]);
     }
 
-    __set(name, value, source = null, force = false)
+    __set(name, value)
     {
         if(typeof value === 'string' && value.match(/^{{\s*.+\s*}}$/g) !== null)
         {
@@ -199,12 +208,12 @@ export default abstract(class ObservingElement extends Base
 
         if(value instanceof Promise)
         {
-            return value.then(v => this.__set(name, v, source, force));
+            return value.then(v => this.__set(name, v));
         }
 
         if(this.__initialized === false)
         {
-            this._setQueue.push([ name, value, source, force ]);
+            this._setQueue.push([ name, value ]);
 
             return;
         }
@@ -216,7 +225,7 @@ export default abstract(class ObservingElement extends Base
         value = m(value);
         const old = this._properties[name];
 
-        if(old === value && force === false)
+        if(old === value)
         {
             return;
         }
@@ -229,7 +238,7 @@ export default abstract(class ObservingElement extends Base
         }
 
         let bindings = this._bindings
-            .filter(b => b.properties.includes(name) && Array.from(b.nodes).includes(source) !== true);
+            .filter(b => b.properties.includes(name));
         let nodes = bindings.map(b => b.nodes).reduce((t, n) => [ ...t, ...n ], [])
             .unique();
 
@@ -239,15 +248,6 @@ export default abstract(class ObservingElement extends Base
 
     _parseHtml(html)
     {
-        Object.entries(this.constructor.properties).forEach(([ k ]) =>
-        {
-            Reflect.defineProperty(this, k, {
-                get: () => this.__get(k),
-                set: v => this.__set(k, v),
-                enumerable: true,
-            });
-        });
-
         let nodes = [];
         const regex = /{{\s*(.+?)\s*}}/g;
         const iterator = node =>
@@ -336,11 +336,6 @@ export default abstract(class ObservingElement extends Base
 
                             while(t._properties.hasOwnProperty('__this__') === true)
                             {
-                                if(t._properties.__this__ === null)
-                                {
-                                    console.log(t._properties);
-                                }
-
                                 t = t._properties.__this__;
                             }
 
