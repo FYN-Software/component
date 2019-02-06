@@ -5,6 +5,11 @@ import { objectFromEntries } from './extends.js';
 
 const specialProperties = [ 'if', 'for' ];
 const regex = /{{\s*(.+?)\s*}}/gs;
+const decodeHtml = (html) => {
+    const txt = document.createElement("textarea");
+    txt.innerHTML = html;
+    return txt.value;
+};
 
 // TODO(Chris Kruining)
 //  Offload this to separate thread
@@ -37,91 +42,21 @@ export default abstract(class ObservingElement extends Base
         this._bindings = [];
         this._queue = [];
         this._setQueue = [];
+        this._resolvedSetQueue = [];
         this._observers = {};
         this._properties = this.constructor.properties;
         this.__initialized = false;
 
-        Object.entries(this.constructor.properties).forEach(([ k ]) =>
-        {
+        Object.entries(this.constructor.properties).forEach(([k, v]) => {
             Reflect.defineProperty(this, k, {
                 get: () => this.__get(k),
                 set: v => this.__set(k, v),
                 enumerable: true,
             });
-        });
 
-        // const observer = new MutationObserver(r =>
-        // {
-        //     for(let record of r)
-        //     {
-        //         switch(record.type)
-        //         {
-        //             // NOTE(Chris Kruining)
-        //             // This block is to counter the browsers
-        //             // Logic to remove the text node, I do
-        //             // This for persistency(bindings) reasons
-        //             case 'childList':
-        //                 let nodes = Array.from(record.removedNodes)
-        //                     .filter(n => n.nodeType === 3 && n.hasOwnProperty('template'));
-        //
-        //                 for(let node of nodes)
-        //                 {
-        //                     record.target.appendChild(node);
-        //                 }
-        //
-        //                 const existing = Array.from(record.target.childNodes)
-        //                     .find(c => c.hasOwnProperty('template'));
-        //
-        //                 if(existing !== undefined)
-        //                 {
-        //                     let nodes = Array.from(record.addedNodes)
-        //                         .filter(n => n.nodeType === 3 && n.hasOwnProperty('template') !== true);
-        //
-        //                     for(let node of nodes)
-        //                     {
-        //                         existing.textContent = node.textContent;
-        //
-        //                         node.remove();
-        //
-        //                         if(record.target.focused === true)
-        //                         {
-        //                             let range = document.createRange();
-        //                             range.setStart(record.target.childNodes[0], 1);
-        //                             range.collapse(true);
-        //
-        //                             let selection = window.getSelection();
-        //                             selection.removeAllRanges();
-        //                             selection.addRange(range);
-        //                         }
-        //
-        //                         break;
-        //                     }
-        //                 }
-        //
-        //                 break;
-        //
-        //             case 'characterData':
-        //                 let bindings = this._bindings.filter(
-        //                     b => Array.from(b.nodes).includes(record.target) && b.properties.length === 1
-        //                 );
-        //
-        //                 for(let binding of bindings)
-        //                 {
-        //                     this.__set(binding.expression, record.target.textContent, record.target, false);
-        //                 }
-        //
-        //                 break;
-        //         }
-        //     }
-        // });
-        // observer.observe(this.shadow, {
-        //     attributes: true,
-        //     attributeOldValue: true,
-        //     childList: true,
-        //     subtree: true,
-        //     characterData: true,
-        //     characterDataOldValue: true,
-        // });
+            const attr = k.toDashCase();
+            this.__set(k, this.getAttribute(attr) || this.hasAttribute(attr) || v);
+        });
     }
 
     observe(config)
@@ -142,6 +77,7 @@ export default abstract(class ObservingElement extends Base
         if(this.__initialized === true && this._setQueue.length > 0)
         {
             const q = this._setQueue;
+            this._resolvedSetQueue = q.map(a => a[0]);
             this._setQueue = [];
 
             for(let args of q)
@@ -157,9 +93,17 @@ export default abstract(class ObservingElement extends Base
             const n = node;
             const v = n.bindings.length === 1 && n.bindings[0].original === n.template
                 ? n.bindings[0].value
-                : Promise.all(n.bindings.map(b => b.value.then(v => [ b.expression, v ])))
+                : Promise.all(n.bindings.map(b => b.value.then(v => [
+                    b.expression,
+                    v
+                ])))
                     .then(objectFromEntries)
                     .then(v => n.template.replace(regex, (a, m) => v[m]));
+
+            if(!(v instanceof Promise))
+            {
+                console.log(n.bindings.length === 1 && n.bindings[0].original === n.template);
+            }
 
             v.then(v => {
                 if(n.nodeType === 2 && specialProperties.includes(n.nodeName))
@@ -184,7 +128,7 @@ export default abstract(class ObservingElement extends Base
                 }
                 else
                 {
-                    n.nodeValue = v;
+                    n.nodeValue = decodeHtml(v);
                 }
             });
         }
@@ -218,7 +162,7 @@ export default abstract(class ObservingElement extends Base
             return;
         }
 
-        let m = this._observers.hasOwnProperty(name) && this._observers[name].hasOwnProperty('set')
+        const m = this._observers.hasOwnProperty(name) && this._observers[name].hasOwnProperty('set')
             ? this._observers[name].set
             : v => v;
 
@@ -237,9 +181,9 @@ export default abstract(class ObservingElement extends Base
             this._observers[name].changed(old, value);
         }
 
-        let bindings = this._bindings
+        const bindings = this._bindings
             .filter(b => b.properties.includes(name));
-        let nodes = bindings.map(b => b.nodes).reduce((t, n) => [ ...t, ...n ], [])
+        const nodes = bindings.map(b => b.nodes).reduce((t, n) => [ ...t, ...n ], [])
             .unique();
 
         bindings.forEach(b => b.resolve());
@@ -304,7 +248,7 @@ export default abstract(class ObservingElement extends Base
 
                         [ name, variable ] = variable.split(/ in /);
 
-                        const loop = new Loop(node.ownerElement, name, this);
+                        new Loop(node.ownerElement, name, this);
                     }
 
                     const self = this;
@@ -329,13 +273,18 @@ export default abstract(class ObservingElement extends Base
                         expression: match[1],
                         properties: keys.filter(k => variable.includes(k)),
                         nodes: new Set(),
-                        value: callable(...Object.values(self._properties)),
+                        value: Promise.resolve(callable(...Object.values(self._properties))),
                         resolve()
                         {
                             let t = self;
 
                             while(t._properties.hasOwnProperty('__this__') === true)
                             {
+                                if(t._properties.__this__ === null)
+                                {
+                                    console.log(t._properties);
+                                }
+
                                 t = t._properties.__this__;
                             }
 
@@ -358,24 +307,10 @@ export default abstract(class ObservingElement extends Base
 
     _populate()
     {
-        Object.entries(this.constructor.properties).forEach(([ k, v ]) =>
-        {
-            if(this._setQueue.find(i => i[0] === k) !== undefined)
-            {
-                // NOTE(Chris Kruining)
-                // Skip if already queued
-                return;
-            }
+        const nodes = this._bindings.map(b => b.nodes).reduce((t, n) => [ ...t, ...n ], [])
+            .unique();
 
-            const attr = k.toDashCase();
-
-            this.__set(
-                k,
-                this.getAttribute(attr) || this.hasAttribute(attr) || v,
-                Array.from(this.attributes).find(a => a.nodeName === attr),
-                true
-            );
-        });
+        this._queue.push(...nodes);
     }
 
     connectedCallback()
