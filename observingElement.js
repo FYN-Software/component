@@ -42,7 +42,6 @@ export default abstract(class ObservingElement extends Base
         this._bindings = [];
         this._queue = [];
         this._setQueue = [];
-        this._resolvedSetQueue = [];
         this._observers = {};
         this._properties = this.constructor.properties;
         this.__initialized = false;
@@ -65,7 +64,7 @@ export default abstract(class ObservingElement extends Base
         {
             if(Object.keys(this.constructor.properties).includes(p) !== true)
             {
-                throw new Error(`Trying to observe non-observable property ${p}`);
+                throw new Error(`Trying to observe non-observable property '${p}'`);
             }
 
             this._observers[p] = c;
@@ -77,7 +76,6 @@ export default abstract(class ObservingElement extends Base
         if(this.__initialized === true && this._setQueue.length > 0)
         {
             const q = this._setQueue;
-            this._resolvedSetQueue = q.map(a => a[0]);
             this._setQueue = [];
 
             for(let args of q)
@@ -262,7 +260,7 @@ export default abstract(class ObservingElement extends Base
                                 return ${variable}; 
                             }
                             catch(e)
-                            { 
+                            {
                                 return undefined; 
                             } 
                         };
