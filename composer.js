@@ -12,28 +12,6 @@ export default class Composer
         }
 
         return registration.get(ns).apply(null, [ el, type, ns ]);
-
-        let prefix;
-
-        switch(ns)
-        {
-            case 'fyn':
-                prefix = `http://fyn-software.cpb/suite/${type}`;
-
-                break;
-
-            case 'cpb':
-                prefix = `http://a.g.e.cpb/${type}`;
-
-                break;
-
-            default:
-                prefix = '';
-
-                break;
-        }
-
-        return `${prefix}/${el.join('/')}.${type}`;
     }
 
     static register(config)
