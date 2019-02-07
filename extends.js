@@ -1,4 +1,4 @@
-import { Event } from './utilities.js';
+import Event from './utilities/event.js';
 
 Number.couldBeNumber = function(val)
 {

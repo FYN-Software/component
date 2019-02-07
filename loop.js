@@ -1,6 +1,7 @@
 import './extends.js';
 import Generic from './generic.js';
-import * as Glp from '../glp/index.js';
+import Class from './code/class.js';
+import Method from './code/method.js';
 
 export default class Loop
 {
@@ -132,15 +133,15 @@ export default class Loop
             const n = `${this._name.upperCaseFirst()}LoopItem`;
 
             this._item = window.customElements.get(n.toDashCase())
-                || new Glp.Generation.Class(n)
+                || new Class(n)
                     .extends(Generic)
                     .addMethod(
-                        new Glp.Generation.Method('properties')
+                        new Method('properties')
                             .getter()
                             .body(`return this._properties.${this._name};`)
                     )
                     .addMethod(
-                        new Glp.Generation.Method('properties')
+                        new Method('properties')
                             .static()
                             .getter()
                             .body(`return { ${this._name}: null, __this__: null };`)
