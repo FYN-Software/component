@@ -11,7 +11,6 @@ export default class Component extends ObservingElement
     {
         super();
 
-        this._template = '';
         this._listeners = {};
         this.__ready_cb = null;
         this.__ready = new Promise((r) => {
@@ -39,20 +38,29 @@ export default class Component extends ObservingElement
             {
                 p = templates[url] = fetch(url)
                     .then(r => r.status === 200 ? r.text() : Promise.resolve(''))
-                    .stage(t => {
-                        templates[url] = t;
-                    });
+                    .then(t => this.constructor.parseTemplate(t))
+                    .stage(t => templates[url] = t);
             }
 
-            p.then(t => this.setTemplate(t))
-                .then(() => {
-                    this.emit('templateChanged', this._template);
+            p.then(r => {
+                console.log(r.bindings, Extends.clone(r.bindings));
+
+                this._bindings = Extends.clone(r.bindings);
+
+                this.constructor.parseTemplate(r.template.cloneNode(true)).then(n => {
+
+                    this._shadow.appendChild(n.template);
+
+                    this._populate();
+
                     this.emit('ready');
 
                     this.ready();
 
                     this.__ready_cb(true);
                 });
+
+            });
         }
         else
         {
@@ -157,19 +165,19 @@ export default class Component extends ObservingElement
         return this;
     }
 
-    setTemplate(str)
+    static parseTemplate(str)
     {
-        this._template = str instanceof DocumentFragment
+        const node = str instanceof DocumentFragment
             ? str
             : DocumentFragment.fromString(str);
-        this._shadow.appendChild(this._parseHtml(this._template.cloneNode(true)));
+        const { html: template, bindings } = this._parseHtml(node.cloneNode(true));
 
-        const nodes = Array.from(this._shadow.querySelectorAll(':not(:defined)'));
-        const dependencies = [...nodes.map(n => n.localName), ...(this.constructor.dependencies || [])];
+        const nodes = Array.from(template.querySelectorAll(':not(:defined)'));
+        const dependencies = [...nodes.map(n => n.localName), ...(this.dependencies || [])];
 
         return Promise.all(dependencies.unique().map(n => Component.load(n)))
             .stage(() => Promise.all(nodes.filter(n => n instanceof Component).map(n => n.__ready)))
-            .stage(() => this._populate());
+            .then(() => ({ template, bindings }));
     }
 
     animate(key, timing = null)
@@ -207,7 +215,7 @@ export default class Component extends ObservingElement
     static register(classDef, name = null)
     {
         let n = name || `${ classDef.prototype.constructor.name.replace(/[A-Z]/g, m => `-${m.toLowerCase()}`).substr(1) }`;
-        
+
         if(window.customElements.get(n) === undefined)
         {
             names[classDef.prototype.constructor.name] = n;

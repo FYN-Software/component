@@ -432,8 +432,7 @@ export function clone(obj, root = null)
     // Handle Array
     if(obj instanceof Array)
     {
-        return obj.reduce((t, i) =>
-        {
+        return obj.reduce((t, i) => {
             if(!Object.is(i, root))
             {
                 t.push(clone(i));
@@ -441,6 +440,12 @@ export function clone(obj, root = null)
 
             return t;
         }, []);
+    }
+
+    // Handle Array
+    if(obj instanceof Set)
+    {
+        return new Set(Array.from(obj).map(v => clone(v)));
     }
 
     // Handle Object

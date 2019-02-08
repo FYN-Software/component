@@ -5,7 +5,7 @@ import Method from './code/method.js';
 
 export default class Loop
 {
-    constructor(node, name, parent = null)
+    constructor(node, name)
     {
         Object.defineProperty(node, 'loop', {
             value: this,
@@ -14,7 +14,7 @@ export default class Loop
 
         this._node = node;
         this._name = name;
-        this._parent = parent;
+        this._parent = null;
         this._data = [];
         this._template = new DocumentFragment();
 
@@ -90,7 +90,6 @@ export default class Loop
                 node = this.children[c];
             }
 
-            node.__this__ = this._parent;
             node[this._name] = it;
         }
 
@@ -149,11 +148,19 @@ export default class Loop
                     .code;
         }
 
-        return new (this._item)(this._template.cloneNode(true));
+        const item = new (this._item)(this._template.cloneNode(true));
+        item.__this__ = this._parent;
+
+        return item;
     }
 
     get parent()
     {
         return this._parent;
+    }
+
+    set parent(p)
+    {
+        this._parent = p;
     }
 }

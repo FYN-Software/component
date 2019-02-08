@@ -16,18 +16,23 @@ export default class Generic extends Component
         this.shadow.appendChild(style);
         this.shadow.appendChild(slot);
 
-        this.template = node;
+        setTimeout(() => this.template = node, 1000);
     }
 
     set template(node)
     {
         this.childNodes.clear();
-        this.appendChild(this._parseHtml(node));
 
-        const nodes = Array.from(this.querySelectorAll(':not(:defined)'));
+        const { html, bindings } = this.constructor._parseHtml(node);
+
+        const nodes = Array.from(html.querySelectorAll(':not(:defined)'));
         const dependencies = nodes.map(n => n.localName);
 
         Promise.all(dependencies.unique().map(n => Component.load(n)))
-            .stage(() => Promise.all(nodes.filter(n => n instanceof Component).map(n => n.__ready)));
+            .stage(() => Promise.all(nodes.filter(n => n instanceof Component).map(n => n.__ready)))
+            .stage(() => {
+                this._bindings = bindings;
+                this.appendChild(html);
+            });
     }
 }

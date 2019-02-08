@@ -39,7 +39,7 @@ export default abstract(class ObservingElement extends Base
 
         super();
 
-        this._bindings = [];
+        this._bindings = null;
         this._queue = [];
         this._setQueue = [];
         this._observers = {};
@@ -73,7 +73,7 @@ export default abstract(class ObservingElement extends Base
 
     _render()
     {
-        if(this.__initialized === true && this._setQueue.length > 0)
+        if(this.__initialized === true && this._bindings !== null && this._setQueue.length > 0)
         {
             const q = this._setQueue;
             this._setQueue = [];
@@ -98,11 +98,6 @@ export default abstract(class ObservingElement extends Base
                     .then(objectFromEntries)
                     .then(v => n.template.replace(regex, (a, m) => v[m]));
 
-            if(!(v instanceof Promise))
-            {
-                console.log(n.bindings.length === 1 && n.bindings[0].original === n.template);
-            }
-
             v.then(v => {
                 if(n.nodeType === 2 && specialProperties.includes(n.nodeName))
                 {
@@ -114,8 +109,15 @@ export default abstract(class ObservingElement extends Base
                             break;
 
                         case 'for':
-                            n.ownerElement.loop.data = v;
-                            n.ownerElement.loop.render();
+                            const loop = n.ownerElement.loop;
+
+                            if(loop.parent === null)
+                            {
+                                loop.parent = this;
+                            }
+
+                            loop.data = v;
+                            loop.render();
 
                             break;
                     }
@@ -153,7 +155,7 @@ export default abstract(class ObservingElement extends Base
             return value.then(v => this.__set(name, v));
         }
 
-        if(this.__initialized === false)
+        if(this.__initialized === false || this._bindings === null)
         {
             this._setQueue.push([ name, value ]);
 
@@ -184,11 +186,11 @@ export default abstract(class ObservingElement extends Base
         const nodes = bindings.map(b => b.nodes).reduce((t, n) => [ ...t, ...n ], [])
             .unique();
 
-        bindings.forEach(b => b.resolve());
+        bindings.forEach(b => b.resolve(this));
         this._queue.push(...nodes);
     }
 
-    _parseHtml(html)
+    static _parseHtml(html)
     {
         let nodes = [];
         const regex = /{{\s*(.+?)\s*}}/g;
@@ -225,18 +227,20 @@ export default abstract(class ObservingElement extends Base
 
         iterator(html);
 
+        const bindings = new Map();
+
         for(let node of nodes)
         {
             let str = node.nodeValue;
             let match;
 
-            const bindings = new Set();
+            const nodeBindings = new Set();
 
             while((match = regex.exec(str)) !== null)
             {
-                let binding = this._bindings.find(b => b.expression === match[1]);
+                let binding;
 
-                if(binding === undefined)
+                if(bindings.has(match[1]) === false)
                 {
                     let variable = match[1];
 
@@ -246,11 +250,11 @@ export default abstract(class ObservingElement extends Base
 
                         [ name, variable ] = variable.split(/ in /);
 
-                        new Loop(node.ownerElement, name, this);
+                        new Loop(node.ownerElement, name);
                     }
 
-                    const self = this;
-                    const keys = Object.keys(this._properties);
+                    const type = this;
+                    const keys = Object.keys(this.properties);
                     const callable = Function(`
                         'use strict'; 
                         return function(${keys.join(', ')})
@@ -271,16 +275,24 @@ export default abstract(class ObservingElement extends Base
                         expression: match[1],
                         properties: keys.filter(k => variable.includes(k)),
                         nodes: new Set(),
-                        value: Promise.resolve(callable(...Object.values(self._properties))),
-                        resolve()
+                        value: Promise.resolve(undefined),
+                        resolve(self)
                         {
+                            if((self instanceof type) === false)
+                            {
+                                throw new  Error(`
+                                    Cross contamination whilst resolving binding. 
+                                    Expected type '${type}', got '${self.constructor.name}'
+                                `);
+                            }
+
                             let t = self;
 
                             while(t._properties.hasOwnProperty('__this__') === true)
                             {
                                 if(t._properties.__this__ === null)
                                 {
-                                    console.log(t._properties);
+                                    // console.log(t._properties);
                                 }
 
                                 t = t._properties.__this__;
@@ -289,18 +301,22 @@ export default abstract(class ObservingElement extends Base
                             this.value = Promise.resolve(callable.apply(t, Object.values(self._properties)));
                         },
                     };
-                    this._bindings.push(binding);
+                    bindings.set(match[1], binding);
+                }
+                else
+                {
+                    binding = bindings.get(match[1])
                 }
 
-                bindings.add(binding);
+                nodeBindings.add(binding);
                 binding.nodes.add(node);
             }
 
             Object.defineProperty(node, 'template', { value: str });
-            Object.defineProperty(node, 'bindings', { value: Array.from(bindings) });
+            Object.defineProperty(node, 'bindings', { value: Array.from(nodeBindings) });
         }
 
-        return html;
+        return { html, bindings: Array.from(bindings.values()) };
     }
 
     _populate()
