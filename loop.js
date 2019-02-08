@@ -151,4 +151,9 @@ export default class Loop
 
         return new (this._item)(this._template.cloneNode(true));
     }
+
+    get parent()
+    {
+        return this._parent;
+    }
 }
