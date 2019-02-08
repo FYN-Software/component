@@ -460,6 +460,36 @@ export function clone(obj, root = null)
     throw new Error('Unable to copy obj! Its type isn\'t supported.');
 }
 
+export function equals(a, b)
+{
+    if(a === null || typeof a !== 'object' || b === null || typeof b !== 'object')
+    {
+        return a === b;
+    }
+
+    // Handle Array
+    if(a instanceof Array && b instanceof Array)
+    {
+        return Array.compare(a, b);
+    }
+
+    // Handle Object
+    if(a instanceof Object && b instanceof Object)
+    {
+        for(const p of Object.getOwnPropertyNames(a))
+        {
+            if(equals(a[p], b[p]) !== true)
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    throw new Error(`Unable to compare ${a} and ${b}! Its type isn't supported.`);
+}
+
 export function objectFromEntries(arr)
 {
     return arr.reduce((t, [ n, v ]) =>
