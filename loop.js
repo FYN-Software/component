@@ -5,7 +5,7 @@ import Method from './code/method.js';
 
 export default class Loop
 {
-    constructor(node, name)
+    constructor(node, name, parent)
     {
         Object.defineProperty(node, 'loop', {
             value: this,
@@ -14,7 +14,7 @@ export default class Loop
 
         this._node = node;
         this._name = name;
-        this._parent = null;
+        this._parent = parent;
         this._data = [];
         this._template = new DocumentFragment();
 
@@ -59,7 +59,7 @@ export default class Loop
     {
         // TODO(Chris Kruining)
         //  Implement virtual scrolling
-        // This._node.style.setProperty('--scroller-height', `${50 * this._data.length}px`);
+        // This._node.style.setProperty('--scroller-height', `${50 * this._data.length}px`);\
 
         // NOTE(Chris Kruining)
         // This double entries allows me to also iterate over objects
@@ -152,15 +152,5 @@ export default class Loop
         item.__this__ = this._parent;
 
         return item;
-    }
-
-    get parent()
-    {
-        return this._parent;
-    }
-
-    set parent(p)
-    {
-        this._parent = p;
     }
 }

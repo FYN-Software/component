@@ -23,7 +23,7 @@ export default class Generic extends Component
     {
         this.childNodes.clear();
 
-        const { html, bindings } = this.constructor._parseHtml(node);
+        const { html, bindings } = this._parseHtml(node);
 
         const nodes = Array.from(html.querySelectorAll(':not(:defined)'));
         const dependencies = nodes.map(n => n.localName);

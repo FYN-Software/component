@@ -38,29 +38,30 @@ export default class Component extends ObservingElement
             {
                 p = templates[url] = fetch(url)
                     .then(r => r.status === 200 ? r.text() : Promise.resolve(''))
-                    .then(t => this.constructor.parseTemplate(t))
+                    .then(t => DocumentFragment.fromString(t))
                     .stage(t => templates[url] = t);
             }
 
-            p.then(r => {
-                console.log(r.bindings, Extends.clone(r.bindings));
-
-                this._bindings = Extends.clone(r.bindings);
-
-                this.constructor.parseTemplate(r.template.cloneNode(true)).then(n => {
-
-                    this._shadow.appendChild(n.template);
+            p.then(t => this.parseTemplate(t))
+                .then(r => {
+                    this._bindings = r.bindings;
+                    this._shadow.appendChild(r.template);
 
                     this._populate();
 
-                    this.emit('ready');
+                    this.on({
+                        options: {
+                            once: true,
+                        },
+                        setQueueCleared: () => {
+                            this.emit('ready');
 
-                    this.ready();
+                            this.ready();
 
-                    this.__ready_cb(true);
+                            this.__ready_cb(true);
+                        },
+                    });
                 });
-
-            });
         }
         else
         {
@@ -165,11 +166,8 @@ export default class Component extends ObservingElement
         return this;
     }
 
-    static parseTemplate(str)
+    parseTemplate(node)
     {
-        const node = str instanceof DocumentFragment
-            ? str
-            : DocumentFragment.fromString(str);
         const { html: template, bindings } = this._parseHtml(node.cloneNode(true));
 
         const nodes = Array.from(template.querySelectorAll(':not(:defined)'));

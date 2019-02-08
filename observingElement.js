@@ -82,6 +82,8 @@ export default abstract(class ObservingElement extends Base
             {
                 this.__set(...args);
             }
+
+            this.emit('setQueueCleared');
         }
 
         let node;
@@ -110,12 +112,6 @@ export default abstract(class ObservingElement extends Base
 
                         case 'for':
                             const loop = n.ownerElement.loop;
-
-                            if(loop.parent === null)
-                            {
-                                loop.parent = this;
-                            }
-
                             loop.data = v;
                             loop.render();
 
@@ -190,12 +186,11 @@ export default abstract(class ObservingElement extends Base
         this._queue.push(...nodes);
     }
 
-    static _parseHtml(html)
+    _parseHtml(html)
     {
         let nodes = [];
         const regex = /{{\s*(.+?)\s*}}/g;
-        const iterator = node =>
-        {
+        const iterator = node => {
             switch(node.nodeType)
             {
                 case 1:
@@ -250,11 +245,11 @@ export default abstract(class ObservingElement extends Base
 
                         [ name, variable ] = variable.split(/ in /);
 
-                        new Loop(node.ownerElement, name);
+                        new Loop(node.ownerElement, name, this);
                     }
 
-                    const type = this;
-                    const keys = Object.keys(this.properties);
+                    const self = this;
+                    const keys = Object.keys(this.constructor.properties);
                     const callable = Function(`
                         'use strict'; 
                         return function(${keys.join(', ')})
@@ -275,26 +270,13 @@ export default abstract(class ObservingElement extends Base
                         expression: match[1],
                         properties: keys.filter(k => variable.includes(k)),
                         nodes: new Set(),
-                        value: Promise.resolve(undefined),
-                        resolve(self)
+                        value: Promise.resolve(callable.apply(this, Object.values(self._properties))),
+                        resolve()
                         {
-                            if((self instanceof type) === false)
-                            {
-                                throw new  Error(`
-                                    Cross contamination whilst resolving binding. 
-                                    Expected type '${type}', got '${self.constructor.name}'
-                                `);
-                            }
-
                             let t = self;
 
                             while(t._properties.hasOwnProperty('__this__') === true)
                             {
-                                if(t._properties.__this__ === null)
-                                {
-                                    // console.log(t._properties);
-                                }
-
                                 t = t._properties.__this__;
                             }
 
