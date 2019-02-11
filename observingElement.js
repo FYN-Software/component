@@ -1,7 +1,7 @@
 import Base from './base.js';
 import Loop from './loop.js';
 import { abstract } from './mixins.js';
-import { objectFromEntries } from './extends.js';
+import { objectFromEntries, equals } from './extends.js';
 
 const specialProperties = [ 'if', 'for' ];
 const regex = /{{\s*(.+?)\s*}}/gs;
@@ -162,7 +162,7 @@ export default abstract(class ObservingElement extends Base
         value = m(value);
         const old = this._properties[name];
 
-        if(old === value)
+        if(old === value || equals(old, value))
         {
             return;
         }
