@@ -164,7 +164,7 @@ export default class Component extends ObservingElement
         const { html: template, bindings } = this._parseHtml(node.cloneNode(true));
 
         const nodes = Array.from(template.querySelectorAll(':not(:defined)'));
-        const dependencies = [...nodes.map(n => n.localName), ...(this.dependencies || [])];
+        const dependencies = [...nodes.map(n => n.localName), ...(this.constructor.dependencies || [])];
 
         return Promise.all(dependencies.unique().map(n => Component.load(n)))
             .stage(() => Promise.all(nodes.filter(n => n instanceof Component).map(n => n.__ready)))
