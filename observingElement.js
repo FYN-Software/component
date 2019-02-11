@@ -53,8 +53,8 @@ export default abstract(class ObservingElement extends Base
                 enumerable: true,
             });
 
-            const attr = k.toDashCase();
-            this.__set(k, this.getAttribute(attr) || this.hasAttribute(attr) || v);
+            // const attr = k.toDashCase();
+            // this.__set(k, this.getAttribute(attr) || this.hasAttribute(attr) || v);
         });
     }
 
@@ -73,17 +73,14 @@ export default abstract(class ObservingElement extends Base
 
     _render()
     {
-        if(this.__initialized === true && this._bindings !== null && this._setQueue.length > 0)
+        if(this.__initialized && this._bindings !== null)
         {
-            const q = this._setQueue;
-            this._setQueue = [];
-
-            for(let args of q)
+            for(let args of this._setQueue)
             {
                 this.__set(...args);
             }
 
-            this.emit('setQueueCleared');
+            this._setQueue = [];
         }
 
         let node;
@@ -303,6 +300,16 @@ export default abstract(class ObservingElement extends Base
 
     _populate()
     {
+        // if(this.__initialized)
+        // {
+        //     for(let args of this._setQueue)
+        //     {
+        //         this.__set(...args);
+        //     }
+        //
+        //     this._setQueue = [];
+        // }
+
         const nodes = this._bindings.map(b => b.nodes).reduce((t, n) => [ ...t, ...n ], [])
             .unique();
 

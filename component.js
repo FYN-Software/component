@@ -49,18 +49,11 @@ export default class Component extends ObservingElement
 
                     this._populate();
 
-                    this.on({
-                        options: {
-                            once: true,
-                        },
-                        setQueueCleared: () => {
-                            this.emit('ready');
+                    this.emit('ready');
 
-                            this.ready();
+                    this.ready();
 
-                            this.__ready_cb(true);
-                        },
-                    });
+                    this.__ready_cb(true);
                 });
         }
         else
