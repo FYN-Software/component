@@ -388,10 +388,10 @@ Promise.chain = function (array, callback, delay = 0)
     }
 };
 
-Promise.prototype.log = function ()
+Promise.prototype.log = function (...args)
 {
     // eslint-disable-next-line no-console
-    return this.stage(console.log);
+    return this.stage((...a) => console.log(...a, ...args));
 };
 
 DocumentFragment.fromString = function(str)
@@ -467,6 +467,11 @@ export function clone(obj, root = null)
 
 export function equals(a, b)
 {
+    if(typeof a !== typeof b)
+    {
+        return false;
+    }
+
     if(a === null || typeof a !== 'object' || b === null || typeof b !== 'object')
     {
         return a === b;
@@ -481,6 +486,11 @@ export function equals(a, b)
     // Handle Object
     if(a instanceof Object && b instanceof Object)
     {
+        if(a.constructor.name !== b.constructor.name)
+        {
+            return false;
+        }
+
         for(const p of Object.getOwnPropertyNames(a))
         {
             if(equals(a[p], b[p]) !== true)
