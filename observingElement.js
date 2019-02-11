@@ -7,7 +7,7 @@ const specialProperties = [ 'if', 'for' ];
 const regex = /{{\s*(.+?)\s*}}/gs;
 const decodeHtml = (html) => {
     const txt = document.createElement("textarea");
-    txt.innerHTML = html;
+    txt.innerHTML = String(html);
     return txt.value;
 };
 
