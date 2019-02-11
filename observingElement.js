@@ -21,12 +21,20 @@ setInterval(() =>
 {
     for(const el of elements)
     {
-        if(el._queue.length > 0 || el._setQueue.length > 0)
+        if(el[queue].length > 0 || el[setQueue].length > 0)
         {
             el._render();
         }
     }
 }, 100);
+
+// Declare private class properties
+const get = Symbol('get');
+const set = Symbol('set');
+const queue = Symbol('queue');
+const setQueue = Symbol('setQueue');
+const observers = Symbol('observers');
+const properties = Symbol('properties');
 
 export default abstract(class ObservingElement extends Base
 {
@@ -40,21 +48,20 @@ export default abstract(class ObservingElement extends Base
         super();
 
         this._bindings = null;
-        this._queue = [];
-        this._setQueue = [];
-        this._observers = {};
-        this._properties = this.constructor.properties;
-        this.__initialized = false;
+        this[queue] = [];
+        this[setQueue] = [];
+        this[observers] = {};
+        this[properties] = this.constructor.properties;
 
         Object.entries(this.constructor.properties).forEach(([k, v]) => {
             Reflect.defineProperty(this, k, {
-                get: () => this.__get(k),
-                set: v => this.__set(k, v),
+                get: () => this[get](k),
+                set: v => this[set](k, v),
                 enumerable: true,
             });
 
-            // const attr = k.toDashCase();
-            // this.__set(k, this.getAttribute(attr) || this.hasAttribute(attr) || v);
+            const attr = k.toDashCase();
+            this[set](k, this.getAttribute(attr) || this.hasAttribute(attr) || v);
         });
     }
 
@@ -67,25 +74,25 @@ export default abstract(class ObservingElement extends Base
                 throw new Error(`Trying to observe non-observable property '${p}'`);
             }
 
-            this._observers[p] = c;
+            this[observers][p] = c;
         }
     }
 
     _render()
     {
-        if(this.__initialized && this._bindings !== null)
+        if(this._bindings !== null)
         {
-            for(let args of this._setQueue)
+            for(let args of this[setQueue])
             {
-                this.__set(...args);
+                this[set](...args);
             }
 
-            this._setQueue = [];
+            this[setQueue] = [];
         }
 
         let node;
 
-        while((node = this._queue.shift()) !== undefined)
+        while((node = this[queue].shift()) !== undefined)
         {
             const n = node;
             const v = n.bindings.length === 1 && n.bindings[0].original === n.template
@@ -127,16 +134,16 @@ export default abstract(class ObservingElement extends Base
         }
     }
 
-    __get(name)
+    [get](name)
     {
-        let m = this._observers.hasOwnProperty(name) && this._observers[name].hasOwnProperty('get')
-            ? this._observers[name].get
+        let m = this[observers].hasOwnProperty(name) && this[observers][name].hasOwnProperty('get')
+            ? this[observers][name].get
             : v => v;
 
-        return m(this._properties[name]);
+        return m(this[properties][name]);
     }
 
-    __set(name, value)
+    [set](name, value)
     {
         if(typeof value === 'string' && value.match(/^{{\s*.+\s*}}$/g) !== null)
         {
@@ -145,33 +152,33 @@ export default abstract(class ObservingElement extends Base
 
         if(value instanceof Promise)
         {
-            return value.then(v => this.__set(name, v));
+            return value.then(v => this[set](name, v));
         }
 
-        if(this.__initialized === false || this._bindings === null)
+        if(this._bindings === null)
         {
-            this._setQueue.push([ name, value ]);
+            this[setQueue].push([ name, value ]);
 
             return;
         }
 
-        const m = this._observers.hasOwnProperty(name) && this._observers[name].hasOwnProperty('set')
-            ? this._observers[name].set
+        const m = this[observers].hasOwnProperty(name) && this[observers][name].hasOwnProperty('set')
+            ? this[observers][name].set
             : v => v;
 
         value = m(value);
-        const old = this._properties[name];
+        const old = this[properties][name];
 
         if(old === value || equals(old, value))
         {
             return;
         }
 
-        this._properties[name] = value;
+        this[properties][name] = value;
 
-        if(this._observers.hasOwnProperty(name) && this._observers[name].hasOwnProperty('changed'))
+        if(this[observers].hasOwnProperty(name) && this[observers][name].hasOwnProperty('changed'))
         {
-            this._observers[name].changed(old, value);
+            this[observers][name].changed(old, value);
         }
 
         const bindings = this._bindings
@@ -180,7 +187,7 @@ export default abstract(class ObservingElement extends Base
             .unique();
 
         bindings.forEach(b => b.resolve(this));
-        this._queue.push(...nodes);
+        this[queue].push(...nodes);
     }
 
     _parseHtml(html)
@@ -267,19 +274,20 @@ export default abstract(class ObservingElement extends Base
                         expression: match[1],
                         properties: keys.filter(k => variable.includes(k)),
                         nodes: new Set(),
-                        value: Promise.resolve(callable.apply(this, Object.values(self._properties))),
+                        value: Promise.resolve(callable.apply(this, Object.values(self[properties]))),
                         resolve()
                         {
                             let t = self;
 
-                            while(t._properties.hasOwnProperty('__this__') === true)
+                            while(t[properties].hasOwnProperty('__this__') === true)
                             {
-                                t = t._properties.__this__;
+                                t = t[properties].__this__;
                             }
 
-                            this.value = Promise.resolve(callable.apply(t, Object.values(self._properties)));
+                            this.value = Promise.resolve(callable.apply(t, Object.values(self[properties])));
                         },
                     };
+
                     bindings.set(match[1], binding);
                 }
                 else
@@ -300,20 +308,10 @@ export default abstract(class ObservingElement extends Base
 
     _populate()
     {
-        // if(this.__initialized)
-        // {
-        //     for(let args of this._setQueue)
-        //     {
-        //         this.__set(...args);
-        //     }
-        //
-        //     this._setQueue = [];
-        // }
-
         const nodes = this._bindings.map(b => b.nodes).reduce((t, n) => [ ...t, ...n ], [])
             .unique();
 
-        this._queue.push(...nodes);
+        this[queue].push(...nodes);
     }
 
     connectedCallback()
@@ -341,12 +339,12 @@ export default abstract(class ObservingElement extends Base
                 break;
 
             default:
-                if(this.__initialized !== true)
+                if(this._bindings === null)
                 {
                     return;
                 }
 
-                this.__set(
+                this[set](
                     name.toCamelCase(),
                     newValue,
                     Array.from(this.attributes).find(a => a.nodeName === name),
