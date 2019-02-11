@@ -58,21 +58,16 @@ export default class Component extends ObservingElement
         }
         else
         {
-            this.emit('ready');
+            setTimeout(() => {
+                this.emit('ready');
 
-            this.ready();
+                this.ready();
 
-            this.__ready_cb(true);
+                this.__ready_cb(true);
+            }, 0);
         }
 
-        // NOTE(Chris Kruining)
-        // 'delay' is used to make the
-        // initialize call asynchronous
-        setTimeout(() => {
-            this.initialize();
-
-            this.__initialized = true;
-        }, 0);
+        this.initialize();
     }
 
     ready(){}
