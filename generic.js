@@ -9,7 +9,7 @@ export default class Generic extends Component
         super(Promise.delay(0).then(() => this.setTemplate(node)));
 
         const style = document.createElement('style');
-        style.innerHTML = ':host { display: contents; }';
+        style.innerText = ':host { display: contents; }';
 
         const slot = document.createElement('slot');
 
