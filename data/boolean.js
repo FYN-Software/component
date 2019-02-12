@@ -1,6 +1,11 @@
 import Type from './type.js';
 
-export default class String extends Type
-{
+const bool = Boolean;
 
-}
+export default Type.proxyfy(class Boolean extends Type
+{
+    set(v)
+    {
+        return bool(v);
+    }
+});

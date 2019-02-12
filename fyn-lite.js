@@ -10,6 +10,8 @@ import Font from './utilities/font.js';
 
 import Type from './data/type.js';
 import String from './data/string.js';
+import Boolean from './data/boolean.js';
+import Array from './data/array.js';
 
 const Utilities = {
     Code: {
@@ -22,6 +24,8 @@ const Utilities = {
 const Data = {
     Type,
     String,
+    Boolean,
+    Array,
 };
 
 export {
