@@ -149,19 +149,20 @@ export default class Component extends ObservingElement
         return this;
     }
 
-    parseTemplate(node)
+    async parseTemplate(node)
     {
         const { html: template, bindings } = this._parseHtml(node.cloneNode(true));
 
         const nodes = Array.from(template.querySelectorAll(':not(:defined)'));
         const dependencies = [...nodes.map(n => n.localName), ...(this.constructor.dependencies || [])];
 
-        return Promise.all(dependencies.unique().map(n => Component.load(n)))
-            .stage(() => Promise.all(nodes.filter(n => n instanceof Component).map(n => n.__ready)))
-            .then(() => ({ template, bindings }));
+        await Promise.all(dependencies.unique().map(n => Component.load(n)));
+        await Promise.all(nodes.filter(n => n instanceof Component).map(n => n.__ready));
+
+        return { template, bindings };
     }
 
-    animate(key, timing = null)
+    async animate(key, timing = null)
     {
         let options = Extends.clone(this.constructor.animations[key] || [[], {}]);
 
@@ -214,14 +215,18 @@ export default class Component extends ObservingElement
         return classDef;
     }
 
-    static load(el)
+    static async load(el)
     {
         let r = window.customElements.get(el);
 
-        return r !== undefined
-            ? Promise.resolve(r)
-            : import(Composer.resolve(el))
-                .then(r => Component.register(r.default, el));
+        if(r !== undefined)
+        {
+            return r;
+        }
+
+        r = await import(Composer.resolve(el));
+
+        return Component.register(r.default, el);
     }
 
     static get registration()
