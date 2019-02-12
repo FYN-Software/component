@@ -1,9 +1,10 @@
 import Base from './base.js';
+import Type from './data/type.js';
 import Loop from './loop.js';
 import Queue from './queue.js';
 import { abstract } from './mixins.js';
 import { objectFromEntries, equals } from './extends.js';
-import { relativeToAbsolute } from './utilities/url.js';
+// import { relativeToAbsolute } from './utilities/url.js';
 
 const specialProperties = [ 'if', 'for' ];
 const regex = /{{\s*(.+?)\s*}}/gs;
@@ -12,10 +13,10 @@ const decodeHtml = (html) => {
     txt.innerHTML = String(html);
     return txt.value;
 };
-const worker = new Worker(relativeToAbsolute(import.meta.url, './worker.js'), { type: 'module' });
-worker.on({
-    message: e => console.log(e.data),
-});
+// const worker = new Worker(relativeToAbsolute(import.meta.url, './worker.js'), { type: 'module' });
+// worker.on({
+//     message: e => console.log(e.data),
+// });
 
 // TODO(Chris Kruining)
 //  Offload this to separate thread
@@ -159,7 +160,7 @@ export default abstract(class ObservingElement extends Base
             return;
         }
 
-        worker.postMessage([ name, value ]);
+        // worker.postMessage([ name, value ]);
 
         const m = this[observers].hasOwnProperty(name) && this[observers][name].hasOwnProperty('set')
             ? this[observers][name].set
@@ -173,7 +174,14 @@ export default abstract(class ObservingElement extends Base
             return;
         }
 
-        this[properties][name] = value;
+        if(this[properties][name] instanceof Type)
+        {
+            this[properties][name].value = value;
+        }
+        else
+        {
+            this[properties][name] = value;
+        }
 
         if(this[observers].hasOwnProperty(name) && this[observers][name].hasOwnProperty('changed'))
         {
