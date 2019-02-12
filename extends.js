@@ -127,37 +127,44 @@ Object.defineProperties(Math, {
 
 if(EventTarget !== undefined)
 {
-    EventTarget.prototype.trigger = function(name)
-    {
-        Event.trigger(this, name);
+    Object.defineProperties(EventTarget.prototype, {
+        trigger: {
+            value(name)
+            {
+                Event.trigger(this, name);
 
-        return this;
-    };
+                return this;
+            }
+        },
+        delegate: {
+            value(selector, settings)
+            {
+                Event.delegate(this, selector, settings);
 
-    EventTarget.prototype.delegate = function(selector, settings)
-    {
-        Event.delegate(this, selector, settings);
+                return this;
+            }
+        },
+        on: {
+            value(settings)
+            {
+                Event.on(this, settings);
 
-        return this;
-    };
+                return this;
+            }
+        },
+        emit: {
+            value(name, data = {}, composed = false)
+            {
+                this.dispatchEvent(new CustomEvent(name, {
+                    detail: data,
+                    bubbles: true,
+                    composed,
+                }));
 
-    EventTarget.prototype.on = function(settings)
-    {
-        Event.on(this, settings);
-
-        return this;
-    };
-
-    EventTarget.prototype.emit = function(name, data = {}, composed = false)
-    {
-        this.dispatchEvent(new CustomEvent(name, {
-            detail: data,
-            bubbles: true,
-            composed,
-        }));
-
-        return this;
-    };
+                return this;
+            }
+        },
+    });
 }
 
 if(typeof DOMTokenList != 'undefined')
