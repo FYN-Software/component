@@ -17,14 +17,18 @@ export default class Component extends ObservingElement
             this.__ready_cb = r;
         });
 
-        if(url !== false)
+        let p;
+
+        if(url instanceof Promise)
+        {
+            p = url;
+        }
+        else
         {
             if(url === null && names.hasOwnProperty(this.constructor.name))
             {
                 url = Composer.resolve(names[this.constructor.name], 'html');
             }
-
-            let p;
 
             if(templates.hasOwnProperty(url) && templates[url] instanceof Promise)
             {
@@ -42,30 +46,21 @@ export default class Component extends ObservingElement
                     .stage(t => templates[url] = t);
             }
 
-            p.then(t => this.parseTemplate(t))
-                .then(r => {
-                    this._bindings = r.bindings;
-                    this._shadow.appendChild(r.template);
-
-                    this._populate();
-
-                    this.emit('ready');
-
-                    this.ready();
-
-                    this.__ready_cb(true);
-                });
+            p = p.then(t => this.parseTemplate(t))
+                .stage(r => this._shadow.appendChild(r.template));
         }
-        else
-        {
-            setTimeout(() => {
-                this.emit('ready');
 
-                this.ready();
+        p.then(r => {
+            this._bindings = r.bindings;
 
-                this.__ready_cb(true);
-            }, 0);
-        }
+            this._populate();
+
+            this.emit('ready');
+
+            this.ready();
+
+            this.__ready_cb(true);
+        });
 
         this.initialize();
     }

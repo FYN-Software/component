@@ -35,6 +35,11 @@ export default class Loop
 
                     for(let el of n.assignedNodes({ flatten: true }))
                     {
+                        if(el.nodeType === 1 && el.hasAttribute('template'))
+                        {
+                            el.removeAttribute('template');
+                        }
+
                         this[_template].appendChild(el.cloneNode(true));
                     }
 
@@ -66,11 +71,6 @@ export default class Loop
         // TODO(Chris Kruining)
         //  Implement virtual scrolling
         // This[node].style.setProperty('--scroller-height', `${50 * this[data].length}px`);
-
-        if(this[_name] === '_options')
-        {
-            console.log(this[_data]);
-        }
 
         // NOTE(Chris Kruining)
         // This double entries allows me to also iterate over objects
@@ -117,8 +117,6 @@ export default class Loop
 
     set data(d)
     {
-        console.log(d);
-
         if(d instanceof Promise)
         {
             d.then(d => {

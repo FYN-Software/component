@@ -2,6 +2,7 @@ import Base from './base.js';
 import Loop from './loop.js';
 import { abstract } from './mixins.js';
 import { objectFromEntries, equals } from './extends.js';
+import Queue from './queue.js';
 
 const specialProperties = [ 'if', 'for' ];
 const regex = /{{\s*(.+?)\s*}}/gs;
@@ -23,7 +24,7 @@ setInterval(() =>
     {
         if(el[queue].length > 0 || el[setQueue].length > 0)
         {
-            el._render();
+            el[render]();
         }
     }
 }, 100);
@@ -32,6 +33,7 @@ setInterval(() =>
 const get = Symbol('get');
 const set = Symbol('set');
 const queue = Symbol('queue');
+const render = Symbol('render');
 const setQueue = Symbol('setQueue');
 const observers = Symbol('observers');
 const properties = Symbol('properties');
@@ -48,7 +50,7 @@ export default abstract(class ObservingElement extends Base
         super();
 
         this._bindings = null;
-        this[queue] = [];
+        this[queue] = new Queue();
         this[setQueue] = [];
         this[observers] = {};
         this[properties] = this.constructor.properties;
@@ -78,59 +80,49 @@ export default abstract(class ObservingElement extends Base
         }
     }
 
-    _render()
+    [render]()
     {
-        if(this._bindings !== null)
+        if(this[queue].length > 0)
         {
-            for(let args of this[setQueue])
+            for(const n of this[queue])
             {
-                this[set](...args);
-            }
+                const v = n.bindings.length === 1 && n.bindings[0].original === n.template
+                    ? n.bindings[0].value
+                    : Promise.all(n.bindings.map(b => b.value.then(v => [
+                        b.expression,
+                        v
+                    ])))
+                        .then(objectFromEntries)
+                        .then(v => n.template.replace(regex, (a, m) => v[m]));
 
-            this[setQueue] = [];
-        }
-
-        let node;
-
-        while((node = this[queue].shift()) !== undefined)
-        {
-            const n = node;
-            const v = n.bindings.length === 1 && n.bindings[0].original === n.template
-                ? n.bindings[0].value
-                : Promise.all(n.bindings.map(b => b.value.then(v => [
-                    b.expression,
-                    v
-                ])))
-                    .then(objectFromEntries)
-                    .then(v => n.template.replace(regex, (a, m) => v[m]));
-
-            v.then(v => {
-                if(n.nodeType === 2 && specialProperties.includes(n.nodeName))
-                {
-                    switch(n.nodeName)
+                v.then(v => {
+                    if(n.nodeType === 2 && specialProperties.includes(n.nodeName))
                     {
-                        case 'if':
-                            n.ownerElement.attributes.setOnAssert(v !== true, 'hidden');
+                        switch(n.nodeName)
+                        {
+                            case 'if':
+                                n.ownerElement.attributes.setOnAssert(v !== true, 'hidden');
 
-                            break;
+                                break;
 
-                        case 'for':
-                            const loop = n.ownerElement.loop;
-                            loop.data = v;
-                            loop.render();
+                            case 'for':
+                                const loop = n.ownerElement.loop;
+                                loop.data = v;
+                                loop.render();
 
-                            break;
+                                break;
+                        }
                     }
-                }
-                else if(n.nodeType === 2 && n.ownerElement.hasOwnProperty(n.nodeName))
-                {
-                    n.ownerElement[n.nodeName] = v;
-                }
-                else
-                {
-                    n.nodeValue = decodeHtml(v);
-                }
-            });
+                    else if(n.nodeType === 2 && n.ownerElement.hasOwnProperty(n.nodeName))
+                    {
+                        n.ownerElement[n.nodeName] = v;
+                    }
+                    else
+                    {
+                        n.nodeValue = decodeHtml(v);
+                    }
+                });
+            }
         }
     }
 
@@ -143,7 +135,7 @@ export default abstract(class ObservingElement extends Base
         return m(this[properties][name]);
     }
 
-    [set](name, value)
+    async [set](name, value)
     {
         if(typeof value === 'string' && value.match(/^{{\s*.+\s*}}$/g) !== null)
         {
@@ -152,7 +144,7 @@ export default abstract(class ObservingElement extends Base
 
         if(value instanceof Promise)
         {
-            return value.then(v => this[set](name, v));
+            value = await value;
         }
 
         if(this._bindings === null)
@@ -183,24 +175,27 @@ export default abstract(class ObservingElement extends Base
 
         const bindings = this._bindings
             .filter(b => b.properties.includes(name));
-        const nodes = bindings.map(b => b.nodes).reduce((t, n) => [ ...t, ...n ], [])
-            .unique();
 
-        bindings.forEach(b => b.resolve(this));
-        this[queue].push(...nodes);
+        await Promise.all(bindings.map(b => b.resolve(this)));
+
+        this[queue].enqueue(...bindings.map(b => b.nodes).reduce((t, n) => [ ...t, ...n ], []).unique());
     }
 
     _parseHtml(html)
     {
         let nodes = [];
-        const regex = /{{\s*(.+?)\s*}}/g;
         const iterator = node => {
             switch(node.nodeType)
             {
                 case 1:
+                    if(Array.from(node.attributes).some(a => [ 'template' ].includes(a.name)))
+                    {
+                        return;
+                    }
+
                     Array.from(node.attributes).forEach(a => iterator(a));
 
-                    if(Array.from(node.attributes).some(a => a.name === 'for'))
+                    if(Array.from(node.attributes).some(a => [ 'for' ].includes(a.name)))
                     {
                         return;
                     }
@@ -256,7 +251,7 @@ export default abstract(class ObservingElement extends Base
                     const keys = Object.keys(this.constructor.properties);
                     const callable = Function(`
                         'use strict'; 
-                        return function(${keys.join(', ')})
+                        return async function(${keys.join(', ')})
                         { 
                             try
                             { 
@@ -274,8 +269,8 @@ export default abstract(class ObservingElement extends Base
                         expression: match[1],
                         properties: keys.filter(k => variable.includes(k)),
                         nodes: new Set(),
-                        value: Promise.resolve(callable.apply(this, Object.values(self[properties]))),
-                        resolve()
+                        value: callable.apply(this, Object.values(self[properties])),
+                        async resolve()
                         {
                             let t = self;
 
@@ -284,7 +279,9 @@ export default abstract(class ObservingElement extends Base
                                 t = t[properties].__this__;
                             }
 
-                            this.value = Promise.resolve(callable.apply(t, Object.values(self[properties])));
+                            this.value = callable.apply(t, Object.values(self[properties]));
+
+                            return this.value;
                         },
                     };
 
@@ -308,10 +305,12 @@ export default abstract(class ObservingElement extends Base
 
     _populate()
     {
-        const nodes = this._bindings.map(b => b.nodes).reduce((t, n) => [ ...t, ...n ], [])
-            .unique();
+        this[queue].enqueue(...this._bindings.map(b => b.nodes).reduce((t, n) => [ ...t, ...n ], []).unique());
 
-        this[queue].push(...nodes);
+        for(let args of this[setQueue])
+        {
+            this[set](...args);
+        }
     }
 
     connectedCallback()

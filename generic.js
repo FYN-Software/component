@@ -6,7 +6,7 @@ export default class Generic extends Component
     {
         Component.register(new.target);
 
-        super(false);
+        super(Promise.delay(0).then(() => this.setTemplate(node)));
 
         const style = document.createElement('style');
         style.innerHTML = ':host { display: contents; }';
@@ -15,24 +15,22 @@ export default class Generic extends Component
 
         this.shadow.appendChild(style);
         this.shadow.appendChild(slot);
-
-        setTimeout(() => this.template = node, 1000);
     }
 
-    set template(node)
+    async setTemplate(node)
     {
         this.childNodes.clear();
 
-        const { html, bindings } = this._parseHtml(node);
+        const { html: template, bindings } = this._parseHtml(node);
 
-        const nodes = Array.from(html.querySelectorAll(':not(:defined)'));
+        const nodes = Array.from(template.querySelectorAll(':not(:defined)'));
         const dependencies = nodes.map(n => n.localName);
 
-        Promise.all(dependencies.unique().map(n => Component.load(n)))
-            .stage(() => Promise.all(nodes.filter(n => n instanceof Component).map(n => n.__ready)))
-            .stage(() => {
-                this._bindings = bindings;
-                this.appendChild(html);
-            });
+        await Promise.all(dependencies.unique().map(n => Component.load(n)));
+        await Promise.all(nodes.filter(n => n instanceof Component).map(n => n.__ready));
+
+        this.appendChild(template);
+
+        return { template, bindings };
     }
 }
