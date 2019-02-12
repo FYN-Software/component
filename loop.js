@@ -77,6 +77,8 @@ export default class Loop
         const d = Object.entries(Object.entries(this[_data]))
             .map(([ c, i ]) => [ Number(c), i ]);
 
+        let nodesToAppend = document.createDocumentFragment();
+
         for(const [ c, [ , it ] ] of d)
         {
             let node;
@@ -94,7 +96,7 @@ export default class Loop
                     throw e;
                 }
 
-                this[_node].appendChild(node);
+                nodesToAppend.appendChild(node);
             }
             else
             {
@@ -103,6 +105,8 @@ export default class Loop
 
             node[this[_name]] = it;
         }
+
+        this[_node].appendChild(nodesToAppend);
 
         while(this[_data].length < this.children.length)
         {
