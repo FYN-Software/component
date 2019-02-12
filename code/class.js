@@ -24,7 +24,7 @@ export default class Class
     get code()
     {
         let parameters = {};
-        let parts = [ `class ${this._name.upperCaseFirst()}` ];
+        let parts = [ `class ${this._name.capitalize()}` ];
 
         if(this._extends !== null)
         {

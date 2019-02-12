@@ -140,7 +140,7 @@ export default class Loop
     {
         if(this._item === undefined)
         {
-            const n = `${this[_name].upperCaseFirst()}LoopItem`;
+            const n = `${this[_name].capitalize()}LoopItem`;
 
             this._item = window.customElements.get(n.toDashCase())
                 || new Class(n)
