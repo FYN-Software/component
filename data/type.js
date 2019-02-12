@@ -1,7 +1,5 @@
 const value = Symbol('value');
 
-Object.getPrototypeOf(Proxy)[Symbol.toStringTag] = () => 'WOOT!!!';
-
 export default class Type extends EventTarget
 {
     constructor(v = null)
