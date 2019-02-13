@@ -44,7 +44,7 @@ export default class Stack extends EventTarget
 
     async enqueue(...items)
     {
-        setTimeout(() => this[task].push(...items), 10);
+        return this[task].push(...items);
     }
 
     async dequeue()
