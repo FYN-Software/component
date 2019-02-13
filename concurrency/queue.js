@@ -10,6 +10,7 @@ export default class Queue extends EventTarget
 
         this[task] = new Task(thread => {
             let store = [];
+
             const functions = {
                 clear()
                 {
