@@ -1,4 +1,5 @@
 import './extends.js';
+import Type from './data/type.js';
 import Generic from './generic.js';
 import Class from './code/class.js';
 import Method from './code/method.js';
@@ -77,10 +78,20 @@ export default class Loop
         const d = Object.entries(Object.entries(this[_data]))
             .map(([ c, i ]) => [ Number(c), i ]);
 
+        if(this[_data] instanceof Type)
+        {
+            console.log(Array.from(this[_data]));
+        }
+
         let nodesToAppend = document.createDocumentFragment();
 
         for(const [ c, [ , it ] ] of d)
         {
+            if(this[_data] instanceof Type)
+            {
+                console.log(it);
+            }
+
             let node;
 
             if(this.children.length <= c)

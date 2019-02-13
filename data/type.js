@@ -11,11 +11,26 @@ export default class Type extends EventTarget
         let lastP;
         const proxy = new Proxy(() => {}, {
             get: (c, p) => {
-                const getter = Object.getOwnPropertyDescriptor(Object.getPrototypeOf(this), p).get;
-
-                if(getter !== undefined)
+                if(p === 'then' && (this[value] instanceof Promise) === false)
                 {
-                    return this[p];
+                    return undefined;
+                }
+
+                const proto = Object.getPrototypeOf(this);
+
+                if(Object.getOwnPropertyNames(proto).includes(p))
+                {
+                    const getter = Object.getOwnPropertyDescriptor(proto, p).get;
+
+                    if(getter !== undefined)
+                    {
+                        return this[p];
+                    }
+                }
+
+                if(this[value].hasOwnProperty(p))
+                {
+                    return this[value][p];
                 }
 
                 lastP = p;
@@ -23,7 +38,14 @@ export default class Type extends EventTarget
                 return proxy;
             },
             set: (c, p, v) => {
+                const old = this[value];
+
                 this[value] = this.set(v);
+
+                if(old !== this[value])
+                {
+                    this.emit('changed', { old, new: this[value] });
+                }
 
                 return true;
             },
@@ -34,6 +56,7 @@ export default class Type extends EventTarget
                     ? proxy
                     : res;
             },
+            getPrototypeOf: () => this,
         });
 
         return proxy;

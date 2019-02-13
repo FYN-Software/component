@@ -1,11 +1,13 @@
 import Base from './base.js';
 import Timer from './concurrency/timer.js';
+import Type from './data/type.js';
 import Loop from './loop.js';
 import Queue from './concurrency/queue.js';
 import { abstract } from './mixins.js';
 import { objectFromEntries, equals } from './extends.js';
-import { relativeToAbsolute } from './utilities/url.js';
+// import { relativeToAbsolute } from './utilities/url.js';
 
+// Declare private class properties
 const get = Symbol('get');
 const set = Symbol('set');
 const queue = Symbol('queue');
@@ -142,7 +144,7 @@ export default abstract(class ObservingElement extends Base
             return;
         }
 
-        worker.postMessage([ name, value ]);
+        // worker.postMessage([ name, value ]);
 
         const m = this[observers].hasOwnProperty(name) && this[observers][name].hasOwnProperty('set')
             ? this[observers][name].set
@@ -156,7 +158,14 @@ export default abstract(class ObservingElement extends Base
             return;
         }
 
-        this[properties][name] = value;
+        if(this[properties][name] instanceof Type)
+        {
+            this[properties][name].value = value;
+        }
+        else
+        {
+            this[properties][name] = value;
+        }
 
         if(this[observers].hasOwnProperty(name) && this[observers][name].hasOwnProperty('changed'))
         {
