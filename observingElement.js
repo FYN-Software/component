@@ -1,40 +1,11 @@
 import Base from './base.js';
+import Timer from './concurrency/timer.js';
 import Loop from './loop.js';
-import Queue from './queue.js';
+import Queue from './concurrency/queue.js';
 import { abstract } from './mixins.js';
 import { objectFromEntries, equals } from './extends.js';
 import { relativeToAbsolute } from './utilities/url.js';
 
-const specialProperties = [ 'if', 'for' ];
-const regex = /{{\s*(.+?)\s*}}/gs;
-const decodeHtml = (html) => {
-    const txt = document.createElement("textarea");
-    txt.innerHTML = String(html);
-    return txt.value;
-};
-const worker = new Worker(relativeToAbsolute(import.meta.url, './worker.js'), { type: 'module' });
-worker.on({
-    message: e => console.log(e.data),
-});
-
-// TODO(Chris Kruining)
-//  Offload this to separate thread
-//  Using a web worker (most likely
-//  Add a wrapper class so the API
-//  Will be similar to C# task API)
-let elements = new Set();
-setInterval(() =>
-{
-    for(const el of elements)
-    {
-        if(el[queue].length > 0 || el[setQueue].length > 0)
-        {
-            el[render]();
-        }
-    }
-}, 100);
-
-// Declare private class properties
 const get = Symbol('get');
 const set = Symbol('set');
 const queue = Symbol('queue');
@@ -42,6 +13,21 @@ const render = Symbol('render');
 const setQueue = Symbol('setQueue');
 const observers = Symbol('observers');
 const properties = Symbol('properties');
+
+const elements = new Set();
+const timer = new Timer(100, () => {
+    for(const el of elements)
+    {
+        el[render]();
+    }
+});
+const specialProperties = [ 'if', 'for' ];
+const regex = /{{\s*(.+?)\s*}}/gs;
+const decodeHtml = (html) => {
+    const txt = document.createElement("textarea");
+    txt.innerHTML = String(html);
+    return txt.value;
+};
 
 export default abstract(class ObservingElement extends Base
 {
@@ -85,49 +71,46 @@ export default abstract(class ObservingElement extends Base
         }
     }
 
-    [render]()
+    async [render]()
     {
-        if(this[queue].length > 0)
+        for await(const n of this[queue])
         {
-            for(const n of this[queue])
-            {
-                const v = n.bindings.length === 1 && n.bindings[0].original === n.template
-                    ? n.bindings[0].value
-                    : Promise.all(n.bindings.map(b => b.value.then(v => [
-                        b.expression,
-                        v
-                    ])))
-                        .then(objectFromEntries)
-                        .then(v => n.template.replace(regex, (a, m) => v[m]));
+            const v = n.bindings.length === 1 && n.bindings[0].original === n.template
+                ? n.bindings[0].value
+                : Promise.all(n.bindings.map(b => b.value.then(v => [
+                    b.expression,
+                    v
+                ])))
+                    .then(objectFromEntries)
+                    .then(v => n.template.replace(regex, (a, m) => v[m]));
 
-                v.then(v => {
-                    if(n.nodeType === 2 && specialProperties.includes(n.nodeName))
+            v.then(v => {
+                if(n.nodeType === 2 && specialProperties.includes(n.nodeName))
+                {
+                    switch(n.nodeName)
                     {
-                        switch(n.nodeName)
-                        {
-                            case 'if':
-                                n.ownerElement.attributes.setOnAssert(v !== true, 'hidden');
+                        case 'if':
+                            n.ownerElement.attributes.setOnAssert(v !== true, 'hidden');
 
-                                break;
+                            break;
 
-                            case 'for':
-                                const loop = n.ownerElement.loop;
-                                loop.data = v;
-                                loop.render();
+                        case 'for':
+                            const loop = n.ownerElement.loop;
+                            loop.data = v;
+                            loop.render();
 
-                                break;
-                        }
+                            break;
                     }
-                    else if(n.nodeType === 2 && n.ownerElement.hasOwnProperty(n.nodeName))
-                    {
-                        n.ownerElement[n.nodeName] = v;
-                    }
-                    else
-                    {
-                        n.nodeValue = decodeHtml(v);
-                    }
-                });
-            }
+                }
+                else if(n.nodeType === 2 && n.ownerElement.hasOwnProperty(n.nodeName))
+                {
+                    n.ownerElement[n.nodeName] = v;
+                }
+                else
+                {
+                    n.nodeValue = decodeHtml(v);
+                }
+            });
         }
     }
 
