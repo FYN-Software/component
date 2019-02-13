@@ -42,7 +42,7 @@ export default class Event
         };
     }
 
-    static on(el, settings)
+    static on(target, settings)
     {
         let { options = {}, ...events } = settings;
 
@@ -53,15 +53,15 @@ export default class Event
 
         for(let [ event, callback ] of Object.entries(events))
         {
-            el.addEventListener(
+            target.addEventListener(
                 event,
-                e => callback.apply(el, [ e ]),
+                callback.bind(target),
                 options
             );
         }
     }
 
-    static delegate(el, selector, settings)
+    static delegate(target, selector, settings)
     {
         for(let [ e, c ] of Object.entries(settings))
         {
@@ -72,7 +72,7 @@ export default class Event
 
             settings[e] = e =>
             {
-                let t = Array.from(el.querySelectorAll(selector)).find(el => e.path.includes(el));
+                let t = Array.from(target.querySelectorAll(selector)).find(el => e.path.includes(el));
 
                 if(t === undefined)
                 {
@@ -86,11 +86,11 @@ export default class Event
         Event.on(document.body, settings);
     }
 
-    static trigger(el, name)
+    static trigger(target, name)
     {
         let event = document.createEvent('HTMLEvents');
         event.initEvent(name, false, true);
 
-        el.dispatchEvent(event);
+        target.dispatchEvent(event);
     }
 }
