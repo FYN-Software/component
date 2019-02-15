@@ -9,13 +9,24 @@ export default class Timer extends EventTarget
         super();
 
         this[task] = new Task((thread, interval) => {
-            setInterval(() => thread.postMessage(null), interval);
+            let i;
+
+            thread.onmessage = e => {
+                switch(e.data)
+                {
+                    case 'start':
+                        i = setInterval(() => thread.postMessage(null), interval);
+                        break;
+
+                    case 'stop':
+                        clearInterval(i);
+                        break;
+                }
+            };
         }, interval);
 
         this[task].on({
             message: () => {
-                console.log('YO');
-
                 this.emit('elapsed');
             },
         });
@@ -26,5 +37,15 @@ export default class Timer extends EventTarget
                 elapsed: e => elapsed(e),
             })
         }
+    }
+
+    start()
+    {
+        this[task].postMessage('start');
+    }
+
+    stop()
+    {
+        this[task].postMessage('stop');
     }
 }

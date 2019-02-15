@@ -1,3 +1,5 @@
+const worker = Symbol('worker');
+
 export default class Task extends EventTarget
 {
     constructor(callable, ...args)
@@ -7,14 +9,16 @@ export default class Task extends EventTarget
         let lastP;
         let messages = [];
 
-        const worker = new Worker(
+        this[worker] = new Worker(
             typeof callable === 'string'
                 ? callable
                 : URL.createObjectURL(new Blob([ `(${ callable })(self, ...JSON.parse('${JSON.stringify(args)}'))` ]))
         );
-        worker.onmessage = e => {
+        this[worker].onmessage = e => {
             if(Array.isArray(e.data) === false)
             {
+                this.emit('message', e.data);
+
                 return;
             }
 
@@ -22,6 +26,8 @@ export default class Task extends EventTarget
 
             if(messages.hasOwnProperty(i) === false)
             {
+                this.emit('message', e.data);
+
                 return;
             }
 
@@ -51,12 +57,17 @@ export default class Task extends EventTarget
             apply: (c, s, a) => {
                 const promise = new Promise(r => messages.push(r));
 
-                worker.postMessage([ messages.length - 1, lastP, a ]);
+                this[worker].postMessage([ messages.length - 1, lastP, a ]);
 
                 return promise;
             }
         });
 
         return proxy;
+    }
+
+    postMessage(...a)
+    {
+        this[worker].postMessage(...a);
     }
 }

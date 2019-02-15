@@ -1,11 +1,10 @@
 import Base from './base.js';
-import Timer from './concurrency/timer.js';
+// import Timer from './concurrency/timer.js';
 import Type from './data/type.js';
 import Loop from './loop.js';
-import Queue from './concurrency/queue.js';
+import Queue from './utilities/queue.js';
 import { abstract } from './mixins.js';
 import { objectFromEntries, equals } from './extends.js';
-// import { relativeToAbsolute } from './utilities/url.js';
 
 // Declare private class properties
 const get = Symbol('get');
@@ -17,12 +16,18 @@ const observers = Symbol('observers');
 const properties = Symbol('properties');
 
 const elements = new Set();
-const timer = new Timer(100, () => {
+// new Timer(100, () => {
+//     for(const el of elements)
+//     {
+//         el[render]();
+//     }
+// }).start();
+setInterval(() => {
     for(const el of elements)
     {
         el[render]();
     }
-});
+}, 100);
 const specialProperties = [ 'if', 'for' ];
 const regex = /{{\s*(.+?)\s*}}/gs;
 const decodeHtml = (html) => {
@@ -30,6 +35,7 @@ const decodeHtml = (html) => {
     txt.innerHTML = String(html);
     return txt.value;
 };
+
 
 export default abstract(class ObservingElement extends Base
 {
