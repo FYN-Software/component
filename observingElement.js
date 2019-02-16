@@ -83,42 +83,42 @@ export default abstract(class ObservingElement extends Base
     {
         for await(const n of this[queue])
         {
-            const v = n.bindings.length === 1 && n.bindings[0].original === n.template
-                ? n.bindings[0].value
-                : Promise.all(n.bindings.map(b => b.value.then(v => [
-                    b.expression,
-                    v
-                ])))
-                    .then(objectFromEntries)
-                    .then(v => n.template.replace(regex, (a, m) => v[m]));
+            const v = await (
+                n.bindings.length === 1 && n.bindings[0].original === n.template
+                    ? n.bindings[0].value
+                    : Promise.all(n.bindings.map(b => b.value.then(v => [
+                        b.expression,
+                        v
+                    ])))
+                        .then(objectFromEntries)
+                        .then(v => n.template.replace(regex, (a, m) => v[m]))
+            );
 
-            v.then(v => {
-                if(n.nodeType === 2 && specialProperties.includes(n.nodeName))
+            if(n.nodeType === 2 && specialProperties.includes(n.nodeName))
+            {
+                switch(n.nodeName)
                 {
-                    switch(n.nodeName)
-                    {
-                        case 'if':
-                            n.ownerElement.attributes.setOnAssert(v !== true, 'hidden');
+                    case 'if':
+                        n.ownerElement.attributes.setOnAssert(v !== true, 'hidden');
 
-                            break;
+                        break;
 
-                        case 'for':
-                            const loop = n.ownerElement.loop;
-                            loop.data = v;
-                            loop.render();
+                    case 'for':
+                        const loop = n.ownerElement.loop;
+                        loop.data = v;
+                        loop.render();
 
-                            break;
-                    }
+                        break;
                 }
-                else if(n.nodeType === 2 && n.ownerElement.hasOwnProperty(n.nodeName))
-                {
-                    n.ownerElement[n.nodeName] = v;
-                }
-                else
-                {
-                    n.nodeValue = decodeHtml(v);
-                }
-            });
+            }
+            else if(n.nodeType === 2 && n.ownerElement.hasOwnProperty(n.nodeName))
+            {
+                n.ownerElement[n.nodeName] = v;
+            }
+            else
+            {
+                n.nodeValue = decodeHtml(v);
+            }
         }
     }
 
