@@ -75,13 +75,8 @@ export default class Loop
 
         // NOTE(Chris Kruining)
         // This double entries allows me to also iterate over objects
-        const d = Object.entries(Object.entries(this[_data]))
+        const d = Object.entries(Object.entries(Array.from(this[_data])))
             .map(([ c, i ]) => [ Number(c), i ]);
-
-        if(this[_data] instanceof Type)
-        {
-            console.log(Array.from(this[_data]));
-        }
 
         let nodesToAppend = document.createDocumentFragment();
 
