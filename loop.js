@@ -1,4 +1,4 @@
-import './extends.js';
+import '../core/extends.js';
 import Type from './data/type.js';
 import Generic from './generic.js';
 import Class from './code/class.js';

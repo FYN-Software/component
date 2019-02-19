@@ -1,6 +1,6 @@
-import { equals, objectFromEntries } from './extends.js';
-import { abstract } from './mixins.js';
-import Type from './data/type.js';
+import { equals, objectFromEntries } from '../core/extends.js';
+import { abstract } from '../core/mixins.js';
+import Type from '../data/type/type.js';
 import Loop from './loop.js';
 import Queue from './utilities/queue.js';
 

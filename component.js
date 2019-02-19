@@ -1,4 +1,4 @@
-import * as Extends from './extends.js';
+import * as Extends from '../core/extends.js';
 import Base from './base.js';
 import Composer from './composer.js';
 

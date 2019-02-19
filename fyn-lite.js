@@ -1,6 +1,6 @@
-import * as Extends from './extends.js';
+import * as Extends from '../core/extends.js';
 
-import Event from './utilities/event.js';
+import Event from '../core/event.js';
 
 import Class from './code/class.js';
 import Method from './code/method.js';
