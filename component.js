@@ -1,11 +1,11 @@
 import * as Extends from './extends.js';
-import ObservingElement from './observingElement.js';
+import Base from './base.js';
 import Composer from './composer.js';
 
 let names = {};
 let templates = {};
 
-export default class Component extends ObservingElement
+export default class Component extends Base
 {
     constructor(url = null)
     {
@@ -47,7 +47,7 @@ export default class Component extends ObservingElement
             }
 
             p = p.then(t => this.parseTemplate(t))
-                .stage(r => this._shadow.appendChild(r.template));
+                .stage(r => this.shadow.appendChild(r.template));
         }
 
         p.then(r => {
