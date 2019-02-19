@@ -8,10 +8,10 @@ import Function from './code/function.js';
 
 import Font from './utilities/font.js';
 
-import Type from './data/type.js';
-import String from './data/string.js';
-import Boolean from './data/boolean.js';
-import Array from './data/array.js';
+import Type from '../data/type/type.js';
+import String from '../data/type/string.js';
+import Boolean from '../data/type/boolean.js';
+import Array from '../data/type/array.js';
 
 const Utilities = {
     Code: {

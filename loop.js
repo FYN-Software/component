@@ -1,5 +1,5 @@
 import '../core/extends.js';
-import Type from './data/type.js';
+import Type from '../data/type/type.js';
 import Generic from './generic.js';
 import Class from './code/class.js';
 import Method from './code/method.js';
