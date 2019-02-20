@@ -99,7 +99,7 @@ export default abstract(class Base extends HTMLElement
 
                     case 'for':
                         const loop = n.ownerElement.loop;
-                        loop.data = v;
+                        loop.data = v || [];
                         loop.render();
 
                         break;
