@@ -82,11 +82,6 @@ export default class Loop
 
         for(const [ c, [ , it ] ] of d)
         {
-            if(this[_data] instanceof Type)
-            {
-                console.log(it);
-            }
-
             let node;
 
             if(this.children.length <= c)
