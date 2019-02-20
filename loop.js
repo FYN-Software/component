@@ -122,18 +122,7 @@ export default class Loop
 
     set data(d)
     {
-        if(d instanceof Promise)
-        {
-            d.then(d => {
-                this[_data] = d;
-
-                this.render();
-            });
-        }
-        else
-        {
-            this[_data] = d;
-        }
+        this[_data] = d;
     }
 
     get children()
