@@ -1,4 +1,5 @@
 import * as Extends from '../core/extends.js';
+import { load } from '../core/polyfill.js';
 import Base from './base.js';
 import Composer from './composer.js';
 
@@ -224,7 +225,7 @@ export default class Component extends Base
             return r;
         }
 
-        r = await import(Composer.resolve(el));
+        r = await load(Composer.resolve(el));
 
         return Component.register(r.default, el);
     }
