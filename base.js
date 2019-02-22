@@ -160,7 +160,7 @@ export default abstract(class Base extends HTMLElement
 
         if(this[properties][name] instanceof Type)
         {
-            this[properties][name].value = value;
+            this[properties][name].__value = value;
         }
         else
         {
