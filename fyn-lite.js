@@ -11,7 +11,7 @@ import Font from './utilities/font.js';
 import Type from '../data/type/type.js';
 import String from '../data/type/string.js';
 import Boolean from '../data/type/boolean.js';
-import Array from '../data/type/array.js';
+import List from '../data/type/list.js';
 
 const Utilities = {
     Code: {
@@ -25,7 +25,7 @@ const Data = {
     Type,
     String,
     Boolean,
-    Array,
+    List,
 };
 
 export {
