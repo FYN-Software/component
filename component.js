@@ -203,14 +203,7 @@ export default class Component extends Base
         {
             names[classDef.prototype.constructor.name] = n;
 
-            try
-            {
-                window.customElements.define(n, classDef);
-            }
-            catch(e)
-            {
-                console.error(e);
-            }
+            window.customElements.define(n, classDef);
         }
 
         return classDef;
