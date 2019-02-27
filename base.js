@@ -69,7 +69,14 @@ export default abstract(class Base extends HTMLElement
                 throw new Error(`Trying to observe non-observable property '${p}'`);
             }
 
-            this[observers][p] = c;
+            if(this[properties][p] instanceof Type)
+            {
+                this[properties][p].on(c);
+            }
+            else
+            {
+                this[observers][p] = c;
+            }
         }
     }
 
@@ -107,6 +114,11 @@ export default abstract(class Base extends HTMLElement
             }
             else if(n.nodeType === 2 && n.ownerElement.hasOwnProperty(n.nodeName))
             {
+                if(decodeHtml(v) === '/img/banner.jpg')
+                {
+                    // console.log(v, n.ownerElement, n.nodeName);
+                }
+
                 n.ownerElement[n.nodeName] = v;
             }
             else
@@ -122,7 +134,14 @@ export default abstract(class Base extends HTMLElement
             ? this[observers][name].get
             : v => v;
 
-        return m(this[properties][name]);
+        let v = this[properties][name];
+
+        if(v instanceof Type)
+        {
+            v = v.__value;
+        }
+
+        return m(v);
     }
 
     async [set](name, value)
@@ -137,14 +156,17 @@ export default abstract(class Base extends HTMLElement
             value = await value;
         }
 
+        if(value instanceof  Type)
+        {
+            value = value.__value;
+        }
+
         if(this._bindings === null)
         {
             this[setQueue].push([ name, value ]);
 
             return;
         }
-
-        // worker.postMessage([ name, value ]);
 
         const m = this[observers].hasOwnProperty(name) && this[observers][name].hasOwnProperty('set')
             ? this[observers][name].set
@@ -251,13 +273,13 @@ export default abstract(class Base extends HTMLElement
                     const callable = Function(`
                         'use strict'; 
                         return async function(${keys.join(', ')})
-                        { 
+                        {
                             try
                             { 
                                 return ${variable}; 
                             }
                             catch(e)
-                            {
+                            {                            
                                 return undefined; 
                             } 
                         };
@@ -278,7 +300,7 @@ export default abstract(class Base extends HTMLElement
                                 t = t[properties].__this__;
                             }
 
-                            this.value = callable.apply(t, Object.values(self[properties]));
+                            this.value = callable.apply(t, Object.values(self[properties]).map(p => p instanceof Type ? p.__value : p));
 
                             return this.value;
                         },
