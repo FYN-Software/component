@@ -71,7 +71,9 @@ export default abstract(class Base extends HTMLElement
 
             if(this[properties][p] instanceof Type)
             {
-                this[properties][p].on(c);
+                this[properties][p].on({
+                    changed: e => c.apply(this[properties][p], [ e.detail.old, e.detail.new ]),
+                });
             }
             else
             {
