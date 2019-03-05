@@ -115,15 +115,15 @@ export default class Component extends Base
                 {
                     this._listeners[type]._listener = e => {
                         let type = e.type;
-                        let matches = Object.entries(this._listeners[type]).map(
-                            t =>  Object.assign(t, { targets: t[0] === ':scope'
+                        let matches = Object.entries(this._listeners[type])
+                            .map(t =>  Object.assign(t, { targets: t[0] === ':scope'
                                     ? [ this ]
                                     : [
                                         ...Array.from(this.querySelectorAll(t[0])),
                                         ...Array.from(this.shadow.querySelectorAll(t[0])),
                                     ].unique()
-                            })
-                        ).filter(t => t.targets.some(el => e.path.includes(el)));
+                            }))
+                            .filter(t => t.targets.some(el => e.composedPath().includes(el)));
 
                         for(let match of matches)
                         {
@@ -136,7 +136,7 @@ export default class Component extends Base
 
                                 o.fireCount++;
 
-                                callback(e, match.targets.filter(el => e.path.includes(el))[0]);
+                                callback(e, match.targets.filter(el => e.composedPath().includes(el))[0]);
                             }
                         }
                     };
