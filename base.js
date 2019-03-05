@@ -20,7 +20,7 @@ const decodeHtml = (html) => {
     return txt.value;
 };
 const specialProperties = [ 'if', 'for' ];
-const regex = /{{\s*(.+?)\s*}}/gs;
+const regex = /{{\s*(.+?)\s*}}/g;
 const elements = new Set();
 setInterval(() => {
     for(const el of elements)
