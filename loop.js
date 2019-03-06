@@ -7,6 +7,7 @@ import Method from './code/method.js';
 const _data = Symbol('data');
 const _node = Symbol('node');
 const _name = Symbol('name');
+const _key = Symbol('key');
 const _parent = Symbol('parent');
 const _template = Symbol('template');
 
@@ -19,9 +20,12 @@ export default class Loop
             writable: false,
         });
 
+        const keys = name.split(/,\s*/g);
+
         this[_data] = [];
         this[_node] = node;
-        this[_name] = name;
+        this[_key] = keys.first;
+        this[_name] = keys.last;
         this[_parent] = parent;
         this[_template] = new DocumentFragment();
 
@@ -82,7 +86,7 @@ export default class Loop
 
         let nodesToAppend = document.createDocumentFragment();
 
-        for(const [ c, [ , it ] ] of d)
+        for(const [ c, [ k, it ] ] of d)
         {
             let node;
 
@@ -106,6 +110,7 @@ export default class Loop
                 node = this.children[c];
             }
 
+            node[this[_key]] = k;
             node[this[_name]] = it;
         }
 
@@ -150,7 +155,7 @@ export default class Loop
                         new Method('properties')
                             .static()
                             .getter()
-                            .body(`return { ${this[_name]}: null, __this__: null };`)
+                            .body(`return { ${this[_key]}: null, ${this[_name]}: null, __this__: null };`)
                     )
                     .code;
         }
