@@ -148,11 +148,6 @@ export default class Loop
                     .extends(Generic)
                     .addMethod(
                         new Method('properties')
-                            .getter()
-                            .body(`return this._properties.${this[_name]};`)
-                    )
-                    .addMethod(
-                        new Method('properties')
                             .static()
                             .getter()
                             .body(`return { ${this[_key]}: null, ${this[_name]}: null, __this__: null };`)
