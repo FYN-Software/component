@@ -51,7 +51,7 @@ export default abstract(class Base extends HTMLElement
         Object.entries(this.constructor.properties).forEach(([k, v]) => {
             Reflect.defineProperty(this, k, {
                 get: () => this[get](k),
-                set: v => this[set](k, v),
+                set: async v => await this[set](k, v),
                 enumerable: true,
             });
 
@@ -116,11 +116,6 @@ export default abstract(class Base extends HTMLElement
             }
             else if(n.nodeType === 2 && n.ownerElement.hasOwnProperty(n.nodeName))
             {
-                if(decodeHtml(v) === '/img/banner.jpg')
-                {
-                    // console.log(v, n.ownerElement, n.nodeName);
-                }
-
                 n.ownerElement[n.nodeName] = v;
             }
             else
@@ -132,18 +127,17 @@ export default abstract(class Base extends HTMLElement
 
     [get](name)
     {
-        let m = this[observers].hasOwnProperty(name) && this[observers][name].hasOwnProperty('get')
-            ? this[observers][name].get
-            : v => v;
-
-        let v = this[properties][name];
-
-        if(v instanceof Type)
+        if(this[properties].hasOwnProperty(name) === false)
         {
-            v = v.__value;
+            throw new Error(`Property '${this.constructor.name}.${name}' does not extist`)
         }
 
-        return m(v);
+        if(this[properties][name] instanceof Type)
+        {
+            return this[properties][name].__value;
+        }
+
+        return this[properties][name];
     }
 
     async [set](name, value)
@@ -170,11 +164,6 @@ export default abstract(class Base extends HTMLElement
             return;
         }
 
-        const m = this[observers].hasOwnProperty(name) && this[observers][name].hasOwnProperty('set')
-            ? this[observers][name].set
-            : v => v;
-
-        value = m(value);
         const old = this[properties][name];
 
         if(old === value || equals(old, value))
@@ -182,22 +171,25 @@ export default abstract(class Base extends HTMLElement
             return;
         }
 
-        if(this[properties][name] instanceof Type)
+        try
         {
-            this[properties][name].__value = value;
+            if(this[properties][name] instanceof Type)
+            {
+                this[properties][name].__value = value;
+            }
+            else
+            {
+                this[properties][name] = value;
+            }
         }
-        else
+        catch(e)
         {
-            this[properties][name] = value;
+            throw new Error(
+                `Failed to set '${this.constructor.name}.${name}', '${value}' is not valid`
+            );
         }
 
-        if(this[observers].hasOwnProperty(name) && this[observers][name].hasOwnProperty('changed'))
-        {
-            this[observers][name].changed(old, value);
-        }
-
-        const bindings = this._bindings
-            .filter(b => b.properties.includes(name));
+        const bindings = this._bindings.filter(b => b.properties.includes(name));
 
         await Promise.all(bindings.map(b => b.resolve(this)));
 
@@ -276,6 +268,11 @@ export default abstract(class Base extends HTMLElement
                         'use strict'; 
                         return async function(${keys.join(', ')})
                         {
+                            if(\`${variable}\` === 'option.text || option.value')
+                            {
+                                console.error({${keys.join(', ')}});
+                            }
+                        
                             try
                             { 
                                 return ${variable}; 
@@ -332,7 +329,16 @@ export default abstract(class Base extends HTMLElement
 
         for(let args of this[setQueue])
         {
-            this[set](...args);
+            try
+            {
+                this[set](...args);
+            }
+            catch(e)
+            {
+                const [ key, value ] = args;
+
+                throw new Error(`Failed to set '${key}', '${value}' is not a valid value`);
+            }
         }
     }
 

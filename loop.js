@@ -29,8 +29,7 @@ export default class Loop
         {
             if(n instanceof HTMLSlotElement)
             {
-                const r = () =>
-                {
+                const r = () => {
                     const old = this[_template];
                     this[_template] = new DocumentFragment();
 
@@ -46,9 +45,12 @@ export default class Loop
 
                     Array.from(this.children).forEach(c => c.template = this[_template].cloneNode(true));
 
+                    this.children.clear();
+                    this.render();
+
                     this[_node].emit('templatechange', {
                         old,
-                        new: this[_template],
+                        new: this[_template].cloneNode(true),
                         loop: this,
                     });
                 };
@@ -64,7 +66,7 @@ export default class Loop
             }
         });
 
-        node.setAttribute('scroller', '');
+        this[_node].setAttribute('scroller', '');
     }
 
     render()

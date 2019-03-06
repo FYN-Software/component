@@ -8,11 +8,6 @@ import Function from './code/function.js';
 
 import Font from './utilities/font.js';
 
-import Type from '../data/type/type.js';
-import String from '../data/type/string.js';
-import Boolean from '../data/type/boolean.js';
-import List from '../data/type/list.js';
-
 const Utilities = {
     Code: {
         Class,
@@ -21,16 +16,9 @@ const Utilities = {
     },
     Font,
 };
-const Data = {
-    Type,
-    String,
-    Boolean,
-    List,
-};
 
 export {
     Extends,
     Event,
     Utilities,
-    Data,
 };
