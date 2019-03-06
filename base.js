@@ -20,7 +20,7 @@ const decodeHtml = (html) => {
     return txt.value;
 };
 const specialProperties = [ 'if', 'for' ];
-const regex = /{{\s*(.+?)\s*}}/g;
+const regex = /{{(?:#(?<label>[a-z]+))?\s*(?<variable>.+?)\s*}}/g;
 const elements = new Set();
 setInterval(() => {
     for(const el of elements)
@@ -48,7 +48,7 @@ export default abstract(class Base extends HTMLElement
         this[observers] = {};
         this[properties] = this.constructor.properties;
 
-        Object.entries(this.constructor.properties).forEach(([k, v]) => {
+        Object.entries(this[properties]).forEach(([k, v]) => {
             Reflect.defineProperty(this, k, {
                 get: () => this[get](k),
                 set: async v => await this[set](k, v),
@@ -89,12 +89,18 @@ export default abstract(class Base extends HTMLElement
             const v = await (
                 n.bindings.length === 1 && n.bindings[0].original === n.template
                     ? n.bindings[0].value
-                    : Promise.all(n.bindings.map(b => b.value.then(v => [
-                        b.expression,
-                        v
-                    ])))
+                    : Promise.all(n.bindings.map(b => b.value.then(v => [ b.expression, v ])))
                         .then(objectFromEntries)
-                        .then(v => n.template.replace(regex, (a, m) => v[m]))
+                        .then(v => n.template.replace(regex, (a, l, m) => {
+                            const value = v[m];
+
+                            if(value instanceof Type)
+                            {
+                                return value[Symbol.toPrimitive](l || 'default')
+                            }
+
+                            return value;
+                        }))
             );
 
             if(n.nodeType === 2 && specialProperties.includes(n.nodeName))
@@ -248,11 +254,10 @@ export default abstract(class Base extends HTMLElement
             while((match = regex.exec(str)) !== null)
             {
                 let binding;
+                let { label, variable } = match.groups;
 
-                if(bindings.has(match[1]) === false)
+                if(bindings.has(variable) === false)
                 {
-                    let variable = match[1];
-
                     if(node.nodeType === 2 && node.localName === 'for')
                     {
                         let name;
@@ -268,17 +273,12 @@ export default abstract(class Base extends HTMLElement
                         'use strict'; 
                         return async function(${keys.join(', ')})
                         {
-                            if(\`${variable}\` === 'option.text || option.value')
-                            {
-                                console.error({${keys.join(', ')}});
-                            }
-                        
                             try
-                            { 
+                            {
                                 return ${variable}; 
                             }
                             catch(e)
-                            {                            
+                            {
                                 return undefined; 
                             } 
                         };
@@ -286,7 +286,8 @@ export default abstract(class Base extends HTMLElement
 
                     binding = {
                         original: match[0],
-                        expression: match[1],
+                        expression: variable,
+                        label: label || 'default',
                         properties: keys.filter(k => variable.includes(k)),
                         nodes: new Set(),
                         value: callable.apply(this, Object.values(self[properties])),
@@ -305,11 +306,11 @@ export default abstract(class Base extends HTMLElement
                         },
                     };
 
-                    bindings.set(match[1], binding);
+                    bindings.set(variable, binding);
                 }
                 else
                 {
-                    binding = bindings.get(match[1])
+                    binding = bindings.get(variable)
                 }
 
                 nodeBindings.add(binding);
