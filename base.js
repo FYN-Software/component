@@ -269,20 +269,10 @@ export default abstract(class Base extends HTMLElement
 
                     const self = this;
                     const keys = Object.keys(this.constructor.properties);
-                    const callable = Function(`
-                        'use strict'; 
-                        return async function(${keys.join(', ')})
-                        {
-                            try
-                            {
-                                return ${variable}; 
-                            }
-                            catch(e)
-                            {
-                                return undefined; 
-                            } 
-                        };
-                    `)();
+                    const callable = new AsyncFunction(
+                        ...keys,
+                        `try { return ${variable}; } catch(e) { return undefined; }`
+                    );
 
                     binding = {
                         original: match[0],
