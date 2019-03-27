@@ -2,11 +2,10 @@ import Component from './component.js';
 
 export default class Generic extends Component
 {
-    constructor(node)
+    constructor(node, parent)
     {
-        Component.register(new.target);
-
         super(Promise.delay(0).then(() => this.setTemplate(node)));
+        this.__this__ = parent;
 
         const style = document.createElement('style');
         style.innerText = ':host { display: contents; }';

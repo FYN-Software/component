@@ -1,8 +1,7 @@
 import '../core/extends.js';
 import Type from '../data/type/type.js';
+import Component from './component.js';
 import Generic from './generic.js';
-import Class from './code/class.js';
-import Method from './code/method.js';
 
 const _data = Symbol('data');
 const _node = Symbol('node');
@@ -141,23 +140,32 @@ export default class Loop
     {
         if(this._item === undefined)
         {
-            const n = `${this[_name].capitalize()}LoopItem`;
+            const it = `${this[_key].capitalize()}${this[_name].capitalize()}LoopItem`.toDashCase();
 
-            this._item = window.customElements.get(n.toDashCase())
-                || new Class(n)
-                    .extends(Generic)
-                    .addMethod(
-                        new Method('properties')
-                            .static()
-                            .getter()
-                            .body(`return { ${this[_key]}: null, ${this[_name]}: null, __this__: null };`)
-                    )
-                    .code;
+            this._item = window.customElements.get(it);
+
+            if(this._item === undefined)
+            {
+                const key = this[_key];
+                const name = this[_name];
+
+                this._item = Component.register(
+                    class extends Generic
+                    {
+                        static get properties()
+                        {
+                            return {
+                                [key]: new Type,
+                                [name]: new Type,
+                                __this__: null,
+                            };
+                        }
+                    },
+                    it
+                );
+            }
         }
 
-        const item = new (this._item)(this[_template].cloneNode(true));
-        item.__this__ = this[_parent];
-
-        return item;
+        return new (this._item)(this[_template].cloneNode(true), this[_parent]);
     }
 }

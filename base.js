@@ -4,6 +4,8 @@ import Type from '../data/type/type.js';
 import Loop from './loop.js';
 import Queue from './utilities/queue.js';
 
+const AsyncFunction = Object.getPrototypeOf(async function(){}).constructor;
+
 // Declare private class properties
 const get = Symbol('get');
 const set = Symbol('set');
@@ -98,6 +100,8 @@ export default abstract(class Base extends HTMLElement
                             {
                                 return value[Symbol.toPrimitive](l || 'default')
                             }
+
+                            // console.error(value);
 
                             return value;
                         }))
@@ -269,20 +273,16 @@ export default abstract(class Base extends HTMLElement
 
                     const self = this;
                     const keys = Object.keys(this.constructor.properties);
-                    const callable = Function(`
-                        'use strict'; 
-                        return async function(${keys.join(', ')})
+                    const callable = new AsyncFunction(...keys, `
+                        try
                         {
-                            try
-                            {
-                                return ${variable}; 
-                            }
-                            catch(e)
-                            {
-                                return undefined; 
-                            } 
-                        };
-                    `)();
+                            return ${variable}; 
+                        }
+                        catch(e)
+                        {
+                            return undefined; 
+                        }
+                    `);
 
                     binding = {
                         original: match[0],
@@ -295,9 +295,16 @@ export default abstract(class Base extends HTMLElement
                         {
                             let t = self;
 
-                            while(t[properties].hasOwnProperty('__this__') === true)
+                            try
                             {
-                                t = t[properties].__this__;
+                                while(t[properties].hasOwnProperty('__this__') === true)
+                                {
+                                    t = t[properties].__this__;
+                                }
+                            }
+                            catch
+                            {
+                                t = null;
                             }
 
                             this.value = callable.apply(t, Object.values(self[properties]).map(p => p instanceof Type ? p.__value : p));

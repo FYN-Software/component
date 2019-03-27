@@ -1,5 +1,4 @@
 import * as Extends from '../core/extends.js';
-import { load } from '../core/polyfill.js';
 import Base from './base.js';
 import Composer from './composer.js';
 
@@ -197,11 +196,11 @@ export default class Component extends Base
 
     static register(classDef, name = null)
     {
-        let n = name || `${ classDef.prototype.constructor.name.replace(/[A-Z]/g, m => `-${m.toLowerCase()}`).substr(1) }`;
+        let n = name || `${ classDef.name.replace(/[A-Z]/g, m => `-${m.toLowerCase()}`).substr(1) }`;
 
         if(window.customElements.get(n) === undefined)
         {
-            names[classDef.prototype.constructor.name] = n;
+            names[classDef.name] = n;
 
             window.customElements.define(n, classDef);
         }
@@ -218,7 +217,7 @@ export default class Component extends Base
             return r;
         }
 
-        r = await load(Composer.resolve(el));
+        r = await import(Composer.resolve(el));
 
         return Component.register(r.default, el);
     }
