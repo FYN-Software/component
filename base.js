@@ -16,7 +16,7 @@ const observers = Symbol('observers');
 const properties = Symbol('properties');
 
 const decodeHtml = (html) => {
-    const txt = document.createElement("textarea");
+    const txt = document.createElement('textarea');
     txt.innerHTML = String(html);
     return txt.value;
 };
@@ -68,6 +68,18 @@ export default abstract(class Base extends HTMLElement
             const attr = k.toDashCase();
             this[set](k, this.getAttribute(attr) || this.hasAttribute(attr) || v);
         });
+    }
+
+    destructor()
+    {
+        elements.delete(this);
+
+        this._bindings = null;
+        this[shadow] = null;
+        this[queue] = null;
+        this[setQueue] = null;
+        this[observers] = null;
+        this[properties] = null;
     }
 
     observe(config)
@@ -175,8 +187,6 @@ export default abstract(class Base extends HTMLElement
             value = await value;
         }
 
-        // console.log(name, value);
-
         if(this._bindings === null)
         {
             this[setQueue].push([ name, value ]);
@@ -278,11 +288,7 @@ export default abstract(class Base extends HTMLElement
 
                         [ name, variable ] = variable.split(/ in /);
 
-                        getLoop().then(Loop => {
-                            new Loop(node.ownerElement, name, this);
-
-                            // this[queue].enqueue(node);
-                        });
+                        getLoop().then(Loop => new Loop(node.ownerElement, name, this));
                     }
 
                     const self = this;
@@ -363,14 +369,11 @@ export default abstract(class Base extends HTMLElement
         elements.add(this);
     }
 
-    adoptedCallback()
-    {
-        elements.add(this);
-    }
-
     disconnectedCallback()
     {
         elements.delete(this);
+
+        // this.destructor();
     }
 
     attributeChangedCallback(name, oldValue, newValue)

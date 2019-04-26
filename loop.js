@@ -107,6 +107,7 @@ export default class Loop
             else
             {
                 node = this.children[c];
+                node.removeAttribute('hidden');
             }
 
             node[this[_key]] = k;
@@ -118,6 +119,7 @@ export default class Loop
         while(this[_data].length < this.children.length)
         {
             this.children[this[_data].length].remove();
+            this.children[this[_data].length] = undefined;
         }
     }
 
@@ -128,8 +130,6 @@ export default class Loop
 
     set data(d)
     {
-        console.log(d);
-
         this[_data] = d;
     }
 
