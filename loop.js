@@ -1,7 +1,7 @@
 import '../core/extends.js';
 import Type from '../data/type/type.js';
-import Component from './component.js';
 import Generic from './generic.js';
+import Component from './component.js';
 
 const _data = Symbol('data');
 const _node = Symbol('node');
@@ -128,6 +128,8 @@ export default class Loop
 
     set data(d)
     {
+        console.log(d);
+
         this[_data] = d;
     }
 

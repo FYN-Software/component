@@ -1,7 +1,6 @@
 import { equals, objectFromEntries } from '../core/extends.js';
 import { abstract } from '../core/mixins.js';
 import Type from '../data/type/type.js';
-import Loop from './loop.js';
 import Queue from './utilities/queue.js';
 
 const AsyncFunction = Object.getPrototypeOf(async function(){}).constructor;
@@ -20,6 +19,15 @@ const decodeHtml = (html) => {
     const txt = document.createElement("textarea");
     txt.innerHTML = String(html);
     return txt.value;
+};
+let loop;
+const getLoop = async () => {
+    if(loop === undefined)
+    {
+        loop = (await import('./loop.js')).default;
+    }
+
+    return loop;
 };
 const specialProperties = [ 'if', 'for' ];
 const regex = /{{(?:#(?<label>[a-z]+))?\s*(?<variable>.+?)\s*}}/g;
@@ -157,15 +165,17 @@ export default abstract(class Base extends HTMLElement
             return;
         }
 
+        if(value instanceof  Type)
+        {
+            value = value.__value;
+        }
+
         if(value instanceof Promise)
         {
             value = await value;
         }
 
-        if(value instanceof  Type)
-        {
-            value = value.__value;
-        }
+        // console.log(name, value);
 
         if(this._bindings === null)
         {
@@ -268,7 +278,11 @@ export default abstract(class Base extends HTMLElement
 
                         [ name, variable ] = variable.split(/ in /);
 
-                        new Loop(node.ownerElement, name, this);
+                        getLoop().then(Loop => {
+                            new Loop(node.ownerElement, name, this);
+
+                            // this[queue].enqueue(node);
+                        });
                     }
 
                     const self = this;
