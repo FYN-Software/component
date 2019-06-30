@@ -51,7 +51,9 @@ export default class Component extends Base
         }
 
         p.then(r => {
-            this._bindings = r.bindings;
+            this._bindings = r !== null
+                ? r.bindings
+                : [];
 
             this._populate();
 
@@ -196,16 +198,16 @@ export default class Component extends Base
 
     static register(classDef, name = null)
     {
-        let n = name || `${ classDef.name.replace(/[A-Z]/g, m => `-${m.toLowerCase()}`).substr(1) }`;
+        name = name || `${ classDef.name.replace(/[A-Z]/g, m => `-${m.toLowerCase()}`).substr(1) }`;
 
-        if(window.customElements.get(n) === undefined)
+        if(window.customElements.get(name) === undefined)
         {
-            names[classDef.name] = n;
+            names[classDef.name] = name;
 
-            window.customElements.define(n, classDef);
+            window.customElements.define(name, classDef);
         }
 
-        return classDef;
+        return window.customElements.get(name);
     }
 
     static async load(el)
