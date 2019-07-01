@@ -65,7 +65,7 @@ export default abstract(class Base extends HTMLElement
         this[queue] = new Queue;
         this[setQueue] = [];
         this[observers] = {};
-        this[properties] = props;
+        this[properties] = this.constructor[properties];
 
         Object.entries(this[properties]).forEach(([k, v]) => {
             Reflect.defineProperty(this, k, {
@@ -301,7 +301,7 @@ export default abstract(class Base extends HTMLElement
                     }
 
                     const self = this;
-                    const keys = Object.keys(this.constructor.properties);
+                    const keys = Object.keys(this.constructor[properties]);
                     const callable = new AsyncFunction(
                         ...keys,
                         `try { return ${variable}; } catch(e) { return undefined; }`
@@ -424,5 +424,18 @@ export default abstract(class Base extends HTMLElement
     static get properties()
     {
         return {};
+    }
+
+    static get [properties]()
+    {
+        let constructor = this;
+        let props = {};
+        while(constructor !== Base)
+        {
+            props = Object.assign(constructor.properties, props);
+            constructor = constructor.__proto__;
+        }
+
+        return props;
     }
 });
