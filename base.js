@@ -20,6 +20,7 @@ const decodeHtml = (html) => {
     txt.innerHTML = String(html);
     return txt.value;
 };
+window.range = (s, e) => Array(e - s).fill(1).map((_, i) => s + i);
 let loop;
 const getLoop = async () => {
     if(loop === undefined)
