@@ -17,10 +17,9 @@ function url(font, variants, onlyCharacters)
     return url;
 }
 
-function load(font, selector = null, variants = [], preview = false)
+async function load(font, selector = null, variants = [], preview = false)
 {
-    return new Promise((res, rev) =>
-    {
+    return new Promise((res, rev) => {
         const l = document.createElement('link');
         l.rel = 'stylesheet';
         l.href = url(font, variants, preview);
@@ -29,28 +28,25 @@ function load(font, selector = null, variants = [], preview = false)
         l.onerror = rev;
 
         document.head.appendChild(l);
-    })
-        .catch(e => e);
+    });
 }
 
 export default class Font
 {
-    static fetch(font, selector = null, variants = [])
+    static async fetch(font, selector = null, variants = [])
     {
         return load(font, selector, variants, false);
     }
 
-    static preview(font, selector = null, variants = [])
+    static async preview(font, selector = null, variants = [])
     {
         return load(font, selector, variants, true);
     }
 
-    static list(key)
+    static async list(key)
     {
-        return fetch(
-            `https://www.googleapis.com/webfonts/v1/webfonts?sort=popularity&key=${key}`,
-            { headers: { 'content-type': 'application/json' } }
-        )
-            .then(r => r.json());
+        const url = `https://www.googleapis.com/webfonts/v1/webfonts?sort=popularity&key=${key}`;
+
+        return (await fetch(url, { headers: { 'content-type': 'application/json' } })).json();
     }
 }
