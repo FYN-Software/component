@@ -146,9 +146,13 @@ export default abstract(class Base extends HTMLElement
                         break;
 
                     case 'for':
-                        const loop = n.ownerElement.loop;
-                        loop.data = v || [];
-                        loop.render();
+                        try
+                        {
+                            const loop = n.ownerElement.loop;
+                            loop.data = v || [];
+                            loop.render();
+                        }
+                        catch(e){}
 
                         break;
                 }
