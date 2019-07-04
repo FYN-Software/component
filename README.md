@@ -1,4 +1,5 @@
 [![CodeFactor](https://www.codefactor.io/repository/github/fyn-software/component/badge/master)](https://www.codefactor.io/repository/github/fyn-software/component/overview/master)
+[![DeepScan grade](https://deepscan.io/api/teams/4426/projects/6205/branches/50700/badge/grade.svg)](https://deepscan.io/dashboard#view=project&tid=4426&pid=6205&bid=50700)
 
 # component
 Web component suite
