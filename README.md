@@ -4,11 +4,11 @@
 Web component suite
 
 ## TODO's
-- FYN Core
+- [FYN Core](https://github.com/FYN-Software/core)
   - [x] Extends (normalization and extension layer, dirty implemented, monkey-patched...)
   - [x] Events abstractions
   - [x] Mixins (To be convered to `decorators` if/when they hit browsers)
-- FYN Data (Data)[https://github.com/FYN-Software/data]
+- [FYN Data](https://github.com/FYN-Software/data)
   - Base class (`Type`)
     - [ ] Assignable renderers (simple key-value object)
     - [ ] Assingable data stores (might be usefull on type level, most likely will be remain on model level)
@@ -37,13 +37,13 @@ Web component suite
     - [ ] Configuration API
     - [ ] Assingable `Endpoint`
     - [ ] Assingable `Adapter`
-- FYN Component
+- [FYN Component](https://github.com/FYN-Software/component)
   - [x] `Base`
   - [x] `Component`
   - [x] `Loop`
   - [x] `Generic`
   - [ ] `Behavior`
-- FYN Suite
+- [FYN Suite](https://github.com/FYN-Software/duite)
   - Common
     - Form
       - [x] `Button`
