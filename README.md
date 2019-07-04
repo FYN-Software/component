@@ -4,22 +4,76 @@
 Web component suite
 
 ## TODO's
-- Type system
-  - Base class
-    - [ ] assignable component as editor (i.e. a type font would have editors for its properties(think family, weight, size, etc., and properties can be types themselfs))
-    - [ ] assignable component as renderer (i.e. a type font would render its value with its configured properties(think family, weight, size, etc.))
+- FYN Core
+  - [x] Extends (normalization and extension layer, dirty implemented, monkey-patched...)
+  - [x] Events abstractions
+  - [x] Mixins (To be convered to `decorators` if/when they hit browsers)
+- FYN Data (Data)[https://github.com/FYN-Software/data]
+  - Base class (`Type`)
+    - [ ] Assignable renderers (simple key-value object)
+    - [ ] Assingable data stores (might be usefull on type level, most likely will be remain on model level)
+    - [x] Configuration API (couple of methods to configure your type)
   - Types
-    - [ ] Boolean
-    - [ ] Number
-    - [ ] Currency
-    - [ ] Percentage
-    - [ ] Color
-    - [ ] String
-    - [ ] Unit (CSS units, think: px, %, em, etc.)
-    - [ ] Font
-    - [ ] Size
-    - [ ] Point (a x and y position)
-    - [ ] Postion (CSS prositioning)
-    - [ ] Grid (CSS grid properties)
-    - [ ] Text alignment
-    - and plenty more
+    - [x] `Boolean`
+    - [x] `Number`
+      - [ ] `Currency`
+      - [ ] `Size`
+      - [ ] `Point` (a x and y position)
+      - [ ] `Percentage`
+    - [x] `List`
+    - [x] `Object`
+    - [x] `Enum`
+      - [ ] `Unit` (CSS units, think: px, %, em, etc.)
+      - [ ] `Font`
+      - [ ] `TextAlignment`
+      - [ ] `Postion` (CSS prositioning)
+    - [x] `Datetime`
+    - [x] `String`
+      - [ ] `Color`
+  - Model (Will likally become a separate package)
+    - [ ] Configuration API (API to define fields and relations)
+    - [ ] Assingable data stores
+  - Stores (Will likally become a separate package)
+    - [ ] Configuration API
+    - [ ] Assingable `Endpoint`
+    - [ ] Assingable `Adapter`
+- FYN Component
+  - [x] `Base`
+  - [x] `Component`
+  - [x] `Loop`
+  - [x] `Generic`
+  - [ ] `Behavior`
+- FYN Suite
+  - Common
+    - Form
+      - [x] `Button`
+      - [x] `Checkbox`
+      - [x] `Color`
+      - [x] `Datetime` (picker)
+      - [x] `Dropdown` (Select/Combobox or any other name this common element is known by)
+      - [x] `Font` (picker)
+      - [x] `Form`
+      - [ ] `Grid` (interactive data grid)
+      - [x] `Group` (element to visually group/combine components)
+      - [x] `Input` (text input field)
+      - [x] `Slider`
+      - [ ] `Editor` (rich text editor, wysiwyg markdown editor)
+    - Graphics
+      - [ ] `Chart`
+      - [x] `Flag`
+      - [x] `Icon`
+      - [x] `Image`
+      - [x] `Progress`
+    - Layout
+      - [x] `Collapsable` (Probably will be to a `Behavior`)
+      - [x] `Docks`
+      - [x] `Grid`
+      - [x] `List`
+      - [x] `Resizable` (Probably will be to a `Behavior`)
+      - [x] `Tabs`
+    - Misc
+      - [x] `Calander` (subcomponent for `Common.Form.Datetime')
+      - [x] `Clock` (subcomponent for `Common.Form.Datetime')
+    - Overlay
+      - [x] `Dialog`
+      - [x] `Modal` (Likally to be deprecated or converted to `Behavior`)
