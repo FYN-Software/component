@@ -1,13 +1,21 @@
 notifications:
   email: false
-  
+
 language: node_js
 node_js: node
 
 deploy:
-  provider: npm
-  email: "chris@cgames.nl"
-  api_key: "qR6q3jRo0HIkZRlmqahMllouX0dKvm0E5qe6xSx8Y63Z/fs+Qq8s03TEvh3qSlNAmk1UPBimdlGFnJzOP0321IxAH3IE+W/usAz6Sez4FIf59NqeSG8+dx5uUMT6tQhnAU4wSJizaNpvoD4et7Z7IPTrOyWX7feC5mEQf2zmoQJfJ8WOl/Yk9hSotoQA7o1YcKjNfMgPYtk1E9nUlPdMajmgzQ+JMgfyNs+/7bqG+67+ZWPHMWO4PWdDVckNFtqgNmZYxHiXAST1Wf554a4EkVnIWQKqbfqCYIGCkX+NZ4f6EQpSCIUquZs307JplmFOU0fDcGxkOeoKgB9yikio2yi/AVW+joJvqq4IJxSAk7nYuKuQHt4rwf8ggcasmi4U5kBgujKbFePGIHypUZmrHPXqhNRu3ged7c9/eNg0Aa0ZG2WCzh7ckW1FX2xH9mAWbmBcsm2Fprdk6YiVP3yKdwk4gpRvWPe56Vi40OfyYKKXnaWutb8xWZ2T+gxSY3LtnuuQyE+uByt/wkEUdXFW2uJRn5RIAtXGzDh037mFdfgQr2ExhXG8/Gcq+nUMsSte8gyImVA1Uk/FdIMM9lW+gq2Qu1CtrxezQzRr3hzjs0F6wkDWtoTElBs/R/8kQzUXDHs94VfxkUaceBiXHAw72lGgBiHECs/5BZZURgvG0gc="
-  on:
-    tags: true
-    branch: master
+  - provider: script
+    skip_cleanup: true
+    script: bash .travis/pu.sh $TRAVIS_TAG
+    on:
+      tags: true
+      branch: master
+  - provider: npm
+    email: chris@cgames.nl
+    skip_cleanup: true
+    api_key:
+      secure: "Dxc1wPbn+4qq0gKc9yYrMpbEHUlolII6lpmvEQ3ii0RDp8k2LTDPowxFxaBiYQkTu/REGiAUCvOuLnhI6N1UI36+rB5k7GW9DsRTcKVg3P6fz2QAt4XDPt1HqbE0eYhnj69buTbJq4mdeCTgJAOyy2PkrEZXzqq5IH9xace7eH3hr+GsxQqZ5284+YaPC2AKyuksrnoRBTHA/aEdPOTEHGU6eCiFhYx6hRaIcpUx3VmgLEEGblevE49x7nqWdBS//ShOmWDkEtNQEJ5PFFxLX38+z11O2u3Q4FE68wXr001iuK2aluWHfcRAAOuI54a9ZlAgdyfIuf4LdD2d4LZIYTDN15WzNyEJFYZZWsQw/yNdyUJIx8VjeRTj7aPR90/yGYfWuaWa/RYwGROERGv/WqgkhupvEB+JimhS6efH9esTv7/q9M3YW1uLGwKyqPVEwEmadpoweE7AcDXZ3mQAzmeTNK4U2cV871PMMif7dpCU8fl1pxaH0F33gbqFlfCeDS6hl3sVehub7IW906GLWU4+8ILOL+HE5TD7bo/MuIaN6ARixOKAxNY0YwwiwbBwflRCxi8f+8iAiWlGstdS0lRonSJTrps45XjDdTc5ok/L0zmf8UthhiHMcXxES91mrMqV2SGDDJW/2XNEb5Udev6+W789vGOnFkJ3gF56HkA="
+    on:
+      tags: true
+      branch: master
