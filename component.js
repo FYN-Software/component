@@ -153,7 +153,7 @@ export default class Component extends Base
 
     async parseTemplate(node)
     {
-        const { html: template, bindings } = this._parseHtml(node.cloneNode(true));
+        const { html: template, bindings } = await this._parseHtml(node.cloneNode(true));
 
         const nodes = Array.from(template.querySelectorAll(':not(:defined)'));
         const dependencies = [...nodes.map(n => n.localName), ...(this.constructor.dependencies || [])];

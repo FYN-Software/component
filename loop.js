@@ -14,10 +14,17 @@ export default class Loop
 {
     constructor(node, name, parent)
     {
-        Object.defineProperty(node, 'loop', {
-            value: this,
-            writable: false,
-        });
+        try
+        {
+            Object.defineProperty(node, 'loop', {
+                value: this,
+                writable: false,
+            });
+        }
+        catch(e)
+        {
+            console.error(node, e);
+        }
 
         const keys = name.split(/,\s*/g);
 
@@ -82,6 +89,8 @@ export default class Loop
         // This double entries allows me to also iterate over objects
         const d = Object.entries(Object.entries(Array.from(this[_data])))
             .map(([ c, i ]) => [ Number(c), i ]);
+
+        // console.log(this[_data]);
 
         let nodesToAppend = document.createDocumentFragment();
 

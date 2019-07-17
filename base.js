@@ -148,11 +148,13 @@ export default abstract(class Base extends HTMLElement
                     case 'for':
                         try
                         {
+                            console.log(v, n.ownerElement);
+
                             const loop = n.ownerElement.loop;
                             loop.data = v || [];
                             loop.render();
                         }
-                        catch(e){}
+                        catch(e){ console.error(e) }
 
                         break;
                 }
@@ -218,7 +220,7 @@ export default abstract(class Base extends HTMLElement
         {
             if(this[properties][name] instanceof Type)
             {
-                this[properties][name].__value = value;
+                await this[properties][name].setValue(value);
             }
             else
             {
@@ -239,7 +241,7 @@ export default abstract(class Base extends HTMLElement
         this[queue].enqueue(...bindings.map(b => b.nodes).reduce((t, n) => [ ...t, ...n ], []).unique());
     }
 
-    _parseHtml(html)
+    async _parseHtml(html)
     {
         let nodes = [];
         const iterator = node => {
@@ -301,7 +303,9 @@ export default abstract(class Base extends HTMLElement
 
                         [ name, variable ] = variable.split(/ in /);
 
-                        getLoop().then(Loop => new Loop(node.ownerElement, name, this));
+                        const Loop = await getLoop();
+
+                        new Loop(node.ownerElement, name, this)
                     }
 
                     const self = this;
