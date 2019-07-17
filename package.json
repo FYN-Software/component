@@ -16,11 +16,8 @@
     "bugs": {
         "url": "https://github.com/FYN-Software/component/issues"
     },
-    "homepage": "https://github.com/FYN-Software/component",
+    "homepage": "https://fyn-software.github.io",
     "publishConfig": {
         "access": "public"
-    },
-    "devDependencies": {
-        "npm-github-release": "0.9.0"
     }
 }
