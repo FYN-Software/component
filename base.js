@@ -148,8 +148,6 @@ export default abstract(class Base extends HTMLElement
                     case 'for':
                         try
                         {
-                            console.log(v, n.ownerElement);
-
                             const loop = n.ownerElement.loop;
                             loop.data = v || [];
                             loop.render();
@@ -299,6 +297,12 @@ export default abstract(class Base extends HTMLElement
                 {
                     if(node.nodeType === 2 && node.localName === 'for')
                     {
+                        // TODO(Chris Kruining) Find the source of this double parsing, the `continue` is nought but a hotfix...
+                        if(node.ownerElement.hasOwnProperty('loop'))
+                        {
+                            continue;
+                        }
+
                         let name;
 
                         [ name, variable ] = variable.split(/ in /);

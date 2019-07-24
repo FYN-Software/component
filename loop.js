@@ -45,12 +45,14 @@ export default class Loop
 
                     for(let el of n.assignedNodes({ flatten: true }))
                     {
+                        el = el.cloneNode(true);
+
                         if(el.nodeType === 1 && el.hasAttribute('template'))
                         {
                             el.removeAttribute('template');
                         }
 
-                        this[_template].appendChild(el.cloneNode(true));
+                        this[_template].appendChild(el);
                     }
 
                     Array.from(this.children).forEach(c => c.template = this[_template].cloneNode(true));
@@ -85,12 +87,12 @@ export default class Loop
         //  Implement virtual scrolling
         // This[node].style.setProperty('--scroller-height', `${50 * this[data].length}px`);
 
+        this.children.forEach(c => c.setAttribute('hidden', ''));
+
         // NOTE(Chris Kruining)
         // This double entries allows me to also iterate over objects
         const d = Object.entries(Object.entries(Array.from(this[_data])))
             .map(([ c, i ]) => [ Number(c), i ]);
-
-        // console.log(this[_data]);
 
         let nodesToAppend = document.createDocumentFragment();
 
