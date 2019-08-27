@@ -8,7 +8,7 @@ export default class Composer
 
         if(registration.has(ns) === false)
         {
-            throw new Error('Trying to resolve unknown namespace');
+            throw new Error(`Trying to resolve unknown namespace :: ${ns}`);
         }
 
         return registration.get(ns).apply(null, [ el, type, ns ]);
