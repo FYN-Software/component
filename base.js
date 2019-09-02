@@ -66,6 +66,19 @@ export default abstract(class Base extends HTMLElement
                 enumerable: true,
             });
 
+            if(v instanceof Type)
+            {
+                v.on({
+                    changed: async () => {
+                        const bindings = this._bindings.filter(b => b.properties.includes(k));
+
+                        await Promise.all(bindings.map(b => b.resolve(this)));
+
+                        this[queue].enqueue(...bindings.map(b => b.nodes).reduce((t, n) => [ ...t, ...n ], []).unique());
+                    },
+                });
+            }
+
             const attr = k.toDashCase();
             this[set](k, this.getAttribute(attr) || this.hasAttribute(attr) || v);
         });
