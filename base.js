@@ -238,9 +238,15 @@ export default abstract(class Base extends HTMLElement
         }
         catch(e)
         {
-            throw new Error(
-                `Failed to set '${this.constructor.name}.${name}', '${value}' is not valid`
-            );
+            throw new class Exception
+            {
+                constructor(message, inner, owner)
+                {
+                    this.message = message;
+                    this.inner = inner;
+                    this.owner = owner;
+                }
+            }(`Failed to set '${this.constructor.name}.${name}', '${value}' is not valid`, e, this);
         }
 
         const bindings = this._bindings.filter(b => b.properties.includes(name));
