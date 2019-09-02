@@ -190,6 +190,12 @@ export default abstract(class Base extends HTMLElement
 
     async [set](name, value)
     {
+        // NOTE(Chris Kruining) Shortciruit `__this__` to make sure it is available for loop item initialization
+        if(name === '__this__')
+        {
+            this[properties].__this__ = value;
+        }
+
         if(typeof value === 'string' && value.match(/^{{\s*.+\s*}}$/g) !== null)
         {
             return;
