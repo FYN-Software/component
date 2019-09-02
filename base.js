@@ -53,14 +53,6 @@ export default abstract(class Base extends HTMLElement
 
         this[shadow] = this.attachShadow({ mode: 'open' });
 
-        let constructor = this.constructor;
-        let props = {};
-        while(constructor !== Base)
-        {
-            props = Object.assign(constructor.properties, props);
-            constructor = constructor.__proto__;
-        }
-
         this._bindings = null;
         this[queue] = new Queue;
         this[setQueue] = [];
