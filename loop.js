@@ -91,7 +91,7 @@ export default class Loop
 
         // NOTE(Chris Kruining)
         // This double entries allows me to also iterate over objects
-        const d = Object.entries(Object.entries(Array.from(this[_data])))
+        const d = Object.entries(Object.entries(this[_data]))
             .map(([ c, i ]) => [ Number(c), i ]);
 
         let nodesToAppend = document.createDocumentFragment();
@@ -127,11 +127,11 @@ export default class Loop
 
         this[_node].appendChild(nodesToAppend);
 
-        while(this[_data].length < this.children.length)
-        {
-            this.children[this[_data].length].remove();
-            this.children[this[_data].length] = undefined;
-        }
+        // while(this[_data].length < this.children.length)
+        // {
+        //     this.children[this[_data].length].remove();
+        //     this.children[this[_data].length] = undefined;
+        // }
     }
 
     get data()

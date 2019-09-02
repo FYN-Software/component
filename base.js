@@ -342,7 +342,7 @@ export default abstract(class Base extends HTMLElement
                         label: label || 'default',
                         properties: keys.filter(k => variable.includes(k)),
                         nodes: new Set(),
-                        value: callable.apply(this, Object.values(self[properties])),
+                        value: null,
                         async resolve()
                         {
                             let t = self;
@@ -356,7 +356,7 @@ export default abstract(class Base extends HTMLElement
                             }
                             catch
                             {
-                                t = null;
+                                t = self;
                             }
 
                             this.value = callable.apply(t, Object.values(self[properties]).map(p => p instanceof Type ? p.__value : p));
@@ -364,6 +364,7 @@ export default abstract(class Base extends HTMLElement
                             return this.value;
                         },
                     };
+                    binding.resolve();
 
                     bindings.set(variable, binding);
                 }
