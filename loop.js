@@ -126,12 +126,6 @@ export default class Loop
         }
 
         this[_node].appendChild(nodesToAppend);
-
-        // while(this[_data].length < this.children.length)
-        // {
-        //     this.children[this[_data].length].remove();
-        //     this.children[this[_data].length] = undefined;
-        // }
     }
 
     get data()
