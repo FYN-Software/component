@@ -30,7 +30,8 @@ const getLoop = async () => {
 
     return loop;
 };
-const specialProperties = [ 'if', 'for' ];
+const getDirective = async d => (await import(`./directives/${d}.js`)).default;
+const specialProperties = [ 'if', 'for', 'switch' ];
 const regex = /{{(?:#(?<label>[a-z]+))?\s*(?<variable>.+?)\s*}}/g;
 const elements = new Set();
 setInterval(() => {
@@ -141,7 +142,11 @@ export default abstract(class Base extends HTMLElement
                         }))
             );
 
-            if(n.nodeType === 2 && specialProperties.includes(n.nodeName))
+            if(n.nodeType === 2 && n.nodeName.startsWith(':') && n.ownerElement.hasOwnProperty('__directive__'))
+            {
+                n.ownerElement.__directive__.render(v);
+            }
+            else if(n.nodeType === 2 && specialProperties.includes(n.nodeName))
             {
                 switch(n.nodeName)
                 {
@@ -333,7 +338,7 @@ export default abstract(class Base extends HTMLElement
                     const keys = Object.keys(this.constructor[properties]);
                     const callable = new AsyncFunction(
                         ...keys,
-                        `try { return ${variable}; } catch(e) { return undefined; }`
+                        `try { return ${variable}; } catch { return undefined; }`
                     );
 
                     binding = {
@@ -371,6 +376,13 @@ export default abstract(class Base extends HTMLElement
                 else
                 {
                     binding = bindings.get(variable)
+                }
+
+                if(node.nodeType === 2 && node.localName.startsWith(':') && node.ownerElement.hasOwnProperty('__directive__') === false)
+                {
+                    const directive = await getDirective(node.localName.substr(1));
+
+                    new directive(node.ownerElement, binding);
                 }
 
                 nodeBindings.add(binding);
