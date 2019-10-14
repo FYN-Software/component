@@ -43,6 +43,13 @@ setInterval(() => {
 
 export default abstract(class Base extends HTMLElement
 {
+    _bindings = null;
+    #shadow = this.attachShadow({ mode: 'open' });
+    #queue = new Queue;
+    #setQueue = [];
+    #observers = {};
+    #properties = {};
+
     constructor()
     {
         if(new.target.prototype.attributeChangedCallback !== Base.prototype.attributeChangedCallback)
@@ -52,15 +59,16 @@ export default abstract(class Base extends HTMLElement
 
         super();
 
-        this[shadow] = this.attachShadow({ mode: 'open' });
+        // this[shadow] = this.attachShadow({ mode: 'open' });
 
         this._bindings = null;
-        this[queue] = new Queue;
-        this[setQueue] = [];
-        this[observers] = {};
-        this[properties] = this.constructor[properties];
+        // this[queue] = new Queue;
+        // this[setQueue] = [];
+        // this[observers] = {};
+        // this[properties] = this.constructor[properties];
+        this.#properties = this.constructor[properties];
 
-        Object.entries(this[properties]).forEach(([k, v]) => {
+        Object.entries(this.#properties).forEach(([k, v]) => {
             Reflect.defineProperty(this, k, {
                 get: () => this[get](k),
                 set: async v => await this[set](k, v),
@@ -70,12 +78,12 @@ export default abstract(class Base extends HTMLElement
             if(v instanceof Type)
             {
                 v.on({
-                    changed: async () => {
+                    changed: async (o, n) => {
                         const bindings = this._bindings.filter(b => b.properties.includes(k));
 
                         await Promise.all(bindings.map(b => b.resolve(this)));
 
-                        this[queue].enqueue(...bindings.map(b => b.nodes).reduce((t, n) => [ ...t, ...n ], []).unique());
+                        this.#queue.enqueue(...bindings.map(b => b.nodes).reduce((t, n) => [ ...t, ...n ], []).unique());
                     },
                 });
             }
@@ -90,38 +98,36 @@ export default abstract(class Base extends HTMLElement
         elements.delete(this);
 
         this._bindings = null;
-        this[shadow] = null;
-        this[queue] = null;
-        this[setQueue] = null;
-        this[observers] = null;
-        this[properties] = null;
+        this.#shadow = null;
+        this.#queue = null;
+        this.#setQueue = null;
+        this.#observers = null;
+        this.#properties = null;
     }
 
     observe(config)
     {
-        for(let [ p, c ] of Object.entries(config))
+        for(const [ p, c ] of Object.entries(config))
         {
-            if(Object.keys(this.constructor.properties).includes(p) !== true)
+            if(Object.keys(this.#properties).includes(p) !== true)
             {
                 throw new Error(`Trying to observe non-observable property '${p}'`);
             }
 
-            if(this[properties][p] instanceof Type)
+            if(this.#properties[p] instanceof Type)
             {
-                this[properties][p].on({
-                    changed: e => c.apply(this[properties][p], [ e.detail.old, e.detail.new ]),
-                });
+                this.#properties[p].on({ changed: e => c.apply(this.#properties[p], [ e.detail.old, e.detail.new ]) });
             }
             else
             {
-                this[observers][p] = c;
+                this.#observers[p] = c;
             }
         }
     }
 
     async [render]()
     {
-        for await(const n of this[queue])
+        for await(const n of this.#queue)
         {
             const v = await (
                 n.bindings.length === 1 && n.bindings[0].original === n.template
@@ -180,17 +186,17 @@ export default abstract(class Base extends HTMLElement
 
     [get](name)
     {
-        if(this[properties].hasOwnProperty(name) === false)
+        if(this.#properties.hasOwnProperty(name) === false)
         {
             throw new Error(`Property '${this.constructor.name}.${name}' does not extist`)
         }
 
-        if(this[properties][name] instanceof Type)
+        if(this.#properties[name] instanceof Type)
         {
-            return this[properties][name].__value;
+            return this.#properties[name].__value;
         }
 
-        return this[properties][name];
+        return this.#properties[name];
     }
 
     async [set](name, value)
@@ -198,7 +204,7 @@ export default abstract(class Base extends HTMLElement
         // NOTE(Chris Kruining) Shortciruit `__this__` to make sure it is available for loop item initialization
         if(name === '__this__')
         {
-            this[properties].__this__ = value;
+            this.#properties.__this__ = value;
         }
 
         if(typeof value === 'string' && value.match(/^{{\s*.+\s*}}$/g) !== null)
@@ -218,12 +224,14 @@ export default abstract(class Base extends HTMLElement
 
         if(this._bindings === null)
         {
-            this[setQueue].push([ name, value ]);
+            this.#setQueue.push([ name, value ]);
 
             return;
         }
 
-        const old = this[properties][name];
+        const old = this.#properties[name] instanceof Type
+            ? this.#properties[name].__value
+            : this.#properties[name];
 
         if(old === value || equals(old, value))
         {
@@ -232,13 +240,13 @@ export default abstract(class Base extends HTMLElement
 
         try
         {
-            if(this[properties][name] instanceof Type)
+            if(this.#properties[name] instanceof Type)
             {
-                await this[properties][name].setValue(value);
+                await this.#properties[name].setValue(value);
             }
             else
             {
-                this[properties][name] = value;
+                this.#properties[name] = value;
             }
         }
         catch(e)
@@ -258,7 +266,7 @@ export default abstract(class Base extends HTMLElement
 
         await Promise.all(bindings.map(b => b.resolve(this)));
 
-        this[queue].enqueue(...bindings.map(b => b.nodes).reduce((t, n) => [ ...t, ...n ], []).unique());
+        this.#queue.enqueue(...bindings.map(b => b.nodes).reduce((t, n) => [ ...t, ...n ], []).unique());
     }
 
     async _parseHtml(html)
@@ -354,9 +362,9 @@ export default abstract(class Base extends HTMLElement
 
                             try
                             {
-                                while(t[properties].hasOwnProperty('__this__') === true)
+                                while(t.#properties.hasOwnProperty('__this__') === true)
                                 {
-                                    t = t[properties].__this__;
+                                    t = t.#properties.__this__;
                                 }
                             }
                             catch
@@ -364,7 +372,7 @@ export default abstract(class Base extends HTMLElement
                                 t = self;
                             }
 
-                            this.value = callable.apply(t, Object.values(self[properties]).map(p => p instanceof Type ? p.__value : p));
+                            this.value = callable.apply(t, Object.values(self.#properties).map(p => p instanceof Type ? p.__value : p));
 
                             return this.value;
                         },
@@ -398,9 +406,9 @@ export default abstract(class Base extends HTMLElement
 
     _populate()
     {
-        this[queue].enqueue(...this._bindings.map(b => b.nodes).reduce((t, n) => [ ...t, ...n ], []).unique());
+        this.#queue.enqueue(...this._bindings.map(b => b.nodes).reduce((t, n) => [ ...t, ...n ], []).unique());
 
-        for(let args of this[setQueue])
+        for(let args of this.#setQueue)
         {
             try
             {
@@ -455,12 +463,17 @@ export default abstract(class Base extends HTMLElement
 
     get shadow()
     {
-        return this[shadow];
+        return this.#shadow;
+    }
+
+    get properties()
+    {
+        return this.#properties;
     }
 
     static get observedAttributes()
     {
-        return [ ...specialProperties, ...Object.keys(this.properties).map(p => p.toDashCase()) ];
+        return [ ...specialProperties, ...Object.keys(this[properties]).map(p => p.toDashCase()) ];
     }
 
     static get properties()
@@ -472,6 +485,7 @@ export default abstract(class Base extends HTMLElement
     {
         let constructor = this;
         let props = {};
+
         while(constructor !== Base)
         {
             props = Object.assign(constructor.properties, props);

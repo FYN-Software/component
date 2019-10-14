@@ -12,6 +12,13 @@ const _template = Symbol('template');
 
 export default class Loop
 {
+    #data = [];
+    #node;
+    #key;
+    #name;
+    #parent;
+    #template = new DocumentFragment();
+
     constructor(node, name, parent)
     {
         try
@@ -28,20 +35,18 @@ export default class Loop
 
         const keys = name.split(/,\s*/g);
 
-        this[_data] = [];
-        this[_node] = node;
-        this[_key] = keys.first;
-        this[_name] = keys.last;
-        this[_parent] = parent;
-        this[_template] = new DocumentFragment();
+        this.#node = node;
+        this.#key = keys.first;
+        this.#name = keys.last;
+        this.#parent = parent;
 
         Array.from(node.children).forEach(n =>
         {
             if(n instanceof HTMLSlotElement)
             {
                 const r = () => {
-                    const old = this[_template];
-                    this[_template] = new DocumentFragment();
+                    const old = this.#template;
+                    this.#template = new DocumentFragment();
 
                     for(let el of n.assignedNodes({ flatten: true }))
                     {
@@ -52,17 +57,17 @@ export default class Loop
                             el.removeAttribute('template');
                         }
 
-                        this[_template].appendChild(el);
+                        this.#template.appendChild(el);
                     }
 
-                    Array.from(this.children).forEach(c => c.template = this[_template].cloneNode(true));
+                    Array.from(this.children).forEach(c => c.template = this.#template.cloneNode(true));
 
                     this.children.clear();
                     this.render();
 
-                    this[_node].emit('templatechange', {
+                    this.#node.emit('templatechange', {
                         old,
-                        new: this[_template].cloneNode(true),
+                        new: this.#template.cloneNode(true),
                         loop: this,
                     });
                 };
@@ -74,11 +79,11 @@ export default class Loop
             }
             else
             {
-                this[_template].appendChild(n.extract());
+                this.#template.appendChild(n.extract());
             }
         });
 
-        this[_node].setAttribute('scroller', '');
+        this.#node.setAttribute('scroller', '');
     }
 
     render()
@@ -91,8 +96,10 @@ export default class Loop
 
         // NOTE(Chris Kruining)
         // This double entries allows me to also iterate over objects
-        const d = Object.entries(Object.entries(this[_data]))
+        const d = Object.entries(Object.entries(this.#data))
             .map(([ c, i ]) => [ Number(c), i ]);
+
+        // console.log(this.#data, d);
 
         let nodesToAppend = document.createDocumentFragment();
 
@@ -108,7 +115,7 @@ export default class Loop
                 }
                 catch(e)
                 {
-                    console.error(this._item, this[_template]);
+                    console.error(this._item, this.#template);
 
                     throw e;
                 }
@@ -121,40 +128,40 @@ export default class Loop
                 node.removeAttribute('hidden');
             }
 
-            node[this[_key]] = k;
-            node[this[_name]] = it;
+            node[this.#key] = k;
+            node[this.#name] = it;
         }
 
-        this[_node].appendChild(nodesToAppend);
+        this.#node.appendChild(nodesToAppend);
     }
 
     get data()
     {
-        return this[_data];
+        return this.#data;
     }
 
     set data(d)
     {
-        this[_data] = d;
+        this.#data = d;
     }
 
     get children()
     {
-        return this[_node].querySelectorAll(':scope > :not(slot)');
+        return this.#node.querySelectorAll(':scope > :not(slot)');
     }
 
     get item()
     {
         if(this._item === undefined)
         {
-            const it = `${this[_key].capitalize()}${this[_name].capitalize()}LoopItem`.toDashCase();
+            const it = `${this.#key.capitalize()}${this.#name.capitalize()}LoopItem`.toDashCase();
 
             this._item = window.customElements.get(it);
 
             if(this._item === undefined)
             {
-                const key = this[_key];
-                const name = this[_name];
+                const key = this.#key;
+                const name = this.#name;
 
                 this._item = Component.register(
                     class extends Generic
@@ -173,6 +180,6 @@ export default class Loop
             }
         }
 
-        return new (this._item)(this[_template].cloneNode(true), this[_parent]);
+        return new (this._item)(this.#template.cloneNode(true), this.#parent);
     }
 }

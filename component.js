@@ -7,50 +7,50 @@ let templates = {};
 
 export default class Component extends Base
 {
+    #ready_cb = null;
+    #ready = new Promise(r => this.#ready_cb = r);
+    #listeners = {};
+    #behaviors = [];
+
     constructor(url = null)
     {
         super();
 
-        this._listeners = {};
-        this.__ready_cb = null;
-        this.__ready = new Promise((r) => {
-            this.__ready_cb = r;
-        });
+        (async () => {
+            let r;
 
-        let p;
-
-        if(url instanceof Promise)
-        {
-            p = url;
-        }
-        else
-        {
-            if(url === null && names.hasOwnProperty(this.constructor.name))
+            if(url instanceof Promise)
             {
-                url = Composer.resolve(names[this.constructor.name], 'html');
-            }
-
-            if(templates.hasOwnProperty(url) && templates[url] instanceof Promise)
-            {
-                p = templates[url];
-            }
-            else if(templates.hasOwnProperty(url))
-            {
-                p = Promise.resolve(templates[url]);
+                r = await url;
             }
             else
             {
-                p = templates[url] = fetch(url)
-                    .then(r => r.status === 200 ? r.text() : Promise.resolve(''))
-                    .then(t => DocumentFragment.fromString(t))
-                    .stage(t => templates[url] = t);
+                if(url === null && names.hasOwnProperty(this.constructor.name))
+                {
+                    url = Composer.resolve(names[this.constructor.name], 'html');
+                }
+
+                let p;
+
+                if(templates.hasOwnProperty(url))
+                {
+                    p = templates[url] instanceof Promise
+                        ? templates[url]
+                        : Promise.resolve(templates[url]);
+                }
+                else
+                {
+                    p = templates[url] = fetch(url)
+                        .then(r => r.status === 200 ? r.text() : Promise.resolve(''))
+                        .then(t => DocumentFragment.fromString(t))
+                        .stage(t => templates[url] = t);
+                }
+
+                r = await this.parseTemplate(await p);
+
+                this.shadow.appendChild(r.template);
             }
 
-            p = p.then(t => this.parseTemplate(t))
-                .stage(r => this.shadow.appendChild(r.template));
-        }
-
-        p.then(r => {
             this._bindings = r !== null
                 ? r.bindings
                 : [];
@@ -61,8 +61,8 @@ export default class Component extends Base
 
             this.ready();
 
-            this.__ready_cb(true);
-        });
+            this.#ready_cb(true);
+        })();
 
         this.initialize();
     }
@@ -84,7 +84,7 @@ export default class Component extends Base
         let once = false;
 
         options = {
-            ...{ capture: false, passive: true },
+            ...{ capture: false, passive: true, details: false },
             ...options
         };
 
@@ -100,23 +100,23 @@ export default class Component extends Base
         {
             for(let type of key.split('|'))
             {
-                if(!this._listeners.hasOwnProperty(type))
+                if(!this.#listeners.hasOwnProperty(type))
                 {
-                    this._listeners[type] = {};
+                    this.#listeners[type] = {};
                 }
 
-                if(!this._listeners[type].hasOwnProperty(target))
+                if(!this.#listeners[type].hasOwnProperty(target))
                 {
-                    this._listeners[type][target] = [];
+                    this.#listeners[type][target] = [];
                 }
 
-                this._listeners[type][target].push({ k: listener, o: { ...options, once, fireCount: 0 }});
+                this.#listeners[type][target].push({ k: listener, o: { ...options, once, fireCount: 0 }});
 
-                if(!this._listeners[type].hasOwnProperty('_listener'))
+                if(!this.#listeners[type].hasOwnProperty('_listener'))
                 {
-                    this._listeners[type]._listener = e => {
+                    this.#listeners[type]._listener = e => {
                         let type = e.type;
-                        let matches = Object.entries(this._listeners[type])
+                        let matches = Object.entries(this.#listeners[type])
                             .map(t =>  Object.assign(t, { targets: t[0] === ':scope'
                                     ? [ this ]
                                     : [
@@ -137,13 +137,25 @@ export default class Component extends Base
 
                                 o.fireCount++;
 
-                                callback(e, match.targets.filter(el => e.composedPath().includes(el))[0]);
+                                console.log(options);
+
+                                if(options.details === true)
+                                {
+                                    if(e instanceof CustomEvent)
+                                    {
+                                        callback(e.detail, match.targets.filter(el => e.composedPath().includes(el))[0]);
+                                    }
+                                }
+                                else
+                                {
+                                    callback(e, match.targets.filter(el => e.composedPath().includes(el))[0]);
+                                }
                             }
                         }
                     };
 
-                    this.addEventListener(type, this._listeners[type]._listener, options);
-                    this.shadow.addEventListener(type, this._listeners[type]._listener, options);
+                    this.addEventListener(type, this.#listeners[type]._listener, options);
+                    this.shadow.addEventListener(type, this.#listeners[type]._listener, options);
                 }
             }
         }
@@ -159,7 +171,7 @@ export default class Component extends Base
         const dependencies = [...nodes.map(n => n.localName), ...(this.constructor.dependencies || [])];
 
         await Promise.all(dependencies.unique().map(n => Component.load(n)));
-        await Promise.all(nodes.filter(n => n instanceof Component).map(n => n.__ready));
+        await Promise.all(nodes.filter(n => n instanceof Component).map(n => n.isReady));
 
         return { template, bindings };
     }
@@ -222,6 +234,16 @@ export default class Component extends Base
         r = await import(Composer.resolve(el));
 
         return Component.register(r.default, el);
+    }
+
+    get isReady()
+    {
+        return this.#ready;
+    }
+
+    get behaviors()
+    {
+        return this.#behaviors;
     }
 
     static get registration()
