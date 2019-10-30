@@ -40,8 +40,7 @@ export default class Loop
         this.#name = keys.last;
         this.#parent = parent;
 
-        Array.from(node.children).forEach(n =>
-        {
+        Array.from(node.children).forEach(n => {
             if(n instanceof HTMLSlotElement)
             {
                 const r = () => {

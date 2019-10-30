@@ -16,44 +16,36 @@ export default class Component extends Base
     {
         super();
 
+        this.setAttribute('loading', '');
+
+        if(url === null && names.hasOwnProperty(this.constructor.name))
+        {
+            url = Composer.resolve(names[this.constructor.name], 'html');
+        }
+
+        if((url instanceof Promise) === false && templates.hasOwnProperty(url) === false)
+        {
+            templates[url] = fetch(url)
+                .then(r => r.status === 200 ? r.text() : Promise.resolve(''))
+                .then(t => DocumentFragment.fromString(t));
+        }
+
         (async () => {
-            let r;
+            const r = await this.parseTemplate(
+                templates.hasOwnProperty(url)
+                    ? (templates[url] instanceof Promise
+                        ? await templates[url]
+                        : templates[url])
+                    : null
+            );
 
-            if(url instanceof Promise)
+            this.shadow.appendChild((r && r.template || DocumentFragment.fromString('')));
+
+            this._bindings = [];
+            if(r !== null && Array.isArray(r.bindings))
             {
-                r = await url;
+                this._bindings = r.bindings;
             }
-            else
-            {
-                if(url === null && names.hasOwnProperty(this.constructor.name))
-                {
-                    url = Composer.resolve(names[this.constructor.name], 'html');
-                }
-
-                let p;
-
-                if(templates.hasOwnProperty(url))
-                {
-                    p = templates[url] instanceof Promise
-                        ? templates[url]
-                        : Promise.resolve(templates[url]);
-                }
-                else
-                {
-                    p = templates[url] = fetch(url)
-                        .then(r => r.status === 200 ? r.text() : Promise.resolve(''))
-                        .then(t => DocumentFragment.fromString(t))
-                        .stage(t => templates[url] = t);
-                }
-
-                r = await this.parseTemplate(await p);
-
-                this.shadow.appendChild(r.template);
-            }
-
-            this._bindings = r !== null
-                ? r.bindings
-                : [];
 
             this._populate();
 
@@ -65,6 +57,13 @@ export default class Component extends Base
         })();
 
         this.initialize();
+    }
+
+    connectedCallback()
+    {
+        super.connectedCallback();
+
+        this.removeAttribute('loading');
     }
 
     ready(){}
@@ -137,8 +136,6 @@ export default class Component extends Base
 
                                 o.fireCount++;
 
-                                console.log(options);
-
                                 if(options.details === true)
                                 {
                                     if(e instanceof CustomEvent)
@@ -165,7 +162,7 @@ export default class Component extends Base
 
     async parseTemplate(node)
     {
-        const { html: template, bindings } = await this._parseHtml(node.cloneNode(true));
+        const { html: template, bindings } = await this.constructor.parseHtml(this, node.cloneNode(true));
 
         const nodes = Array.from(template.querySelectorAll(':not(:defined)'));
         const dependencies = [...nodes.map(n => n.localName), ...(this.constructor.dependencies || [])];
@@ -249,6 +246,11 @@ export default class Component extends Base
     static get registration()
     {
         return names;
+    }
+
+    static get is()
+    {
+        return `${ this.name.replace(/[A-Z]/g, m => `-${m.toLowerCase()}`).substr(1) }`;
     }
 
     static get animations()
