@@ -73,11 +73,15 @@ export default class Base extends HTMLElement
                 });
             }
 
-            Reflect.defineProperty(this, k, {
-                get: () => this[get](k),
-                set: async v => await this[set](k, v),
-                enumerable: true,
-            });
+            if(k.startsWith('_') === false)
+            {
+                Reflect.defineProperty(this, k, {
+                    get: () => this[get](k),
+                    set: async v => await this[set](k, v),
+                    enumerable: true,
+                    configurable: false,
+                });
+            }
 
             const attr = k.toDashCase();
             this[set](k, this.getAttribute(attr) || this.hasAttribute(attr) || v);
