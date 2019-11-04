@@ -55,23 +55,26 @@ export default class Base extends HTMLElement
         this.#properties = this.constructor[properties];
 
         Object.entries(this.#properties).forEach(([k, v]) => {
-            if(v !== null && (v instanceof Type) === false && (v.prototype instanceof Type) === true)
+            if((v instanceof Type) === false && (v.prototype instanceof Type) === false)
+            {
+                throw new Error(`Expected a ${Type.name}, got '${v}' instead`);
+            }
+
+            if(v.prototype instanceof Type)
             {
                 this.#properties[k] = v = new v();
             }
 
-            if(v instanceof Type)
-            {
-                v.on({
-                    changed: async (o, n) => {
-                        const bindings = this._bindings.filter(b => b.keys.includes(k));
+            v.name = k;
+            v.on({
+                changed: async (o, n) => {
+                    const bindings = this._bindings.filter(b => b.keys.includes(k));
 
-                        await Promise.all(bindings.map(b => b.resolve(this)));
+                    await Promise.all(bindings.map(b => b.resolve(this)));
 
-                        this.#queue.enqueue(...bindings.map(b => b.nodes).reduce((t, n) => [ ...t, ...n ], []).unique());
-                    },
-                });
-            }
+                    this.#queue.enqueue(...bindings.map(b => b.nodes).reduce((t, n) => [ ...t, ...n ], []).unique());
+                },
+            });
 
             if(k.startsWith('_') === false)
             {
@@ -134,15 +137,15 @@ export default class Base extends HTMLElement
     {
         if(this.#properties.hasOwnProperty(name) === false)
         {
-            throw new Error(`Property '${this.constructor.name}.${name}' does not extist`)
+            throw new Error(`Property '${this.constructor.name}.${name}' does not exist`)
         }
 
-        if(this.#properties[name] instanceof Type)
+        if((this.#properties[name] instanceof Type) === false)
         {
-            return this.#properties[name].__value;
+            throw new Error(`Property '${this.constructor.name}.${name}' is not of a managed type and therefor invalid`)
         }
 
-        return this.#properties[name];
+        return this.#properties[name].value;
     }
 
     async [set](name, value)
@@ -150,7 +153,7 @@ export default class Base extends HTMLElement
         // NOTE(Chris Kruining) Shortciruit `__this__` to make sure it is available for loop item initialization
         if(name === '__this__')
         {
-            this.#properties.__this__ = value;
+            throw new Error('Obsolete!!!');
         }
 
         if(typeof value === 'string' && value.match(/^{{\s*.+\s*}}$/g) !== null)
@@ -160,7 +163,7 @@ export default class Base extends HTMLElement
 
         if(value instanceof  Type)
         {
-            value = value.__value;
+            value = value.value;
         }
 
         if(value instanceof Promise)
