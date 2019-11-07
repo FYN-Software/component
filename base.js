@@ -11,14 +11,15 @@ const set = Symbol('set');
 const render = Symbol('render');
 const properties = Symbol('properties');
 
-const decodeHtml = (html) => {
+window.range = (s, e) => Array(e - s).fill(1).map((_, i) => s + i);
+
+const decodeHtml = html => {
     const txt = document.createElement('textarea');
     txt.innerHTML = String(html);
     return txt.value;
 };
-window.range = (s, e) => Array(e - s).fill(1).map((_, i) => s + i);
-const specialProperties = [ 'if', 'for', 'switch' ];
 export const regex = /{{(?:#(?<label>[a-z]+))?\s*(?<variable>.+?)\s*}}/g;
+
 const elements = new Set();
 setInterval(() => {
     for(const el of elements)
@@ -74,7 +75,7 @@ export default class Base extends HTMLElement
                 },
             });
 
-            if(k.startsWith('_') === false)
+            if(k.startsWith('_') === false || true)
             {
                 Reflect.defineProperty(this, k, {
                     get: () => this[get](k),
@@ -114,7 +115,7 @@ export default class Base extends HTMLElement
 
             if(this.#properties[p] instanceof Type)
             {
-                this.#properties[p].on({ changed: e => c.apply(this.#properties[p], [ e.detail.old, e.detail.new ]) });
+                this.#properties[p].on({ changed: e => c.apply(this.#properties[p], [ e.old, e.new ]) });
             }
             else
             {
@@ -398,7 +399,7 @@ export default class Base extends HTMLElement
 
     static get observedAttributes()
     {
-        return [ ...specialProperties, ...Object.keys(this[properties]).map(p => p.toDashCase()) ];
+        return Object.keys(this[properties]).map(p => p.toDashCase());
     }
 
     static get properties()
@@ -452,7 +453,14 @@ export default class Base extends HTMLElement
         }
         else
         {
-            n.nodeValue = decodeHtml(v);
+            try
+            {
+                n.nodeValue = v;
+            }
+            catch
+            {
+                n.nodeValue = decodeHtml(v);
+            }
         }
     }
 };
