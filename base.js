@@ -1,11 +1,9 @@
 import { equals, objectFromEntries } from '../core/extends.js';
 import { abstract } from '../core/mixins.js';
-import Binding from './binding.js';
+import Binding, { AsyncFunction } from './binding.js';
 import Directive from './directive/directive.js';
 import Type from '../data/type/type.js';
 import Queue from './utilities/queue.js';
-
-const AsyncFunction = Object.getPrototypeOf(async function(){}).constructor;
 
 // Declare private class properties
 const get = Symbol('get');
