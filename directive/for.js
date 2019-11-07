@@ -123,7 +123,7 @@ export default class For extends Directive
                 node.setAttribute('index', c);
             }
 
-            await Promise.all(bindings.map(b => b.resolve({ properties: { __this__: this.scope, [this.#key]: k, [this.#name]: it } })));
+            await Promise.all(bindings.map(b => b.resolve({ properties: { [this.#key]: k, [this.#name]: it } }, this.scope)));
             await Promise.all(bindings.map(b => b.nodes).reduce((t, n) => [ ...t, ...n ], []).unique().map(n => Base.render(n)));
         }
 

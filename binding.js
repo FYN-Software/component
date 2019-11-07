@@ -51,36 +51,22 @@ export default class Binding
         if((callable instanceof AsyncFunction) === false)
         {
             throw new Error(
-                `Exprected an instance of '${ AsyncFunction.name }', got '${callable.constructor.name}' instead`
+                `Expected an instance of '${ AsyncFunction.name }', got '${callable.constructor.name}' instead`
             );
         }
 
         this.#callable = callable;
     }
 
-    async resolve(scope)
+    async resolve(scope, self)
     {
-        let t = scope;
-
-        try
-        {
-            while(t.properties && t.properties.hasOwnProperty('__this__') === true)
-            {
-                t = t.properties.__this__;
-            }
-        }
-        catch
-        {
-            t = scope;
-        }
-
         try
         {
             this.#value = this.#callable.apply(
-                t,
+                self || scope,
                 Object.entries(scope.properties)
                     .filter(([ k ]) => this.#keys.includes(k))
-                    .map(([ , p ]) => p instanceof Type ? p.__value : p)
+                    .map(([ , p ]) => p instanceof Type ? p.value : p)
             );
         }
         catch (e) {}
