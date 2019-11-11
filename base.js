@@ -105,19 +105,12 @@ export default class Base extends HTMLElement
     {
         for(const [ p, c ] of Object.entries(config))
         {
-            if(Object.keys(this.#properties).includes(p) !== true)
+            if(Object.keys(this.#properties).includes(p) !== true || (this.#properties[p] instanceof Type) === false)
             {
                 throw new Error(`Trying to observe non-observable property '${p}'`);
             }
 
-            if(this.#properties[p] instanceof Type)
-            {
-                this.#properties[p].on({ changed: e => c.apply(this.#properties[p], [ e.old, e.new ]) });
-            }
-            else
-            {
-                this.#observers[p] = c;
-            }
+            this.#properties[p].on({ changed: e => c.apply(this.#properties[p], [ e.old, e.new ]) });
         }
     }
 
@@ -271,6 +264,7 @@ export default class Base extends HTMLElement
                 {
                     const keys = allowedKeys.filter(k => variable.includes(k)).unique();
                     let callable;
+
                     try
                     {
                         callable = new AsyncFunction(
