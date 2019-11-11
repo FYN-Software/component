@@ -317,7 +317,10 @@ export default class Base extends HTMLElement
 
     _populate()
     {
-        this.#queue.enqueue(...this._bindings.map(b => b.nodes).reduce((t, n) => [ ...t, ...n ], []).unique());
+        for(const key of Object.keys(this.#properties))
+        {
+            this.#properties[key].trigger('changed');
+        }
 
         const setQueue = Object.entries(this.#setQueue.reduce((t, [k, v]) => {
             t[k] = v;
