@@ -319,7 +319,7 @@ export default class Base extends HTMLElement
     {
         for(const key of Object.keys(this.#properties))
         {
-            this.#properties[key].trigger('changed');
+            this.#properties[key].emit('changed', { old: undefined, new: this.#properties[key].value });
         }
 
         const setQueue = Object.entries(this.#setQueue.reduce((t, [k, v]) => {
