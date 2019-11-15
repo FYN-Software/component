@@ -19,10 +19,10 @@ export default class For extends Directive
 
         const [ name, variable ] = binding.expression.split(/\s+(?:of|in)\s+/);
 
-        const keys = name.match(/^\[?\s*(\S+?)\s*(?:(?:,|:)\s*(\S+?)\s*)?]?$/).reverse();
+        const keys = name.match(/^\[?\s*(?:(\S+?)\s*(?:,|:)\s*)?\s*(\S+?)]?$/).reverse();
 
-        this.#name = keys[1] || 'it';
-        this.#key = keys[0] || this.#name;
+        this.#name = keys[0] || 'it';
+        this.#key = keys[1] || this.#name;
 
         binding.callable = new AsyncFunction(
             ...binding.keys,
