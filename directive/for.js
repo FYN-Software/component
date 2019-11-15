@@ -1,6 +1,7 @@
-import {objectFromEntries} from '../../core/extends.js';
+import { objectFromEntries } from '../../core/extends.js';
 import Event from '../../core/event.js';
 import Type from '../../data/type/type.js';
+import Component from '../component.js';
 import Directive from './directive.js';
 import Binding, { AsyncFunction } from '../binding.js';
 import Base, { regex } from '../base.js';
@@ -78,19 +79,11 @@ export default class For extends Directive
     {
         this.#items = [];
 
-        // const nodesToAppend = new DocumentFragment();
-        //
-        // for(const i of range(0, 10))
-        // {
-        //     const { html: node, bindings } = await Base.parseHtml(this.scope, this.#template.cloneNode(true), [ this.#key, this.#name ]);
-        //
-        //     this.#items.push({ nodes: Array.from(node.children), bindings });
-        //
-        //     Array.from(node.children).forEach(c => c.setAttribute('hidden', ''));
-        //     nodesToAppend.appendChild(node);
-        // }
-        //
-        // this.node.appendChild(nodesToAppend);
+        await Promise.all(
+            Array.from(this.#template.querySelectorAll(':not(:defined)'))
+                .unique()
+                .map(n => Component.load(n.localName))
+        );
     }
 
     async render()
@@ -105,6 +98,8 @@ export default class For extends Directive
 
         for (const [ c, [ k, it ] ] of d)
         {
+            // TODO(Chris Kruining) Implement actual virtual scrolling...
+
             if(c < 10 && this.#items.length <= c)
             {
                 const { html: node, bindings } = await Base.parseHtml(this.scope, this.#template.cloneNode(true), [ this.#key, this.#name ]);
@@ -133,7 +128,6 @@ export default class For extends Directive
         }
 
         this.node.appendChild(nodesToAppend);
-
         this.node.removeAttribute('hidden');
     }
 

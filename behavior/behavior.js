@@ -11,10 +11,9 @@ export default class Behavior extends EventTarget
         this.#trigger = trigger;
 
         trigger.on({
-            options: { details: true },
-            start: d => this.emit('start', d),
-            stop: d => this.emit('stop', d),
-            changed: d => this.emit('changed', d),
+            start: d => this.emit('start', { new: d }),
+            stop: d => this.emit('stop', { new: d }),
+            changed: d => this.emit('changed', { new: d }),
         })
     }
 
