@@ -66,7 +66,7 @@ export default class Base extends HTMLElement
 
             v.name = k;
             v.on({
-                changed: async (o, n) => {
+                changed: async () => {
                     const bindings = this._bindings.filter(b => b.keys.includes(k));
 
                     await Promise.all(bindings.map(b => b.resolve(this)));
@@ -357,28 +357,12 @@ export default class Base extends HTMLElement
 
     attributeChangedCallback(name, oldValue, newValue)
     {
-        switch(name)
+        if(this._bindings === null)
         {
-            case 'if':
-            case 'for':
-                // Console.log(name, oldValue, newValue);
-                break;
-
-            default:
-                if(this._bindings === null)
-                {
-                    return;
-                }
-
-                this[set](
-                    name.toCamelCase(),
-                    newValue,
-                    Array.from(this.attributes).find(a => a.nodeName === name),
-                    false
-                );
-
-                break;
+            return;
         }
+
+        this[set](name.toCamelCase(), newValue);
     }
 
     get shadow()
