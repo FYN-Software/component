@@ -67,6 +67,11 @@ export default class Base extends HTMLElement
             v.name = k;
             v.on({
                 changed: async () => {
+                    if(this._bindings === null);
+                    {
+                        return;
+                    }
+
                     const bindings = this._bindings.filter(b => b.keys.includes(k));
 
                     await Promise.all(bindings.map(b => b.resolve(this)));
