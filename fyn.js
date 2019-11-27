@@ -1,4 +1,3 @@
-// export * from './fyn-lite.js';
 import * as Extends from '../core/extends.js';
 
 import Component from './component.js';
