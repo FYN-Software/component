@@ -3,7 +3,7 @@ import { abstract } from '../core/mixins.js';
 import Binding, { AsyncFunction } from './binding.js';
 import Directive from './directive/directive.js';
 import Type from '../data/type/type.js';
-import Queue from './utilities/queue.js';
+import Queue from '../core/queue.js';
 
 // Declare private class properties
 const get = Symbol('get');
