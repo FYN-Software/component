@@ -64,14 +64,10 @@ export default class Base extends HTMLElement
                 this.#properties[k] = v = new v();
             }
 
-            v.name = k;
+            v._owner = this;
+            v._name = k;
             v.on({
                 changed: async () => {
-                    if(this._bindings === null);
-                    {
-                        return;
-                    }
-
                     const bindings = this._bindings.filter(b => b.keys.includes(k));
 
                     await Promise.all(bindings.map(b => b.resolve(this)));
@@ -81,14 +77,15 @@ export default class Base extends HTMLElement
             });
 
             Reflect.defineProperty(this, k, {
-                get: () => this[get](k),
+                get: () => v.value,
                 set: async v => await this[set](k, v),
                 enumerable: true,
                 configurable: false,
             });
 
             const attr = k.toDashCase();
-            this[set](k, this.getAttribute(attr) || this.hasAttribute(attr) || v);
+
+            this[set](k, (this.getAttribute(attr) && this.getAttribute(attr).match(/^{{\s*.+\s*}}$/g) ? null : this.getAttribute(attr)) || this.hasAttribute(attr) || v.value);
         });
 
         this.#properties = Object.freeze(this.#properties);
@@ -144,20 +141,9 @@ export default class Base extends HTMLElement
 
     async [set](name, value)
     {
-        // NOTE(Chris Kruining) Shortciruit `__this__` to make sure it is available for loop item initialization
-        if(name === '__this__')
+        if(value instanceof Type)
         {
-            throw new Error('Obsolete!!!');
-        }
-
-        if(typeof value === 'string' && value.match(/^{{\s*.+\s*}}$/g) !== null)
-        {
-            return;
-        }
-
-        if(value instanceof  Type)
-        {
-            value = value.value;
+            throw new Error('Expected a value, not a type');
         }
 
         if(value instanceof Promise)
@@ -172,25 +158,9 @@ export default class Base extends HTMLElement
             return;
         }
 
-        const old = this.#properties[name] instanceof Type
-            ? this.#properties[name].__value
-            : this.#properties[name];
-
-        if(old === value || equals(old, value))
-        {
-            return;
-        }
-
         try
         {
-            if(this.#properties[name] instanceof Type)
-            {
-                await this.#properties[name].setValue(value);
-            }
-            else
-            {
-                this.#properties[name] = value;
-            }
+            await this.#properties[name].setValue(value);
         }
         catch(e)
         {
@@ -204,12 +174,6 @@ export default class Base extends HTMLElement
                 }
             }(`Failed to set '${this.constructor.name}.${name}', '${value}' is not valid`, e, this);
         }
-
-        const bindings = this._bindings.filter(b => b.keys.includes(name));
-
-        await Promise.all(bindings.map(b => b.resolve(this)));
-
-        this.#queue.enqueue(...bindings.map(b => b.nodes).reduce((t, n) => [ ...t, ...n ], []).unique());
     }
 
     static async parseHtml(scope, html, allowedKeys = null)
