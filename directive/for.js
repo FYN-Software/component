@@ -14,9 +14,9 @@ export default class For extends Directive
     #items = [];
     #initialized = Promise.resolve(null);
 
-    constructor(scope, node, binding)
+    constructor(owner, scope, node, binding)
     {
-        super(scope, node, binding);
+        super(owner, scope, node, binding);
 
         const [ name, variable ] = binding.expression.split(/\s+(?:of|in)\s+/);
 
@@ -99,10 +99,16 @@ export default class For extends Directive
         for (const [ c, [ k, it ] ] of d)
         {
             // TODO(Chris Kruining) Implement actual virtual scrolling...
+            if(c >= 10)
+            {
+                break;
+            }
+
+            const scope = { properties: { [this.#key]: k, [this.#name]: it } };
 
             if(c < 10 && this.#items.length <= c)
             {
-                const { html: node, bindings } = await Base.parseHtml(this.scope, this.#template.cloneNode(true), [ this.#key, this.#name ]);
+                const { html: node, bindings } = await Base.parseHtml(this.owner, scope, this.#template.cloneNode(true), [ this.#key, this.#name ]);
 
                 this.#items.push({ nodes: Array.from(node.children), bindings });
 
@@ -118,11 +124,11 @@ export default class For extends Directive
                 node.setAttribute('index', c);
             }
 
-            await Promise.all(bindings.map(b => b.resolve({ properties: { [this.#key]: k, [this.#name]: it } }, this.scope)));
+            await Promise.all(bindings.map(b => b.resolve(scope, this.owner)));
             await Promise.all(bindings.map(b => b.nodes).reduce((t, n) => [ ...t, ...n ], []).unique().map(n => Base.render(n)));
         }
 
-        for(const i of range(d.length, this.#items.length))
+        for(const i of range(Math.min(10, d.length), this.#items.length))
         {
             Array.from(this.#items[i].nodes).forEach(c => c.setAttribute('hidden', ''));
         }

@@ -1,44 +1,60 @@
+import Base from '../base.js';
 import { Component } from '../fyn.js';
 import Directive from './directive.js';
 
-const _template = Symbol('template');
-
 export default class Switch extends Directive
 {
-    constructor(node, binding)
+    #template = new DocumentFragment();
+    #items = [];
+    #initialized = Promise.resolve(null);
+
+    constructor(owner, scope, node, binding)
     {
-        super(node, binding);
+        super(owner, scope, node, binding);
 
-        this[_template] = new DocumentFragment();
+        while (node.children.length > 0)
+        {
+            this.#template.appendChild(node.children[0]);
+        }
 
-        Promise.delay(1).then(() => this._clearToTemplate());
+        this.#initialized = this.__initialize();
     }
 
-    render(value)
+    async __initialize()
     {
-        this._clearToTemplate();
+        this.#items = [];
 
+        await Promise.all(
+            Array.from(this.#template.querySelectorAll(':not(:defined)'))
+                .unique()
+                .map(n => Component.load(n.localName))
+        );
+    }
+
+    async render()
+    {
+        this.node.setAttribute('hidden', '');
+
+        await this.#initialized;
+
+        this.node.innerHTML = '';
+
+        const value = await this.binding.value;
         const element = this.cases.find(c => c.getAttribute('case') === value)
-            || this[_template].querySelector(':scope > [default]');
+            || this.#template.querySelector(':scope > [default]');
 
-        if((element instanceof Node) === false)
-        {
-            return;
-        }
+        const { html: node, bindings } = await Base.parseHtml(this.owner, this.scope, element.cloneNode(true), Object.keys(this.scope.properties));
 
-        this.node.appendChild(element);
-    }
+        this.node.appendChild(node);
 
-    _clearToTemplate()
-    {
-        while(this.node.children.length > 0)
-        {
-            this[_template].appendChild(this.node.children[0]);
-        }
+        await Promise.all(bindings.map(b => b.resolve(this.scope, this.owner)));
+        await Promise.all(bindings.map(b => b.nodes).reduce((t, n) => [ ...t, ...n ], []).unique().map(n => Base.render(n)));
+
+        this.node.removeAttribute('hidden');
     }
 
     get cases()
     {
-        return Array.from(this[_template].querySelectorAll(':scope > [case]'));
+        return Array.from(this.#template.querySelectorAll(':scope > [case]'));
     }
 }

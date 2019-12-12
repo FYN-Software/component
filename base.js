@@ -176,7 +176,7 @@ export default class Base extends HTMLElement
         }
     }
 
-    static async parseHtml(scope, html, allowedKeys = null)
+    static async parseHtml(owner, scope, html, allowedKeys = null)
     {
         allowedKeys = allowedKeys || Object.keys(this[properties]);
 
@@ -246,31 +246,29 @@ export default class Base extends HTMLElement
                         callable = new AsyncFunction('return undefined;');
                     }
 
-                    binding = new Binding(original, variable, label || 'defualt', keys, callable);
-
-                    if(node.nodeType === 2 && node.localName.startsWith(':'))
-                    {
-                        const directive = await Directive.get(node.localName.substr(1));
-
-                        if(node.ownerElement.hasOwnProperty('__directives__') === false)
-                        {
-                            Object.defineProperty(node.ownerElement, '__directives__', {
-                                value: {},
-                                enumerable: false,
-                                writable: false,
-                            });
-                        }
-
-                        node.ownerElement.__directives__[node.localName] = new directive(scope, node.ownerElement, binding);
-                    }
-
-                    binding.resolve(scope);
-
+                    binding = new Binding(original, variable, label || 'default', keys, callable);
+                    binding.resolve(scope, owner);
                     bindings.set(variable, binding);
                 }
                 else
                 {
                     binding = bindings.get(variable)
+                }
+
+                if(node.nodeType === 2 && node.localName.startsWith(':'))
+                {
+                    const directive = await Directive.get(node.localName.substr(1));
+
+                    if(node.ownerElement.hasOwnProperty('__directives__') === false)
+                    {
+                        Object.defineProperty(node.ownerElement, '__directives__', {
+                            value: {},
+                            enumerable: false,
+                            writable: false,
+                        });
+                    }
+
+                    node.ownerElement.__directives__[node.localName] = new directive(owner, scope, node.ownerElement, binding);
                 }
 
                 nodeBindings.add(binding);

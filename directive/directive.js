@@ -2,6 +2,7 @@ export default class Directive
 {
     static #registry = new Map();
 
+    #owner = null;
     #scope = null;
     #node = null;
     #binding = null;
@@ -11,23 +12,28 @@ export default class Directive
         return this.prototype.constructor.name.toLowerCase();
     }
 
-    constructor(scope, node, binding)
+    constructor(owner, scope, node, binding)
     {
         if(new.target.prototype.hasOwnProperty('render') === false || typeof new.target.prototype.render !== 'function')
         {
             throw new Error(`${new.target.prototype.constructor.name} does not implement method render or is not callable`);
         }
 
+        this.#owner = owner;
         this.#scope = scope;
         this.#node = node;
         this.#binding = binding;
+    }
+
+    get owner()
+    {
+        return this.#owner;
     }
 
     get scope()
     {
         return this.#scope;
     }
-
 
     get node()
     {
