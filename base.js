@@ -85,7 +85,7 @@ export default class Base extends HTMLElement
 
             const attr = k.toDashCase();
 
-            this[set](k, (this.getAttribute(attr) && this.getAttribute(attr).match(/^{{\s*.+\s*}}$/g) ? null : this.getAttribute(attr)) || this.hasAttribute(attr) || v.value);
+            this[set](k, (this.getAttribute(attr) && this.getAttribute(attr).match(/^{{\s*.+\s*}}$/) !== null ? null : this.getAttribute(attr)) || (this.hasAttribute(attr) && this.getAttribute(attr) === '') || v.value);
         });
 
         this.#properties = Object.freeze(this.#properties);
@@ -185,6 +185,15 @@ export default class Base extends HTMLElement
             switch(node.nodeType)
             {
                 case 1:
+                    // TODO(Chris Kruining) Fix this nasty hack.
+                    //  Maybe I could add a directive for template injection into slots?
+                    if(node.hasAttribute('template'))
+                    {
+                        node.removeAttribute('template');
+
+                        return;
+                    }
+
                     for(const a of node.attributes)
                     {
                         yield* iterator(a);
@@ -219,6 +228,8 @@ export default class Base extends HTMLElement
             // TODO(Chris Kruining) Figure out why the hell this is needed...
             if(node.hasOwnProperty('bindings'))
             {
+                console.warn('duplicate node iteration is still an issue!');
+
                 continue;
             }
 
@@ -238,7 +249,7 @@ export default class Base extends HTMLElement
                     {
                         callable = new AsyncFunction(
                             ...keys,
-                            `try { return ${variable}; } catch { return undefined; }`
+                            `try { return await ${variable}; } catch { return undefined; }`
                         );
                     }
                     catch (e)
@@ -284,7 +295,9 @@ export default class Base extends HTMLElement
 
     _populate()
     {
-        for(const key of Object.keys(this.#properties))
+        const keys = Object.keys(this.#properties);
+
+        for(const key of keys)
         {
             this.#properties[key].emit('changed', { old: undefined, new: this.#properties[key].value });
         }
@@ -308,6 +321,8 @@ export default class Base extends HTMLElement
                 throw new Error(`Failed to set '${key}', '${value}' is not a valid value`);
             }
         }
+
+        this.#queue.enqueue(...this._bindings.filter(b => b.keys.some(k => keys.includes(k)) === false).map(b => b.nodes).reduce((t, n) => [ ...t, ...n ], []).unique());
     }
 
     connectedCallback()

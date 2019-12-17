@@ -6,6 +6,8 @@ import Directive from './directive.js';
 import Binding, { AsyncFunction } from '../binding.js';
 import Base, { regex } from '../base.js';
 
+const hackedLimit = 10;
+
 export default class For extends Directive
 {
     #key;
@@ -30,9 +32,9 @@ export default class For extends Directive
             `try { return ${variable}; } catch { return undefined; }`
         );
 
-        if(node.children[0] instanceof HTMLSlotElement)
+        if(node.childNodes[0] instanceof HTMLSlotElement)
         {
-            const slot  = node.children[0];
+            const slot  = node.childNodes[0];
             slot.setAttribute('hidden', '');
 
             let ready_cb;
@@ -64,9 +66,9 @@ export default class For extends Directive
         }
         else
         {
-            while (node.children.length > 0)
+            while (node.childNodes.length > 0)
             {
-                this.#template.appendChild(node.children[0]);
+                this.#template.appendChild(node.childNodes[0]);
             }
 
             this.#initialized = this.__initialize();
@@ -93,24 +95,25 @@ export default class For extends Directive
         await this.#initialized;
 
         const nodesToAppend = new DocumentFragment();
-        const d = Object.entries(Object.entries((await this.binding.value) || {}))
+        const v = await this.binding.value;
+        const d = Object.entries(Object.entries(v && v.hasOwnProperty(Symbol.iterator) ? Array.from(v) : (v || {})))
             .map(([ c, i ]) => [ Number(c), i ]);
 
         for (const [ c, [ k, it ] ] of d)
         {
             // TODO(Chris Kruining) Implement actual virtual scrolling...
-            if(c >= 10)
+            if(c >= hackedLimit)
             {
                 break;
             }
 
             const scope = { properties: { [this.#key]: k, [this.#name]: it } };
 
-            if(c < 10 && this.#items.length <= c)
+            if(c < hackedLimit && this.#items.length <= c)
             {
                 const { html: node, bindings } = await Base.parseHtml(this.owner, scope, this.#template.cloneNode(true), [ this.#key, this.#name ]);
 
-                this.#items.push({ nodes: Array.from(node.children), bindings });
+                this.#items.push({ nodes: Array.from(node.childNodes), bindings });
 
                 Array.from(node.children).forEach(c => c.setAttribute('hidden', ''));
                 nodesToAppend.appendChild(node);
@@ -118,7 +121,7 @@ export default class For extends Directive
 
             const { nodes, bindings } = this.#items[c];
 
-            for(const node of nodes)
+            for(const node of nodes.filter(n => n.nodeType === 1))
             {
                 node.removeAttribute('hidden');
                 node.setAttribute('index', c);
@@ -130,7 +133,7 @@ export default class For extends Directive
 
         for(const i of range(Math.min(10, d.length), this.#items.length))
         {
-            Array.from(this.#items[i].nodes).forEach(c => c.setAttribute('hidden', ''));
+            Array.from(this.#items[i].nodes).filter(n => n.nodeType === 1).forEach(c => c.setAttribute('hidden', ''));
         }
 
         this.node.appendChild(nodesToAppend);

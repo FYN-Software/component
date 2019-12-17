@@ -12,9 +12,9 @@ export default class Switch extends Directive
     {
         super(owner, scope, node, binding);
 
-        while (node.children.length > 0)
+        while (node.childNodes.length > 0)
         {
-            this.#template.appendChild(node.children[0]);
+            this.#template.appendChild(node.childNodes[0]);
         }
 
         this.#initialized = this.__initialize();
