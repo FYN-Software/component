@@ -18,7 +18,7 @@ const decodeHtml = html => {
     txt.innerHTML = String(html);
     return txt.value;
 };
-export const regex = /{{(?:#(?<label>[a-z]+))?\s*(?<variable>.+?)\s*}}/g;
+export const regex = /{{\s*(?<variable>.+?)\s*}}/g;
 
 const elements = new Set();
 setInterval(() => {
@@ -236,7 +236,7 @@ export default class Base extends HTMLElement
             const str = node.nodeValue;
             const nodeBindings = new Set();
 
-            for(const [ original, label, variable ] of Array.from(str.matchAll(regex), m => [ m[0], m.groups.label, m.groups.variable ]))
+            for(const [ original, variable ] of Array.from(str.matchAll(regex), m => [ m[0], m.groups.variable ]))
             {
                 let binding;
 
@@ -257,7 +257,7 @@ export default class Base extends HTMLElement
                         callable = new AsyncFunction('return undefined;');
                     }
 
-                    binding = new Binding(original, variable, label || 'default', keys, callable);
+                    binding = new Binding(original, variable, keys, callable);
                     binding.resolve(scope, owner);
                     bindings.set(variable, binding);
                 }
@@ -387,13 +387,8 @@ export default class Base extends HTMLElement
             ? n.bindings[0].value
             : Promise.all(n.bindings.map(b => b.value.then(v => [ b.expression, v ])))
                 .then(objectFromEntries)
-                .then(v => n.template.replace(regex, (a, l, m) => {
+                .then(v => n.template.replace(regex, (a, m) => {
                     const value = v[m];
-
-                    if(value instanceof Type)
-                    {
-                        return value[Symbol.toPrimitive](l || 'default')
-                    }
 
                     return value;
                 }))

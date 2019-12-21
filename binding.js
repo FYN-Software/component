@@ -6,17 +6,15 @@ export default class Binding
 {
     #original;
     #expression;
-    #label;
     #keys;
     #nodes = new Set();
     #value = Promise.resolve(undefined);
     #callable;
 
-    constructor(original, expression, label, keys, callable)
+    constructor(original, expression, keys, callable)
     {
         this.#original = original;
         this.#expression = expression;
-        this.#label = label;
         this.#keys = keys;
         this.#callable = callable;
     }
