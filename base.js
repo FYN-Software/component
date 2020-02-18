@@ -1,5 +1,3 @@
-import { equals, objectFromEntries } from '../core/extends.js';
-import { abstract } from '../core/mixins.js';
 import Binding, { AsyncFunction } from './binding.js';
 import Directive from './directive/directive.js';
 import Type from '../data/type/type.js';
@@ -386,7 +384,7 @@ export default class Base extends HTMLElement
         const v = await (n.bindings.length === 1 && n.bindings[0].original === n.template
             ? n.bindings[0].value
             : Promise.all(n.bindings.map(b => b.value.then(v => [ b.expression, v ])))
-                .then(objectFromEntries)
+                .then(Object.fromEntries)
                 .then(v => n.template.replace(regex, (a, m) => {
                     const value = v[m];
 
