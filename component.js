@@ -14,6 +14,11 @@ export default class Component extends Base
 
     constructor(url = null)
     {
+        if(new.target.localName !== undefined && window.customElements.get(new.target.localName) === undefined)
+        {
+            Component.register(new.target, new.target.localName);
+        }
+
         super();
 
         this.setAttribute('loading', '');
