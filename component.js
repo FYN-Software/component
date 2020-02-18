@@ -14,6 +14,11 @@ export default class Component extends Base
 
     constructor(url = null)
     {
+        if(new.target.localName !== undefined && window.customElements.get(new.target.localName) === undefined)
+        {
+            Component.register(new.target, new.target.localName);
+        }
+
         super();
 
         this.setAttribute('loading', '');
@@ -74,9 +79,8 @@ export default class Component extends Base
         const { html: template, bindings } = await this.constructor.parseHtml(this, this, node.cloneNode(true));
 
         const nodes = Array.from(template.querySelectorAll(':not(:defined)'));
-        const dependencies = [...nodes.map(n => n.localName), ...(this.constructor.dependencies || [])];
 
-        await Promise.all(dependencies.unique().map(n => Component.load(n)));
+        await Promise.all(nodes.map(n => n.localName).unique().map(n => Component.load(n)));
         await Promise.all(nodes.filter(n => n instanceof Component).map(n => n.isReady));
 
         return { template, bindings };
