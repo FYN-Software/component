@@ -32,7 +32,7 @@ export default class For extends Directive
             `try { return ${variable}; } catch { return undefined; }`
         );
 
-        if(node.childNodes[0] instanceof HTMLSlotElement)
+        if(node.childNodes[0] instanceof HTMLSlotElement) // TODO(Chris Kruining) Implement :for-static for slots
         {
             const slot  = node.childNodes[0];
             slot.setAttribute('hidden', '');
@@ -66,9 +66,20 @@ export default class For extends Directive
         }
         else
         {
-            while (node.childNodes.length > 0)
+            let index = 0;
+
+            while (node.childNodes.length > index)
             {
-                this.#template.appendChild(node.childNodes[0]);
+                const child = node.childNodes[index];
+
+                if(child.nodeType === 1 && child.hasAttribute(':for-static'))
+                {
+                    index++;
+
+                    continue;
+                }
+
+                this.#template.appendChild(child);
             }
 
             this.#initialized = this.__initialize();
