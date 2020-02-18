@@ -1,10 +1,7 @@
-import { objectFromEntries } from '../../core/extends.js';
-import Event from '../../core/event.js';
-import Type from '../../data/type/type.js';
 import Component from '../component.js';
 import Directive from './directive.js';
-import Binding, { AsyncFunction } from '../binding.js';
-import Base, { regex } from '../base.js';
+import { AsyncFunction } from '../binding.js';
+import Base from '../base.js';
 
 const hackedLimit = 10;
 
