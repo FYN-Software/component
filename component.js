@@ -14,10 +14,7 @@ export default class Component extends Base
 
     constructor(url = null)
     {
-        if(new.target.localName !== undefined && window.customElements.get(new.target.localName) === undefined)
-        {
-            Component.register(new.target, new.target.localName);
-        }
+        new.target.init();
 
         super();
 
@@ -144,6 +141,14 @@ export default class Component extends Base
         r = await import(Composer.resolve(el));
 
         return Component.register(r.default, el);
+    }
+
+    static init()
+    {
+        if(this.localName !== undefined && window.customElements.get(this.localName) === undefined)
+        {
+            Component.register(this, this.localName);
+        }
     }
 
     get isReady()
