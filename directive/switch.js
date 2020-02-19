@@ -43,7 +43,8 @@ export default class Switch extends Directive
 
         this.node.innerHTML = '';
 
-        const value = await this.binding.value;
+        const value = String(await this.binding.value);
+
         const element = this.cases.find(c => c.getAttribute('case') === value)
             || this.#template.querySelector(':scope > [default]');
 
