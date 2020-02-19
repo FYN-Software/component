@@ -69,7 +69,7 @@ export default class For extends Directive
             {
                 const child = node.childNodes[index];
 
-                if(child.nodeType === 1 && child.hasAttribute(':for-static'))
+                if(child.nodeType === 1 && child.hasAttribute('for-static'))
                 {
                     index++;
 
