@@ -29,7 +29,8 @@ setInterval(() => {
 export default class Base extends HTMLElement
 {
     _bindings = null;
-    #shadow = this.attachShadow({ mode: 'open' });
+    // #shadow = this.attachShadow({ mode: 'open' });
+    #shadow = this.attachShadow({ mode: 'closed' });
     #queue = new Queue;
     #setQueue = [];
     #observers = {};
@@ -51,7 +52,8 @@ export default class Base extends HTMLElement
 
         this.#properties = this.constructor[properties];
 
-        Object.entries(this.#properties).forEach(([k, v]) => {
+        for(let [k, v] of Object.entries(this.#properties))
+        {
             if((v instanceof Type) === false && (v.prototype instanceof Type) === false)
             {
                 throw new Error(`Expected a ${Type.name}, got '${v}' instead`);
@@ -84,7 +86,7 @@ export default class Base extends HTMLElement
             const attr = k.toDashCase();
 
             this[set](k, (this.getAttribute(attr) && this.getAttribute(attr).match(/^{{\s*.+\s*}}$/) !== null ? null : this.getAttribute(attr)) || (this.hasAttribute(attr) && this.getAttribute(attr) === '') || v.value);
-        });
+        }
 
         this.#properties = Object.freeze(this.#properties);
     }
@@ -291,7 +293,7 @@ export default class Base extends HTMLElement
         return { html, bindings: Array.from(bindings.values()) };
     }
 
-    _populate()
+    async _populate()
     {
         const keys = Object.keys(this.#properties);
 
@@ -310,7 +312,7 @@ export default class Base extends HTMLElement
         {
             try
             {
-                this[set](...args);
+                await this[set](...args);
             }
             catch(e)
             {

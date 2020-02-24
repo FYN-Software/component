@@ -49,7 +49,7 @@ export default class Component extends Base
                 this._bindings = r.bindings;
             }
 
-            this._populate();
+            await this._populate();
 
             this.emit('ready');
 
