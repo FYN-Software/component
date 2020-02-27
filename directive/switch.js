@@ -16,9 +16,46 @@ export default class Switch extends Directive
     {
         super(owner, scope, node, binding);
 
-        while (node.childNodes.length > 0)
+        for(let skip = 0; node.childNodes.length > skip;)
         {
-            this.#template.appendChild(node.childNodes[0]);
+            const c = node.childNodes[skip];
+
+            if(c instanceof HTMLSlotElement)
+            {
+                skip++;
+                c.setAttribute('hidden', '');
+
+                let ready_cb;
+                this.#initialized = new Promise(r => ready_cb = r);
+
+                c.on({
+                    slotchange: async () => {
+                        ready_cb();
+
+                        await this.#initialized;
+
+                        const old = this.#template;
+                        this.#template = new DocumentFragment();
+
+                        for(const el of c.assignedNodes({ flatten: true }))
+                        {
+                            this.#template.appendChild(el.cloneNode(true));
+                        }
+
+                        this.#initialized = this.__initialize();
+
+                        node.emit('templatechange', {
+                            old,
+                            new: this.#template.cloneNode(true),
+                            directive: this,
+                        });
+                    },
+                }).trigger('slotchange');
+            }
+            else
+            {
+                this.#template.appendChild(c);
+            }
         }
 
         this.#initialized = this.__initialize();
@@ -41,12 +78,15 @@ export default class Switch extends Directive
 
         await this.#initialized;
 
-        this.node.innerHTML = '';
+        const current = this.node.querySelector('[case]');
+        if(current !== null)
+        {
+            current.remove();
+        }
 
         const value = String(await this.binding.value);
-
         const element = this.cases.find(c => c.getAttribute('case') === value)
-            || this.#template.querySelector(':scope > [default]');
+            || this.#template.querySelector(':scope > [default]') || document.createTextNode('');
 
         const { html: node, bindings } = await Base.parseHtml(this.owner, this.scope, element.cloneNode(true), Object.keys(this.scope.properties));
 
