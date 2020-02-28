@@ -266,6 +266,30 @@ export default class Base extends HTMLElement
                     binding = bindings.get(variable)
                 }
 
+                // NOTE(Chris Kruining)
+                // To make sure structures like for
+                // directives can update on a 'imported'
+                // variable register a change listener
+                const props = Object.keys(owner.#properties);
+                for(const [, prop ] of variable.matchAll(/this\.([a-zA-Z_][a-zA-Z0-9_]*)/g))
+                {
+                    if(props.includes(prop) === false)
+                    {
+                        continue;
+                    }
+
+                    owner.observe({
+                        [prop]: async (o, n) => {
+                            // console.log(o, n, node, binding, scope, owner);
+
+                            await binding.resolve(scope, owner);
+                            Base.render(node);
+                        },
+                    });
+                }
+
+                // NOTE(Chris Kruining)
+                // Detect and create directives
                 if(node.nodeType === 2 && node.localName.startsWith(':'))
                 {
                     const directive = await Directive.get(node.localName.substr(1));
