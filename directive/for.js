@@ -28,6 +28,7 @@ export default class For extends Directive
             ...binding.keys,
             `try { return ${variable}; } catch { return undefined; }`
         );
+        binding.resolve(owner, scope);
 
         if(node.childNodes[0] instanceof HTMLSlotElement) // TODO(Chris Kruining) Implement :for-static for slots
         {
@@ -115,7 +116,7 @@ export default class For extends Directive
                 break;
             }
 
-            const scope = { properties: { [this.#key]: k, [this.#name]: it } };
+            const scope = { properties: { [this.#key]: Number.tryParseInt(k), [this.#name]: it } };
 
             if(c < hackedLimit && this.#items.length <= c)
             {
