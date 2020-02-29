@@ -40,14 +40,13 @@ export default class Component extends Base
                         : templates[url])
                     : null
             );
-
-            this.shadow.appendChild((r && r.template || DocumentFragment.fromString('')));
-
             this._bindings = [];
             if(r !== null && Array.isArray(r.bindings))
             {
                 this._bindings = r.bindings;
             }
+
+            this.shadow.appendChild((r && r.template || DocumentFragment.fromString('')));
 
             await this._populate();
 
