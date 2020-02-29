@@ -114,6 +114,31 @@ export default class Base extends HTMLElement
 
             this.#properties[p].on({ changed: e => c.apply(this.#properties[p], [ e.old, e.new ]) });
         }
+
+        return this;
+    }
+
+    modify(config)
+    {
+        for(const [ p, { get = null, set = null } ] of Object.entries(config))
+        {
+            if(Object.keys(this.#properties).includes(p) !== true || (this.#properties[p] instanceof Type) === false)
+            {
+                throw new Error(`Trying to modify invalid property '${p}'`);
+            }
+
+            if(get !== null)
+            {
+                this.#properties[p].getter = get;
+            }
+
+            if(set !== null)
+            {
+                this.#properties[p].setter = set;
+            }
+        }
+
+        return this;
     }
 
     async [render]()
