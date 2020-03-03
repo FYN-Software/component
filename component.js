@@ -9,8 +9,9 @@ export default class Component extends Base
 {
     #ready_cb = null;
     #ready = new Promise(r => this.#ready_cb = r);
-    #listeners = {};
+    #isReady = false;
     #behaviors = [];
+    #template;
 
     constructor(url = null)
     {
@@ -40,19 +41,24 @@ export default class Component extends Base
                         : templates[url])
                     : null
             );
+
             this._bindings = [];
             if(r !== null && Array.isArray(r.bindings))
             {
                 this._bindings = r.bindings;
             }
 
-            this.shadow.appendChild((r && r.template || DocumentFragment.fromString('')));
+            this.#template = (r && r.template || DocumentFragment.fromString(''));
 
             await this._populate();
 
+            super.shadow.appendChild(this.#template);
+
             this.emit('ready');
 
-            this.ready();
+            this.#isReady = true;
+
+            await this.ready();
 
             this.#ready_cb(true);
         })();
@@ -158,6 +164,13 @@ export default class Component extends Base
     get behaviors()
     {
         return this.#behaviors;
+    }
+
+    get shadow()
+    {
+        return this.#isReady
+            ? super.shadow
+            : this.#template || super.shadow;
     }
 
     static get registration()
