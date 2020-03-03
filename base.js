@@ -32,7 +32,7 @@ export default class Base extends HTMLElement
     // #shadow = this.attachShadow({ mode: 'open' });
     #shadow = this.attachShadow({ mode: 'closed' });
     #queue = new Queue;
-    #setQueue = [];
+    #setQueue = new Queue;
     #observers = {};
     #properties = {};
 
@@ -178,7 +178,7 @@ export default class Base extends HTMLElement
 
         if(this._bindings === null)
         {
-            this.#setQueue.push([ name, value ]);
+            this.#setQueue.enqueue([ name, value ]);
 
             return;
         }
@@ -351,13 +351,7 @@ export default class Base extends HTMLElement
             this.#properties[key].emit('changed', { old: undefined, new: this.#properties[key].value });
         }
 
-        const setQueue = Object.entries(this.#setQueue.reduce((t, [k, v]) => {
-            t[k] = v;
-
-            return t;
-        }, {}));
-
-        for(const args of setQueue)
+        for(const args of this.#setQueue)
         {
             try
             {
