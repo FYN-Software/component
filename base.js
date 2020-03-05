@@ -1,6 +1,7 @@
 import Binding, { AsyncFunction } from './binding.js';
 import Directive from './directive/directive.js';
 import Type from '../data/type/type.js';
+import Event from '../core/event.js';
 import Queue from '../core/queue.js';
 
 // Declare private class properties
@@ -11,20 +12,7 @@ const properties = Symbol('properties');
 
 window.range = (s, e) => Array(e - s).fill(1).map((_, i) => s + i);
 
-const decodeHtml = html => {
-    const txt = document.createElement('textarea');
-    txt.innerHTML = String(html);
-    return txt.value;
-};
 export const regex = /{{\s*(?<variable>.+?)\s*}}/g;
-
-const elements = new Set();
-setInterval(() => {
-    for(const el of elements)
-    {
-        el[render]();
-    }
-}, 100);
 
 export default class Base extends HTMLElement
 {
@@ -87,6 +75,15 @@ export default class Base extends HTMLElement
 
             this[set](k, (this.getAttribute(attr) && this.getAttribute(attr).match(/^{{\s*.+\s*}}$/) !== null ? null : this.getAttribute(attr)) || (this.hasAttribute(attr) && this.getAttribute(attr) === '') || v.value);
         }
+
+        this.#queue.on({
+            enqueued: Event.debounce(5, async () => {
+                for await(const n of this.#queue)
+                {
+                    await this.constructor.render(n);
+                }
+            }),
+        });
 
         this.#properties = Object.freeze(this.#properties);
     }
@@ -370,12 +367,12 @@ export default class Base extends HTMLElement
 
     connectedCallback()
     {
-        elements.add(this);
+        // elements.add(this);
     }
 
     disconnectedCallback()
     {
-        elements.delete(this);
+        // elements.delete(this);
 
         // this.destructor();
     }
@@ -445,9 +442,9 @@ export default class Base extends HTMLElement
         ) {
             await n.ownerElement.__directives__[n.localName].render();
         }
-        else if(n.nodeType === 2 && n.ownerElement.hasOwnProperty(n.nodeName))
+        else if(n.nodeType === 2 && n.ownerElement.hasOwnProperty(n.localName.toCamelCase()))
         {
-            n.ownerElement[n.nodeName] = v;
+            n.ownerElement[n.localName.toCamelCase()] = v;
         }
         else
         {
@@ -455,9 +452,11 @@ export default class Base extends HTMLElement
             {
                 n.nodeValue = v;
             }
-            catch
+            catch(e)
             {
-                n.nodeValue = decodeHtml(v);
+                console.trace(this, v);
+
+                throw e;
             }
         }
     }

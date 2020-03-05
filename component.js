@@ -2,45 +2,31 @@ import * as Extends from '../core/extends.js';
 import Base from './base.js';
 import Composer from './composer.js';
 
-let names = {};
-let templates = {};
-
 export default class Component extends Base
 {
+    static #templates = {};
+
     #ready_cb = null;
     #ready = new Promise(r => this.#ready_cb = r);
     #isReady = false;
     #behaviors = [];
     #template;
 
-    constructor(url = null)
+    constructor()
     {
         new.target.init();
 
         super();
 
+        if(Component.#templates.hasOwnProperty(this.constructor.localName) === false)
+        {
+            throw new Error('Expected a template, non found. did you register the component?')
+        }
+
         this.setAttribute('loading', '');
 
-        if(url === null && names.hasOwnProperty(this.constructor.name))
-        {
-            url = Composer.resolve(names[this.constructor.name], 'html');
-        }
-
-        if((url instanceof Promise) === false && templates.hasOwnProperty(url) === false)
-        {
-            templates[url] = fetch(url)
-                .then(r => r.status === 200 ? r.text() : Promise.resolve(''))
-                .then(t => DocumentFragment.fromString(t));
-        }
-
         (async () => {
-            const r = await this.parseTemplate(
-                templates.hasOwnProperty(url)
-                    ? (templates[url] instanceof Promise
-                        ? await templates[url]
-                        : templates[url])
-                    : null
-            );
+            const r = await this.parseTemplate(this.constructor.localName);
 
             this._bindings = [];
             if(r !== null && Array.isArray(r.bindings))
@@ -73,17 +59,15 @@ export default class Component extends Base
         this.removeAttribute('loading');
     }
 
-    ready(){}
     initialize(){}
+    ready(){}
 
-    async parseTemplate(node)
+    async parseTemplate(name)
     {
+        const node = await Component.#templates[name];
         const { html: template, bindings } = await this.constructor.parseHtml(this, this, node.cloneNode(true));
 
-        const nodes = Array.from(template.querySelectorAll(':not(:defined)'));
-
-        await Promise.all(nodes.map(n => n.localName).unique().map(n => Component.load(n)));
-        await Promise.all(nodes.filter(n => n instanceof Component).map(n => n.isReady));
+        await this.constructor.prepare(template);
 
         return { template, bindings };
     }
@@ -120,13 +104,33 @@ export default class Component extends Base
         return animation.finished;
     }
 
+    static async prepare(template)
+    {
+        const nodes = Array.from(template.querySelectorAll(':not(:defined)'));
+
+        if(nodes.length === 0)
+        {
+            return template;
+        }
+
+        await Promise.all(nodes.map(n => n.localName).unique().map(n => Component.load(n)));
+
+        console.log(Array.from(template.querySelectorAll(':not(:defined)')));
+
+        await Promise.all(nodes.filter(n => n instanceof Component).map(n => n.isReady));
+
+        return template
+    }
+
     static register(classDef, name = null)
     {
         name = name || `${ classDef.name.replace(/[A-Z]/g, m => `-${m.toLowerCase()}`).substr(1) }`;
 
         if(window.customElements.get(name) === undefined)
         {
-            names[classDef.name] = name;
+            Component.#templates[name] = fetch(Composer.resolve(name, 'html'))
+                .then(r => r.status === 200 ? r.text() : Promise.resolve(''))
+                .then(t => DocumentFragment.fromString(t));
 
             window.customElements.define(name, classDef);
         }
@@ -173,14 +177,9 @@ export default class Component extends Base
             : this.#template || super.shadow;
     }
 
-    static get registration()
-    {
-        return names;
-    }
-
     static get is()
     {
-        return `${ this.name.replace(/[A-Z]/g, m => `-${m.toLowerCase()}`).substr(1) }`;
+        return this.localName || `${ this.name.replace(/[A-Z]/g, m => `-${m.toLowerCase()}`).substr(1) }`;
     }
 
     static get animations()
