@@ -24,7 +24,7 @@ export default class Base extends HTMLElement
     #observers = {};
     #properties = {};
 
-    constructor()
+    constructor(args = {})
     {
         if(new.target === Base.constructor)
         {
@@ -72,8 +72,9 @@ export default class Base extends HTMLElement
             });
 
             const attr = k.toDashCase();
+            const value = (this.getAttribute(attr) && this.getAttribute(attr).match(/^{{\s*.+\s*}}$/) !== null ? null : this.getAttribute(attr)) || (this.hasAttribute(attr) && this.getAttribute(attr) === '') || v.value;
 
-            this[set](k, (this.getAttribute(attr) && this.getAttribute(attr).match(/^{{\s*.+\s*}}$/) !== null ? null : this.getAttribute(attr)) || (this.hasAttribute(attr) && this.getAttribute(attr) === '') || v.value);
+            this[set](k, args.hasOwnProperty(k) ? args[k] : value);
         }
 
         this.#queue.on({

@@ -11,11 +11,11 @@ export default class Component extends Base
     #behaviors = [];
     #template;
 
-    constructor()
+    constructor(args = {})
     {
         new.target.init();
 
-        super();
+        super(args);
 
         if(Component.#templates.hasOwnProperty(this.constructor.is) === false)
         {
