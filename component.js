@@ -6,8 +6,7 @@ export default class Component extends Base
 {
     static #templates = {};
 
-    #ready_cb = null;
-    #ready = new Promise(r => this.#ready_cb = r);
+    #ready;
     #isReady = false;
     #behaviors = [];
     #template;
@@ -18,15 +17,15 @@ export default class Component extends Base
 
         super();
 
-        if(Component.#templates.hasOwnProperty(this.constructor.localName) === false)
+        if(Component.#templates.hasOwnProperty(this.constructor.is) === false)
         {
             throw new Error('Expected a template, non found. did you register the component?')
         }
 
         this.setAttribute('loading', '');
 
-        (async () => {
-            const r = await this.parseTemplate(this.constructor.localName);
+        this.#ready = (async () => {
+            const r = await this.parseTemplate(this.constructor.is);
 
             this._bindings = [];
             if(r !== null && Array.isArray(r.bindings))
@@ -39,14 +38,13 @@ export default class Component extends Base
             await this._populate();
 
             super.shadow.appendChild(this.#template);
-
-            this.emit('ready');
+            globalThis.customElements.upgrade(super.shadow);
 
             this.#isReady = true;
 
-            await this.ready();
+            this.emit('ready');
 
-            this.#ready_cb(true);
+            await this.ready();
         })();
 
         this.initialize();
@@ -108,16 +106,7 @@ export default class Component extends Base
     {
         const nodes = Array.from(template.querySelectorAll(':not(:defined)'));
 
-        if(nodes.length === 0)
-        {
-            return template;
-        }
-
         await Promise.all(nodes.map(n => n.localName).unique().map(n => Component.load(n)));
-
-        console.log(Array.from(template.querySelectorAll(':not(:defined)')));
-
-        await Promise.all(nodes.filter(n => n instanceof Component).map(n => n.isReady));
 
         return template
     }
@@ -126,21 +115,21 @@ export default class Component extends Base
     {
         name = name || `${ classDef.name.replace(/[A-Z]/g, m => `-${m.toLowerCase()}`).substr(1) }`;
 
-        if(window.customElements.get(name) === undefined)
+        if(globalThis.customElements.get(name) === undefined)
         {
             Component.#templates[name] = fetch(Composer.resolve(name, 'html'))
                 .then(r => r.status === 200 ? r.text() : Promise.resolve(''))
                 .then(t => DocumentFragment.fromString(t));
 
-            window.customElements.define(name, classDef);
+            globalThis.customElements.define(name, classDef);
         }
 
-        return window.customElements.get(name);
+        return globalThis.customElements.get(name);
     }
 
     static async load(el)
     {
-        let r = window.customElements.get(el);
+        let r = globalThis.customElements.get(el);
 
         if(r !== undefined)
         {
@@ -152,12 +141,14 @@ export default class Component extends Base
         return Component.register(r.default, el);
     }
 
-    static init()
+    static async init()
     {
-        if(this.localName !== undefined && window.customElements.get(this.localName) === undefined)
+        if(globalThis.customElements.get(this.is) === undefined)
         {
-            Component.register(this, this.localName);
+            await Component.register(this, this.is);
         }
+
+        return this;
     }
 
     get isReady()
