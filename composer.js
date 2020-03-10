@@ -1,24 +1,33 @@
-const registration = new Map();
-
 export default class Composer
 {
+    static #registration = new Map();
+
     static resolve(name, type = 'js')
     {
-        const [ ns, ...el ] = name.split('-');
+        const [ vendor, namespace, ...el ] = name.split('-');
+        const ns = `${vendor}-${namespace}`;
 
-        if(registration.has(ns) === false)
+        if(this.#registration.has(ns) === false)
         {
             throw new Error(`Trying to resolve unknown namespace :: ${ns}`);
         }
 
-        return registration.get(ns).apply(null, [ el, type, ns ]);
+        const components = this.#registration.get(ns);
+
+        return `${components.base}/${components[type]}${el.join('/')}.${type}`;
     }
 
-    static register(config)
+    static async register(...urls)
     {
-        for(const [ ns, cb] of Object.entries(config))
-        {
-            registration.set(ns, cb);
-        }
+        return Promise.all(urls.map(async url => {
+            const manifest = await fetch(`${url}/manifest.json`).then(r => r.json());
+
+            for(const components of manifest.components)
+            {
+                components.base = url;
+
+                this.#registration.set(components.namespace, components);
+            }
+        }));
     }
 }
