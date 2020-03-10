@@ -70,7 +70,7 @@ export default class Component extends Base
         return { template, bindings };
     }
 
-    async animate(key, timing = null)
+    async animateKey(key, timing = null)
     {
         let options = Extends.clone(this.constructor.animations[key] || [[], {}]);
 
