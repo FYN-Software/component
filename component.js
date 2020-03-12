@@ -25,20 +25,16 @@ export default class Component extends Base
         this.setAttribute('loading', '');
 
         this.#ready = (async () => {
+            await this.initialize();
+
             const r = await this.parseTemplate(this.constructor.is);
 
-            this._bindings = [];
-            if(r !== null && Array.isArray(r.bindings))
-            {
-                this._bindings = r.bindings;
-            }
-
-            this.#template = (r && r.template || DocumentFragment.fromString(''));
+            this._bindings = r?.bindings ?? [];
+            this.#template = r?.template ?? DocumentFragment.fromString('');
 
             await this._populate();
 
             super.shadow.appendChild(this.#template);
-            globalThis.customElements.upgrade(super.shadow);
 
             this.#isReady = true;
 
@@ -46,8 +42,6 @@ export default class Component extends Base
 
             await this.ready();
         })();
-
-        this.initialize();
     }
 
     connectedCallback()
@@ -107,6 +101,8 @@ export default class Component extends Base
         const nodes = Array.from(template.querySelectorAll(':not(:defined)'));
 
         await Promise.all(nodes.map(n => n.localName).unique().map(n => Component.load(n)));
+
+        globalThis.customElements.upgrade(template);
 
         return template
     }
