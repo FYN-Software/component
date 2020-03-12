@@ -20,7 +20,7 @@ export default class Composer
     static async register(...urls)
     {
         return Promise.all(urls.map(async url => {
-            const manifest = await fetch(`${url}/manifest.json`).then(r => r.json());
+            const manifest = await fetch(`${url}/app.json`).then(r => r.json());
 
             for(const components of manifest.components)
             {
