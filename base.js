@@ -17,7 +17,6 @@ export const regex = /{{\s*(?<variable>.+?)\s*}}/g;
 export default class Base extends HTMLElement
 {
     _bindings = null;
-    // #shadow = this.attachShadow({ mode: 'open' });
     #shadow = this.attachShadow({ mode: 'closed' });
     #queue = new Queue;
     #setQueue = new Queue;

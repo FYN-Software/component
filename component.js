@@ -1,4 +1,5 @@
 import * as Extends from '../core/extends.js';
+import Style from '../core/style.js';
 import Base from './base.js';
 import Composer from './composer.js';
 
@@ -16,6 +17,11 @@ export default class Component extends Base
         new.target.init();
 
         super(args);
+
+        if(new.target.hasOwnProperty('styles'))
+        {
+            super.shadow.adoptedStyleSheets = Style.get(...new.target.styles);
+        }
 
         if(Component.#templates.hasOwnProperty(this.constructor.is) === false)
         {

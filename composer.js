@@ -1,3 +1,5 @@
+import Style from '../core/style.js';
+
 export default class Composer
 {
     static #registration = new Map();
@@ -22,11 +24,16 @@ export default class Composer
         return Promise.all(urls.map(async url => {
             const manifest = await fetch(`${url}/app.json`).then(r => r.json());
 
-            for(const components of manifest.components)
+            for(const components of manifest.components ?? [])
             {
                 components.base = url;
 
                 this.#registration.set(components.namespace, components);
+            }
+
+            for(const [ key, path ] of manifest.stylesheets ?? [])
+            {
+                Style.set(key, path?.startsWith('./') ? path.replace(/^\./, url) : path);
             }
         }));
     }
