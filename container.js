@@ -11,7 +11,7 @@ export default class Container extends HTMLElement
 
         super();
 
-        this.style.zIndex = 100;
+        this.style.zIndex = 1000;
     }
 
     get shadow()
