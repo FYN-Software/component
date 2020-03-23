@@ -102,6 +102,11 @@ export default class Component extends Base
         return animation.finished;
     }
 
+    static async fromString(tag, properties)
+    {
+        return this.prepare(DocumentFragment.fromTemplate`<${tag} ${properties}></${tag}>`);
+    }
+
     static async prepare(template)
     {
         const nodes = Array.from(template.querySelectorAll(':not(:defined)'));
