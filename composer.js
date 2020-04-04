@@ -31,9 +31,9 @@ export default class Composer
                 this.#registration.set(components.namespace, components);
             }
 
-            for(const [ key, path ] of manifest.stylesheets ?? [])
+            for(const [ key, path, options = {} ] of manifest.stylesheets ?? [])
             {
-                Style.set(key, path?.startsWith('./') ? path.replace(/^\./, url) : path);
+                Style.set(key, path?.startsWith('./') ? path.replace(/^\./, url) : path, options);
             }
         }));
     }
