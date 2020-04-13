@@ -108,23 +108,25 @@ export default class For extends Directive
         const d = Object.entries(Object.entries(v && v.hasOwnProperty(Symbol.iterator) ? Array.from(v) : (v || {})))
             .map(([ c, i ]) => [ Number(c), i ]);
 
+        const limit = d.length; //hackedLimit;
+
         for (const [ c, [ k, it ] ] of d)
         {
             // TODO(Chris Kruining) Implement actual virtual scrolling...
-            if(c >= hackedLimit)
+            if(c >= limit)
             {
                 break;
             }
 
             const scope = { properties: { [this.#key]: Number.tryParseInt(k), [this.#name]: it } };
 
-            if(c < hackedLimit && this.#items.length <= c)
+            if(c < limit && this.#items.length <= c)
             {
                 const { html: node, bindings } = await Base.parseHtml(this.owner, scope, this.#template.cloneNode(true), [ this.#key, this.#name ]);
 
                 this.#items.push({ nodes: Array.from(node.childNodes), bindings });
 
-                Array.from(node.children).forEach(c => c.setAttribute('hidden', ''));
+                Array.from(node.children).forEach(c => c.setAttribute('invisible', ''));
                 nodesToAppend.appendChild(node);
             }
 
@@ -132,7 +134,7 @@ export default class For extends Directive
 
             for(const node of nodes.filter(n => n.nodeType === 1))
             {
-                node.removeAttribute('hidden');
+                node.removeAttribute('invisible');
                 node.setAttribute('index', c);
             }
 
