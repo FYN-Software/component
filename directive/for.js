@@ -127,6 +127,7 @@ export default class For extends Directive
                 this.#items.push({ nodes: Array.from(node.childNodes), bindings });
 
                 Array.from(node.children).forEach(c => c.setAttribute('invisible', ''));
+
                 nodesToAppend.appendChild(node);
             }
 
