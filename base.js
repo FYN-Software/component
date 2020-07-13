@@ -164,16 +164,6 @@ export default class Base extends HTMLElement
 
     async [set](name, value)
     {
-        if(value instanceof Type)
-        {
-            throw new Error('Expected a value, not a type');
-        }
-
-        if(value instanceof Promise)
-        {
-            value = await value;
-        }
-
         if(this._bindings === null)
         {
             this.#setQueue.enqueue([ name, value ]);
@@ -341,15 +331,14 @@ export default class Base extends HTMLElement
             this.#properties[key].emit('changed', { old: undefined, new: this.#properties[key].value });
         }
 
-        for(const args of this.#setQueue)
+        for(const [ key, value ] of this.#setQueue)
         {
             try
             {
-                await this[set](...args);
+                await this[set](key, value);
             }
             catch(e)
             {
-                const [ key, value ] = args;
 
                 throw new Error(`Failed to set '${key}', '${value}' is not a valid value`);
             }
