@@ -1,4 +1,5 @@
 import Binding, { AsyncFunction } from './binding.js';
+import Exception from './exception.js';
 import Directive from './directive/directive.js';
 import Type from '../data/type/type.js';
 import Event from '../core/event.js';
@@ -186,15 +187,7 @@ export default class Base extends HTMLElement
         }
         catch(e)
         {
-            throw new class Exception
-            {
-                constructor(message, inner, owner)
-                {
-                    this.message = message;
-                    this.inner = inner;
-                    this.owner = owner;
-                }
-            }(`Failed to set '${this.constructor.name}.${name}', '${value}' is not valid`, e, this);
+            throw new Exception(`Failed to set '${this.constructor.name}.${name}', '${value}' is not valid`, e, this);
         }
     }
 
