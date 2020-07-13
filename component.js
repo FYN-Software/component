@@ -9,7 +9,7 @@ export default class Component extends Base
 
     #ready;
     #isReady = false;
-    #behaviors = [];
+    #behaviours = [];
     #template;
 
     constructor(args = {})
@@ -163,9 +163,9 @@ export default class Component extends Base
         return this.#ready;
     }
 
-    get behaviors()
+    get behaviours()
     {
-        return this.#behaviors;
+        return this.#behaviours;
     }
 
     get shadow()
