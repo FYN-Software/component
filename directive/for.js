@@ -138,6 +138,13 @@ export default class For extends Directive
                 node.setAttribute('index', c);
             }
 
+            await Promise.all(
+                Array
+                    .from(nodesToAppend.querySelectorAll(':defined'))
+                    .filter(el => el instanceof Component)
+                    .map(el => el.isReady)
+            );
+
             await Promise.all(bindings.map(b => b.resolve(scope, this.owner)));
             await Promise.all(bindings.map(b => b.nodes).reduce((t, n) => [ ...t, ...n ], []).unique().map(n => Base.render(n)));
         }
