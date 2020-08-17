@@ -31,9 +31,9 @@ export default class For extends Directive
         );
         binding.resolve(owner, scope);
 
-        if(node.childNodes[0] instanceof HTMLSlotElement) // TODO(Chris Kruining) Implement :for-static for slots
+        if(node.children[0] instanceof HTMLSlotElement && node.children[0].hasAttribute('passthrough')) // TODO(Chris Kruining) Implement :for-static for slots
         {
-            const slot  = node.childNodes[0];
+            const slot  = node.children[0];
             slot.setAttribute('hidden', '');
 
             let ready_cb;
@@ -48,7 +48,14 @@ export default class For extends Directive
                     const old = this.#template;
                     this.#template = new DocumentFragment();
 
-                    for(const el of slot.assignedNodes({ flatten: true }))
+                    let elements = slot.assignedNodes({ flatten: true });
+
+                    if(elements.length === 0)
+                    {
+                        elements = slot.childNodes ?? [];
+                    }
+
+                    for(const el of elements)
                     {
                         this.#template.appendChild(el.cloneNode(true));
                     }
@@ -161,6 +168,8 @@ export default class For extends Directive
         });
 
         this.node.removeAttribute('hidden');
+
+        this.node.emit('rendered');
     }
 
     get template()
