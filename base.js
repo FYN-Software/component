@@ -18,7 +18,8 @@ export const regex = /{{\s*(?<variable>.+?)\s*}}/g;
 export default class Base extends HTMLElement
 {
     _bindings = null;
-    #shadow = this.attachShadow({ mode: 'closed' });
+    #internals = this.attachInternals();
+    #shadow;
     #queue = new Queue;
     #setQueue = new Queue;
     #observers = {};
@@ -38,6 +39,7 @@ export default class Base extends HTMLElement
 
         super();
 
+        this.#shadow = this.#internals.shadowRoot ?? this.attachShadow({ mode: 'closed' });
         this.#properties = this.constructor[properties];
 
         for(let [k, v] of Object.entries(this.#properties))
@@ -367,6 +369,11 @@ export default class Base extends HTMLElement
         }
 
         this[set](name.toCamelCase(), newValue);
+    }
+
+    get internals()
+    {
+        return this.#internals;
     }
 
     get shadow()
