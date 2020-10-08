@@ -1,5 +1,6 @@
 import Base from '../base.js';
 import {Component} from '../fyn.js';
+import Template from '../template.js';
 import Directive from './directive.js';
 
 // TODO(Chris Kruining)
@@ -51,7 +52,7 @@ export default class If extends Directive
             this.node.appendChild(node);
 
             await Promise.all(bindings.map(b => b.resolve(this.scope, this.owner)));
-            await Promise.all(bindings.map(b => b.nodes).reduce((t, n) => [ ...t, ...n ], []).unique().map(n => Base.render(n)));
+            await Promise.all(bindings.map(b => b.nodes).reduce((t, n) => [ ...t, ...n ], []).unique().map(n => Template.render(n)));
         }
 
         this.node.attributes.setOnAssert(value === false, 'hidden');

@@ -1,5 +1,6 @@
 import lock from '../../core/lock.js';
 import Component from '../component.js';
+import Template from '../template.js';
 import Directive from './directive.js';
 import { AsyncFunction } from '../binding.js';
 import Base from '../base.js';
@@ -157,7 +158,7 @@ export default class For extends Directive
                 );
 
                 await Promise.all(bindings.map(b => b.resolve(scope, this.owner)));
-                await Promise.all(bindings.map(b => b.nodes).reduce((t, n) => [ ...t, ...n ], []).unique().map(n => Base.render(n)));
+                await Promise.all(bindings.map(b => b.nodes).reduce((t, n) => [ ...t, ...n ], []).unique().map(n => Template.render(n)));
             }
 
             for(const i of range(Math.min(10, d.length), this.#items.length))
