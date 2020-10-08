@@ -255,10 +255,25 @@ export default class Base extends HTMLElement
 
                     try
                     {
-                        callable = new AsyncFunction(
-                            ...keys,
-                            `try { return await ${variable}; } catch { return undefined; }`
-                        );
+                        const func = new AsyncFunction('sandbox', `try { with(sandbox){ return await ${variable}; } } catch { return undefined; }`);
+                        callable = async function(...args)
+                        {
+                            const sandbox = new Proxy(
+                                {
+                                    // Add arguments to the sandbox
+                                    ...Object.fromEntries(args.map((a, i) => [keys[i], a])),
+                                    // whitelisted globals
+                                    Math,
+                                    JSON,
+                                },
+                                {
+                                    has: () => true,
+                                    get: (t, k) => k === Symbol.unscopables ? undefined : t[k],
+                                }
+                            );
+
+                            return await func.call(this, sandbox);
+                        };
                     }
                     catch (e)
                     {
