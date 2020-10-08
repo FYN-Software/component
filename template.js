@@ -16,48 +16,17 @@ export default class Template
 
             for(const [ original, variable ] of Array.from(str.matchAll(regex), m => [ m[0], m.groups.variable ]))
             {
-                let binding;
-
                 if(bindings.has(variable) === false)
                 {
                     const keys = allowedKeys.filter(k => variable.includes(k)).unique();
-                    let callable;
+                    const callable = this.#asSandboxedCallable(keys, variable);
 
-                    try
-                    {
-                        const func = new AsyncFunction('sandbox', `try { with(sandbox){ return await ${variable}; } } catch { return undefined; }`);
-                        callable = async function(...args)
-                        {
-                            const sandbox = new Proxy(
-                                {
-                                    // Add arguments to the sandbox
-                                    ...Object.fromEntries(args.map((a, i) => [keys[i], a])),
-                                    // whitelisted globals
-                                    Math,
-                                    JSON,
-                                },
-                                {
-                                    has: () => true,
-                                    get: (t, k) => k === Symbol.unscopables ? undefined : t[k],
-                                }
-                            );
-
-                            return await func.call(this, sandbox);
-                        };
-                    }
-                    catch (e)
-                    {
-                        callable = new AsyncFunction('return undefined;');
-                    }
-
-                    binding = new Binding(original, variable, keys, callable);
-                    binding.resolve(scope, owner);
+                    const binding = new Binding(original, variable, keys, callable);
+                    await binding.resolve(scope, owner);
                     bindings.set(variable, binding);
                 }
-                else
-                {
-                    binding = bindings.get(variable)
-                }
+
+                const binding = bindings.get(variable);
 
                 // NOTE(Chris Kruining)
                 // To make sure structures like for
@@ -108,6 +77,36 @@ export default class Template
         }
 
         return { html, bindings: Array.from(bindings.values()) };
+    }
+
+    static #asSandboxedCallable(keys, variable)
+    {
+        try
+        {
+            const func = new AsyncFunction('sandbox', `try { with(sandbox){ return await ${variable}; } } catch { return undefined; }`);
+            return async function(...args)
+            {
+                const sandbox = new Proxy(
+                    {
+                        // Add arguments to the sandbox
+                        ...Object.fromEntries(args.map((a, i) => [keys[i], a])),
+                        // whitelisted globals
+                        Math,
+                        JSON,
+                    },
+                    {
+                        has: () => true,
+                        get: (t, k) => k === Symbol.unscopables ? undefined : t[k],
+                    }
+                );
+
+                return await func.call(this, sandbox);
+            };
+        }
+        catch (e)
+        {
+            return new AsyncFunction('return undefined;');
+        }
     }
 
     static *#iterator(node)
