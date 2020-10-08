@@ -5,6 +5,8 @@ export const regex = /{{\s*(?<variable>.+?)\s*}}/g;
 
 export default class Template
 {
+    static #directives = new WeakMap();
+
     static async parseHtml(owner, scope, html, properties, allowedKeys)
     {
         const bindings = new Map();
@@ -56,16 +58,12 @@ export default class Template
                 {
                     const directive = await Directive.get(node.localName.substr(1));
 
-                    if(node.ownerElement.hasOwnProperty('__directives__') === false)
+                    if(this.#directives.has(node.ownerElement) === false)
                     {
-                        Object.defineProperty(node.ownerElement, '__directives__', {
-                            value: {},
-                            enumerable: false,
-                            writable: false,
-                        });
+                        this.#directives.set(node.ownerElement, {});
                     }
 
-                    node.ownerElement.__directives__[node.localName] = new directive(owner, scope, node.ownerElement, binding);
+                    this.#directives.get(node.ownerElement)[node.localName] = new directive(owner, scope, node.ownerElement, binding);
                 }
 
                 nodeBindings.add(binding);
@@ -153,13 +151,13 @@ export default class Template
         }
     }
 
-    static async render(n)
+    static async render(node)
     {
-        const v = await (n.bindings.length === 1 && n.bindings[0].original === n.template
-                ? n.bindings[0].value
-                : Promise.all(n.bindings.map(b => b.value.then(v => [ b.expression, v ])))
+        const v = await (node.bindings.length === 1 && node.bindings[0].original === node.template
+                ? node.bindings[0].value
+                : Promise.all(node.bindings.map(b => b.value.then(v => [ b.expression, v ])))
                     .then(Object.fromEntries)
-                    .then(v => n.template.replace(regex, (a, m) => {
+                    .then(v => node.template.replace(regex, (a, m) => {
                         const value = v[m];
 
                         return value;
@@ -167,22 +165,22 @@ export default class Template
         );
 
         if(
-            n.nodeType === 2
-            && n.localName.startsWith(':')
-            && n.ownerElement.hasOwnProperty('__directives__') &&
-            n.ownerElement.__directives__.hasOwnProperty(n.localName)
+            node.nodeType === 2
+            && node.localName.startsWith(':')
+            && this.#directives.has(node.ownerElement)
+            && this.#directives.get(node.ownerElement).hasOwnProperty(node.localName)
         ) {
-            await n.ownerElement.__directives__[n.localName].render();
+            await this.#directives.get(node.ownerElement)[node.localName].render();
         }
-        else if(n.nodeType === 2 && n.ownerElement.hasOwnProperty(n.localName.toCamelCase()))
+        else if(node.nodeType === 2 && node.ownerElement.hasOwnProperty(node.localName.toCamelCase()))
         {
-            n.ownerElement[n.localName.toCamelCase()] = v;
+            node.ownerElement[node.localName.toCamelCase()] = v;
         }
         else
         {
             try
             {
-                n.nodeValue = v;
+                node.nodeValue = v;
             }
             catch(e)
             {
