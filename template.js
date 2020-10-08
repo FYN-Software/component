@@ -44,10 +44,8 @@ export default class Template
 
                     owner.observe({
                         [prop]: async (o, n) => {
-                            // console.log(o, n, node, binding, scope, owner);
-
                             await binding.resolve(scope, owner);
-                            this.render(node);
+                            await this.render(node);
                         },
                     });
                 }
@@ -114,11 +112,9 @@ export default class Template
             case 1:
                 // TODO(Chris Kruining) Fix this nasty hack.
                 //  Maybe I could add a directive for template injection into slots?
-                //  08-10-2020 :: I believe this hack is no longer used anywhere, double check and remove
+                //  08-10-2020 :: I just checked, still in use, non the less, should implement alternative using template element
                 if(node.hasAttribute('template'))
                 {
-                    // console.error('STILL IN USE')
-
                     node.removeAttribute('template');
 
                     return;
