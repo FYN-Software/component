@@ -176,4 +176,9 @@ export default class For extends Directive
     {
         return Base.parseHtml(this.scope, this.#template.cloneNode(true), [ this.#key, this.#name ]);
     }
+
+    set template(t)
+    {
+
+    }
 }
