@@ -145,6 +145,7 @@ export default class For extends Directive
                 for(const node of nodes.filter(n => n.nodeType === 1))
                 {
                     node.removeAttribute('invisible');
+                    node.removeAttribute('hidden');
                     node.setAttribute('index', c);
                 }
 
