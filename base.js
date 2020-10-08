@@ -185,7 +185,7 @@ export default class Base extends HTMLElement
 
     static async parseHtml(owner, scope, html, allowedKeys = null)
     {
-        allowedKeys = allowedKeys || Object.keys(this[properties]);
+        allowedKeys = allowedKeys ?? Object.keys(this[properties]);
 
         const iterator = function*(node)
         {
@@ -194,6 +194,7 @@ export default class Base extends HTMLElement
                 case 1:
                     // TODO(Chris Kruining) Fix this nasty hack.
                     //  Maybe I could add a directive for template injection into slots?
+                    //  08-10-2020 :: I believe this hack is no longer used anywhere, double check and remove
                     if(node.hasAttribute('template'))
                     {
                         node.removeAttribute('template');
