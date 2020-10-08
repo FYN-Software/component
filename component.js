@@ -18,17 +18,17 @@ export default class Component extends Base
 
         super(args);
 
-        if(new.target.hasOwnProperty('styles'))
-        {
-            super.shadow.adoptedStyleSheets = Style.get(...new.target.styles);
-        }
-
         if(Component.#templates.hasOwnProperty(this.constructor.is) === false)
         {
             throw new Error('Expected a template, non found. did you register the component?')
         }
 
         this.setAttribute('loading', '');
+
+        if(new.target.hasOwnProperty('styles'))
+        {
+            super.shadow.adoptedStyleSheets = Style.get(...new.target.styles);
+        }
 
         this.#ready = (async () => {
             await this.initialize();
