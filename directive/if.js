@@ -1,5 +1,5 @@
 import Base from '../base.js';
-import {Component} from '../fyn.js';
+import { Component } from '../fyn.js';
 import Template from '../template.js';
 import Directive from './directive.js';
 
