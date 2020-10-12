@@ -1,21 +1,10 @@
 import Exception from './exception.js';
-import Type from '../data/type/type.js';
+import { Type, Object as ObjectType } from '../data/types.js';
 import Event from '../core/event.js';
 import Queue from '../core/queue.js';
-import Template, { regex } from './template.js';
-
-// Declare private class properties
-const get = Symbol('get');
-const set = Symbol('set');
-const render = Symbol('render');
-const properties = Symbol('properties');
+import Template from './template.js';
 
 window.range = (s, e) => Array(e - s).fill(1).map((_, i) => s + i);
-
-// TODO(Chris Kruining)
-//  this export is for legacy,
-//  update usages and remove this export!
-export { regex } from './template.js';
 
 export default class Base extends HTMLElement
 {
@@ -25,7 +14,7 @@ export default class Base extends HTMLElement
     #queue = new Queue;
     #setQueue = new Queue;
     #observers = {};
-    #properties = {};
+    #viewModel = {};
 
     constructor(args = {})
     {
@@ -42,19 +31,11 @@ export default class Base extends HTMLElement
         super();
 
         this.#shadow = this.#internals.shadowRoot ?? this.attachShadow({ mode: 'closed' });
-        this.#properties = this.constructor[properties];
+        this.#viewModel = new (ObjectType.define(this.constructor.props))();
 
-        for(let [k, v] of Object.entries(this.#properties))
+        for(const k of Object.keys(this.#viewModel))
         {
-            if((v instanceof Type) === false && (v.prototype instanceof Type) === false)
-            {
-                throw new Error(`Expected a ${Type.name}, got '${v}' instead`);
-            }
-
-            if(v.prototype instanceof Type)
-            {
-                this.#properties[k] = v = new v();
-            }
+            const v = this.#viewModel.$.props[k];
 
             v._owner = this;
             v._name = k;
@@ -68,17 +49,16 @@ export default class Base extends HTMLElement
                 },
             });
 
+            const attr = k.toDashCase();
+            const value = (this.getAttribute(attr) && this.getAttribute(attr).match(/^{{\s*.+\s*}}$/) !== null ? null : this.getAttribute(attr)) || (this.hasAttribute(attr) && this.getAttribute(attr) === '') || v.$.value;
+
             Reflect.defineProperty(this, k, {
-                get: () => v.value,
-                set: async v => await this[set](k, v),
+                get: () => v.$.value,
+                set: async v => await this.#set(k, v),
                 enumerable: true,
                 configurable: false,
             });
-
-            const attr = k.toDashCase();
-            const value = (this.getAttribute(attr) && this.getAttribute(attr).match(/^{{\s*.+\s*}}$/) !== null ? null : this.getAttribute(attr)) || (this.hasAttribute(attr) && this.getAttribute(attr) === '') || v.value;
-
-            this[set](k, args.hasOwnProperty(k) ? args[k] : value);
+            this.#set(k, args[k] ?? value);
         }
 
         this.#queue.on({
@@ -89,32 +69,18 @@ export default class Base extends HTMLElement
                 }
             }),
         });
-
-        this.#properties = Object.freeze(this.#properties);
-    }
-
-    destructor()
-    {
-        elements.delete(this);
-
-        this._bindings = null;
-        this.#shadow = null;
-        this.#queue = null;
-        this.#setQueue = null;
-        this.#observers = null;
-        this.#properties = null;
     }
 
     observe(config)
     {
         for(const [ p, c ] of Object.entries(config))
         {
-            if(Object.keys(this.#properties).includes(p) !== true || (this.#properties[p] instanceof Type) === false)
+            if(Object.keys(this.#viewModel).includes(p) !== true)
             {
                 throw new Error(`Trying to observe non-observable property '${p}'`);
             }
 
-            this.#properties[p].on({ changed: e => c.apply(this.#properties[p], [ e.old, e.new ]) });
+            this.#viewModel.$.props[p].on({ changed: e => c.apply(this.#viewModel[p], [ e.old, e.new ]) });
         }
 
         return this;
@@ -124,49 +90,26 @@ export default class Base extends HTMLElement
     {
         for(const [ p, { get = null, set = null } ] of Object.entries(config))
         {
-            if(Object.keys(this.#properties).includes(p) !== true || (this.#properties[p] instanceof Type) === false)
+            if(Object.keys(this.#viewModel).includes(p) !== true)
             {
                 throw new Error(`Trying to modify invalid property '${p}'`);
             }
 
             if(get !== null)
             {
-                this.#properties[p].getter = get;
+                this.#viewModel.$.props[p].$.getter = get;
             }
 
             if(set !== null)
             {
-                this.#properties[p].setter = set;
+                this.#viewModel.$.props[p].$.setter = set;
             }
         }
 
         return this;
     }
 
-    async [render]()
-    {
-        for await(const n of this.#queue)
-        {
-            await Template.render(n);
-        }
-    }
-
-    [get](name)
-    {
-        if(this.#properties.hasOwnProperty(name) === false)
-        {
-            throw new Error(`Property '${this.constructor.name}.${name}' does not exist`)
-        }
-
-        if((this.#properties[name] instanceof Type) === false)
-        {
-            throw new Error(`Property '${this.constructor.name}.${name}' is not of a managed type and therefor invalid`)
-        }
-
-        return this.#properties[name].value;
-    }
-
-    async [set](name, value)
+    async #set(name, value)
     {
         if(this._bindings === null)
         {
@@ -177,54 +120,57 @@ export default class Base extends HTMLElement
 
         try
         {
-            await this.#properties[name].setValue(value);
+            await this.#viewModel.$.props[name].setValue(value);
         }
         catch(e)
         {
+            console.log(this.#viewModel.$.value, value, e);
+
             throw new Exception(`Failed to set '${this.constructor.name}.${name}', '${value}' is not valid`, e, this);
         }
     }
 
     static parseHtml(owner, scope, html, allowedKeys = null)
     {
-        return Template.parseHtml(owner, scope, html, owner.#properties, allowedKeys ?? Object.keys(this[properties]))
+        return Template.parseHtml(owner, scope, html, owner.#viewModel, allowedKeys ?? Object.keys(this.props))
     }
 
     async _populate()
     {
-        const keys = Object.keys(this.#properties);
+        const keys = Object.keys(this.#viewModel);
 
         for(const key of keys)
         {
-            this.#properties[key].emit('changed', { old: undefined, new: this.#properties[key].value });
+            this.#viewModel.$.props[key].emit('changed', { old: undefined, new: this.#viewModel[key] });
         }
 
         for(const [ key, value ] of this.#setQueue)
         {
             try
             {
-                await this[set](key, value);
+                await this.#set(key, value);
             }
             catch(e)
             {
-
-                throw new Error(`Failed to set '${key}', '${value}' is not a valid value`);
+                throw new Error(`Failed to populate '${key}', '${value}' is not a valid value`);
             }
         }
 
-        this.#queue.enqueue(...this._bindings.filter(b => b.keys.some(k => keys.includes(k)) === false).map(b => b.nodes).reduce((t, n) => [ ...t, ...n ], []).unique());
+        this.#queue.enqueue(
+            ...this._bindings
+                .filter(b => b.keys.some(k => keys.includes(k)) === false)
+                .map(b => b.nodes)
+                .reduce((t, n) => [ ...t, ...n ], [])
+                .unique()
+        );
     }
 
     connectedCallback()
     {
-        // elements.add(this);
     }
 
     disconnectedCallback()
     {
-        // elements.delete(this);
-
-        // this.destructor();
     }
 
     attributeChangedCallback(name, oldValue, newValue)
@@ -234,7 +180,7 @@ export default class Base extends HTMLElement
             return;
         }
 
-        this[set](name.toCamelCase(), newValue);
+        this.#set(name.toCamelCase(), newValue);
     }
 
     get internals()
@@ -249,12 +195,12 @@ export default class Base extends HTMLElement
 
     get properties()
     {
-        return this.#properties;
+        return this.#viewModel;
     }
 
     static get observedAttributes()
     {
-        return Object.keys(this[properties]).map(p => p.toDashCase());
+        return Object.keys(this.props).map(p => p.toDashCase());
     }
 
     static get properties()
@@ -262,7 +208,7 @@ export default class Base extends HTMLElement
         return {};
     }
 
-    static get [properties]()
+    static get props()
     {
         let constructor = this;
         let props = {};
@@ -276,8 +222,3 @@ export default class Base extends HTMLElement
         return props;
     }
 };
-
-function uuid()
-{
-    return ([1e7]+-1e3+-4e3+-8e3+-1e11).replace(/[018]/g, c => (c ^ crypto.getRandomValues(new Uint8Array(1))[0] & 15 >> c / 4).toString(16));
-}

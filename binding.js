@@ -64,7 +64,7 @@ export default class Binding
                 self || scope,
                 Object.entries(scope.properties)
                     .filter(([ k ]) => this.#keys.includes(k))
-                    .map(([ , p ]) => p instanceof Type ? p.value : p)
+                    .map(([ , p ]) => p instanceof Type ? p.$.value : p)
             );
         }
         catch (e) {}
