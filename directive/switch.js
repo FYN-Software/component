@@ -1,6 +1,7 @@
+import dialog from '../../suite/js/common/overlay/dialog.js';
 import Base from '../base.js';
 import { Component } from '../fyn.js';
-import Template from '../template.js';
+import Template, {uuidRegex} from '../template.js';
 import Directive from './directive.js';
 
 // TODO(Chris Kruining)
@@ -9,56 +10,59 @@ import Directive from './directive.js';
 //  get rendered due to this disconnect!
 export default class Switch extends Directive
 {
-    #template = new DocumentFragment();
+    #defaultCase;
+    #cases;
     #items = [];
     #initialized = Promise.resolve(null);
 
-    constructor(owner, scope, node, binding)
+    constructor(owner, scope, node, binding, { defaultCase, cases })
     {
         super(owner, scope, node, binding);
 
-        for(let skip = 0; node.childNodes.length > skip;)
-        {
-            const c = node.childNodes[skip];
+        // for(let skip = 0; node.childNodes.length > skip;)
+        // {
+        //     const c = node.childNodes[skip];
+        //
+        //     if(c instanceof HTMLSlotElement)
+        //     {
+        //         skip++;
+        //         c.setAttribute('hidden', '');
+        //
+        //         let ready_cb;
+        //         this.#initialized = new Promise(r => ready_cb = r);
+        //
+        //         c.on({
+        //             slotchange: async () => {
+        //                 ready_cb();
+        //
+        //                 await this.#initialized;
+        //
+        //                 const old = this.#template;
+        //                 this.#template = new DocumentFragment();
+        //
+        //                 for(const el of c.assignedNodes({ flatten: true }))
+        //                 {
+        //                     this.#template.appendChild(el.cloneNode(true));
+        //                 }
+        //
+        //                 this.#initialized = this.__initialize();
+        //
+        //                 node.emit('templatechange', {
+        //                     old,
+        //                     new: this.#template.cloneNode(true),
+        //                     directive: this,
+        //                 });
+        //             },
+        //         }).trigger('slotchange');
+        //     }
+        //     else
+        //     {
+        //         this.#template.appendChild(c);
+        //     }
+        // }
 
-            if(c instanceof HTMLSlotElement)
-            {
-                skip++;
-                c.setAttribute('hidden', '');
-
-                let ready_cb;
-                this.#initialized = new Promise(r => ready_cb = r);
-
-                c.on({
-                    slotchange: async () => {
-                        ready_cb();
-
-                        await this.#initialized;
-
-                        const old = this.#template;
-                        this.#template = new DocumentFragment();
-
-                        for(const el of c.assignedNodes({ flatten: true }))
-                        {
-                            this.#template.appendChild(el.cloneNode(true));
-                        }
-
-                        this.#initialized = this.__initialize();
-
-                        node.emit('templatechange', {
-                            old,
-                            new: this.#template.cloneNode(true),
-                            directive: this,
-                        });
-                    },
-                }).trigger('slotchange');
-            }
-            else
-            {
-                this.#template.appendChild(c);
-            }
-        }
-
+        this.#defaultCase = defaultCase;
+        this.#cases = cases;
         this.#initialized = this.__initialize();
     }
 
@@ -66,11 +70,7 @@ export default class Switch extends Directive
     {
         this.#items = [];
 
-        await Promise.all(
-            Array.from(this.#template.querySelectorAll(':not(:defined)'))
-                .unique()
-                .map(n => Component.load(n.localName))
-        );
+        await Promise.all(this.#cases.map(c => c.load()));
     }
 
     async render()
@@ -86,12 +86,11 @@ export default class Switch extends Directive
         }
 
         const value = String(await this.binding.value);
-        const element = this.cases.find(c => c.getAttribute('case') === value)
-            || this.#template.querySelector(':scope > [default]') || document.createTextNode('');
+        const fragment = this.#cases.get(value) ?? this.#defaultCase;
 
-        const { html: node, bindings } = await Base.parseHtml(this.owner, this.scope, element.cloneNode(true), Object.keys(this.scope.properties));
+        const { template, bindings } = await Base.parseHtml(this.owner, this.scope, fragment);
 
-        this.node.appendChild(node);
+        this.node.appendChild(template);
 
         await Promise.all(bindings.map(b => b.resolve(this.scope, this.owner)));
         await Promise.all(bindings.map(b => b.nodes).reduce((t, n) => [ ...t, ...n ], []).unique().map(n => Template.render(n)));
@@ -99,8 +98,33 @@ export default class Switch extends Directive
         this.node.removeAttribute('hidden');
     }
 
-    get cases()
+    static async scan(node, map, allowedKeys = [])
     {
-        return Array.from(this.#template.querySelectorAll(':scope > [case]'));
+        const [ , uuid ] = node.nodeValue.match(new RegExp(uuidRegex, ''));
+        const mapping = map.get(uuid);
+        const cases = new Map();
+        const defaultCase = await Template.scan(
+            node.ownerElement.querySelector(':scope > [default]') ?? document.createTextNode(''),
+            allowedKeys
+        );
+
+        for(const n of node.ownerElement.querySelectorAll(':scope > [case]'))
+        {
+            n.remove(); // remove from DOM
+            cases.set(n.getAttribute('case'), await Template.scan(n, allowedKeys));
+        }
+
+        mapping.directive = {
+            type: this.type,
+            defaultCase,
+            cases,
+        };
+
+        // NOTE(Chris Kruining)
+        // I don't have a single fragment here
+        // like with other directives. so I
+        // return none for now, this is an issue
+        // I will solve when the need arises
+        return null;
     }
 }

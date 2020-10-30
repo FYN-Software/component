@@ -9,19 +9,15 @@ import Directive from './directive.js';
 //  get rendered due to this disconnect!
 export default class If extends Directive
 {
-    #template = new DocumentFragment();
+    #fragment;
     #items = [];
     #initialized = Promise.resolve(null);
 
-    constructor(owner, scope, node, binding)
+    constructor(owner, scope, node, binding, { fragment })
     {
         super(owner, scope, node, binding);
 
-        while (node.childNodes.length > 0)
-        {
-            this.#template.appendChild(node.childNodes[0]);
-        }
-
+        this.#fragment = fragment;
         this.#initialized = this.__initialize();
     }
 
@@ -29,11 +25,7 @@ export default class If extends Directive
     {
         this.#items = [];
 
-        await Promise.all(
-            Array.from(this.#template.querySelectorAll(':not(:defined)'))
-                .unique()
-                .map(n => Component.load(n.localName))
-        );
+        await this.#fragment.load();
     }
 
     async render()
@@ -43,18 +35,18 @@ export default class If extends Directive
         await this.#initialized;
         const value = Boolean(await this.binding.value);
 
+        this.node.attributes.setOnAssert(value === false, 'hidden');
+
         if(value)
         {
             this.node.innerHTML = '';
 
-            const { html: node, bindings } = await Base.parseHtml(this.owner, this.scope, this.#template.cloneNode(true), Object.keys(this.scope.properties));
+            const { template, bindings } = await Base.parseHtml(this.owner, this.scope, this.#fragment);
 
-            this.node.appendChild(node);
+            this.node.appendChild(template);
 
             await Promise.all(bindings.map(b => b.resolve(this.scope, this.owner)));
             await Promise.all(bindings.map(b => b.nodes).reduce((t, n) => [ ...t, ...n ], []).unique().map(n => Template.render(n)));
         }
-
-        this.node.attributes.setOnAssert(value === false, 'hidden');
     }
 }

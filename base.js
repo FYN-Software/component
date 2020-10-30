@@ -50,7 +50,9 @@ export default class Base extends HTMLElement
             });
 
             const attr = k.toDashCase();
-            const value = (this.getAttribute(attr) && this.getAttribute(attr).match(/^{{\s*.+\s*}}$/) !== null ? null : this.getAttribute(attr)) || (this.hasAttribute(attr) && this.getAttribute(attr) === '') || v.$.value;
+            const value = (this.getAttribute(attr) && (this.getAttribute(attr).startsWith('{#') || this.getAttribute(attr).includes('{{')) ? null : this.getAttribute(attr))
+                || (this.hasAttribute(attr) && this.getAttribute(attr) === '')
+                || v.$.value;
 
             Reflect.defineProperty(this, k, {
                 get: () => v.$.value,
@@ -58,6 +60,7 @@ export default class Base extends HTMLElement
                 enumerable: true,
                 configurable: false,
             });
+
             this.#set(k, args[k] ?? value);
         }
 
@@ -120,7 +123,7 @@ export default class Base extends HTMLElement
 
         try
         {
-            await this.#viewModel.$.props[name].setValue(value);
+            await (this.#viewModel[name] = value);
         }
         catch(e)
         {
@@ -130,9 +133,9 @@ export default class Base extends HTMLElement
         }
     }
 
-    static parseHtml(owner, scope, html, allowedKeys = null)
+    static async parseHtml(owner, scope, fragment)
     {
-        return Template.parseHtml(owner, scope, html, owner.#viewModel, allowedKeys ?? Object.keys(this.props))
+        return await Template.parseHtml(owner, scope, fragment, owner.#viewModel)
     }
 
     async _populate()

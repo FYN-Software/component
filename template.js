@@ -1,43 +1,87 @@
-import Binding, {AsyncFunction} from './binding.js';
+import Binding from './binding.js';
+import Fragment from './fragment.js';
 import Directive from './directive/directive.js';
 
-export const regex = /{{\s*(?<variable>.+?)\s*}}/g;
+export const regex = /{{\s*(.+?)\s*}}/g;
+export const uuidRegex = /{#([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})}/g;
+export const AsyncFunction = Object.getPrototypeOf(async function(){}).constructor;
 
 export default class Template
 {
     static #directives = new WeakMap();
+    static #templates = new WeakMap();
+    static #bindings = new WeakMap();
 
-    static async parseHtml(owner, scope, html, properties, allowedKeys)
+    static #cache = new Map();
+
+    // - Find template strings :: `{{ some random js }}`
+    // - Replace each place with a UUID
+    // - return changes html and map of `UUID: sandboxedFunction`
+    static async scan(fragment, allowedKeys)
     {
-        const bindings = new Map();
+        const cache = new Map();
+        const map = new Map();
 
-        for(const node of this.#iterator(html))
+        for await (const { node, directive } of this.#iterator(fragment))
+        {
+            node.nodeValue = node.nodeValue.replaceAll(regex, (original, code) => {
+                if(cache.has(code) === false)
+                {
+                    const id = this.#uuid();
+                    const keys = allowedKeys.filter(k => code.includes(k)).unique();
+                    const callable = this.asSandboxedCallable(keys, code);
+
+                    cache.set(code, id);
+                    map.set(id, {
+                        original,
+                        code,
+                        keys,
+                        callable,
+                    });
+                }
+
+                return `{#${cache.get(code)}}`;
+            });
+
+            if(directive !== null)
+            {
+                await directive.scan(node, map, allowedKeys);
+            }
+        }
+
+        return new Fragment(fragment, map);
+    }
+
+    static async parseHtml(owner, scope, fragment, properties)
+    {
+        const { template, map } = fragment.clone();
+        const bindings = new Map();
+        for await (const { node } of this.#iterator(template))
         {
             const str = node.nodeValue;
             const nodeBindings = new Set();
 
-            for(const [ original, variable ] of Array.from(str.matchAll(regex), m => [ m[0], m.groups.variable ]))
+            for(const [ tag, uuid ] of Array.from(str.matchAll(uuidRegex), m => [ ...m ]))
             {
-                if(bindings.has(variable) === false)
-                {
-                    const keys = allowedKeys.filter(k => variable.includes(k)).unique();
-                    const callable = this.#asSandboxedCallable(keys, variable);
+                const { original, code, keys, callable, directive } = map.get(uuid);
 
-                    const binding = new Binding(original, variable, keys, callable);
+                if(bindings.has(uuid) === false)
+                {
+                    const binding = new Binding(tag, original, code, keys, callable);
                     await binding.resolve(scope, owner);
-                    bindings.set(variable, binding);
+                    bindings.set(uuid, binding);
                 }
 
-                const binding = bindings.get(variable);
+                const binding = bindings.get(uuid);
 
                 // NOTE(Chris Kruining)
                 // To make sure structures like for
                 // directives can update on a 'imported'
                 // variable register a change listener
                 const props = Object.keys(properties);
-                for(const [, prop ] of variable.matchAll(/this\.([a-zA-Z_][a-zA-Z0-9_]*)/g))
+                for(const [, prop ] of code.matchAll(/this\.([a-zA-Z_][a-zA-Z0-9_]*)/g))
                 {
-                    if(props.includes(prop) === false)
+                    if(props.includes(prop) === false) // could be `allowedKeys` ?????
                     {
                         continue;
                     }
@@ -52,123 +96,49 @@ export default class Template
 
                 // NOTE(Chris Kruining)
                 // Detect and create directives
-                if(node.nodeType === 2 && node.localName.startsWith(':'))
+                if(directive !== undefined)
                 {
-                    const directive = await Directive.get(node.localName.substr(1));
-
                     if(this.#directives.has(node.ownerElement) === false)
                     {
                         this.#directives.set(node.ownerElement, {});
                     }
 
-                    this.#directives.get(node.ownerElement)[node.localName] = new directive(owner, scope, node.ownerElement, binding);
+                    const directiveClass = await Directive.get(directive.type);
+
+                    this.#directives.get(node.ownerElement)[node.localName] = new directiveClass(owner, scope, node.ownerElement, binding, directive);
                 }
 
                 nodeBindings.add(binding);
                 binding.nodes.add(node);
             }
 
-            Object.defineProperty(node, 'template', { value: str });
-            Object.defineProperty(node, 'bindings', { value: Array.from(nodeBindings) });
+            this.#templates.set(node, str);
+            this.#bindings.set(node, Array.from(nodeBindings));
         }
 
-        return { html, bindings: Array.from(bindings.values()) };
-    }
-
-    static #asSandboxedCallable(keys, variable)
-    {
-        try
-        {
-            const func = new AsyncFunction('sandbox', `try { with(sandbox){ return await ${variable}; } } catch { return undefined; }`);
-            return async function(...args)
-            {
-                const sandbox = new Proxy(
-                    {
-                        // Add arguments to the sandbox
-                        ...Object.fromEntries(args.map((a, i) => [keys[i], a])),
-                        // whitelisted globals
-                        Math,
-                        JSON,
-                    },
-                    {
-                        has: () => true,
-                        get: (t, k) => k === Symbol.unscopables ? undefined : t[k],
-                    }
-                );
-
-                return await func.call(this, sandbox);
-            };
-        }
-        catch (e)
-        {
-            return new AsyncFunction('return undefined;');
-        }
-    }
-
-    static *#iterator(node)
-    {
-        switch(node.nodeType)
-        {
-            case 1:
-                // TODO(Chris Kruining) Fix this nasty hack.
-                //  Maybe I could add a directive for template injection into slots?
-                //  08-10-2020 :: I just checked, still in use, non the less, should implement alternative using template element
-                if(node.hasAttribute('template'))
-                {
-                    node.removeAttribute('template');
-
-                    return;
-                }
-
-                for(const a of node.attributes)
-                {
-                    yield* this.#iterator(a);
-                }
-
-            case 11:
-                for(const c of node.childNodes)
-                {
-                    yield* this.#iterator(c);
-                }
-
-                break;
-
-            case 2:
-            case 3:
-                let m = node.nodeValue.match(regex);
-
-                if(m !== null)
-                {
-                    node.matches = m;
-                    yield node;
-                }
-
-                break;
-        }
+        return { template, bindings: Array.from(bindings.values()) };
     }
 
     static async render(node)
     {
-        const v = await (node.bindings.length === 1 && node.bindings[0].original === node.template
-                ? node.bindings[0].value
-                : Promise.all(node.bindings.map(b => b.value.then(v => [ b.expression, v ])))
-                    .then(Object.fromEntries)
-                    .then(v => node.template.replace(regex, (a, m) => {
-                        const value = v[m];
-
-                        return value;
-                    }))
-        );
-
         if(
             node.nodeType === 2
             && node.localName.startsWith(':')
-            && this.#directives.has(node.ownerElement)
-            && this.#directives.get(node.ownerElement).hasOwnProperty(node.localName)
+            && this.#directives.get(node.ownerElement)?.hasOwnProperty(node.localName)
         ) {
-            await this.#directives.get(node.ownerElement)[node.localName].render();
+            return await this.#directives.get(node.ownerElement)[node.localName].render();
         }
-        else if(node.nodeType === 2 && node.ownerElement.hasOwnProperty(node.localName.toCamelCase()))
+
+        const bindings = this.#bindings.get(node);
+        const template = this.#templates.get(node);
+        const v = await (bindings.length === 1 && bindings[0].tag === template
+                ? bindings[0].value
+                : Promise.all(bindings.map(b => b.value.then(v => [ b.tag, v ])))
+                    .then(Object.fromEntries)
+                    .then(v => template.replace(uuidRegex, m => v[m]))
+        );
+
+        if(node.nodeType === 2 && node.ownerElement.hasOwnProperty(node.localName.toCamelCase()))
         {
             node.ownerElement[node.localName.toCamelCase()] = v;
         }
@@ -187,8 +157,91 @@ export default class Template
         }
     }
 
+    static async *#iterator(node)
+    {
+        switch(node.nodeType)
+        {
+            case 1: // Element
+                // TODO(Chris Kruining) Fix this nasty hack.
+                //  Maybe I could add a directive for template injection into slots?
+                //  08-10-2020 :: I just checked, still in use, non the less,
+                //  should implement alternative using template element
+                if(node.hasAttribute('template'))
+                {
+                    node.removeAttribute('template');
+
+                    return;
+                }
+
+                for(const a of Array.from(node.attributes).sort(a => a.localName.startsWith(':') ? -1 : 1))
+                {
+                    yield* this.#iterator(a);
+                }
+
+            case 11: // Template
+                for(const c of node.childNodes)
+                {
+                    yield* this.#iterator(c);
+                }
+
+                break;
+
+            case 2: // Attribute
+            case 3: // Text
+                const m = node.nodeValue.match(regex) || node.nodeValue.match(uuidRegex);
+
+                if(m !== null)
+                {
+                    yield { node, directive: node.localName?.startsWith(':') ? await Directive.get(node.localName?.substr(1)) : null };
+                }
+
+                break;
+        }
+    }
+
+    static asSandboxedCallable(keys, variable)
+    {
+        try
+        {
+            return new AsyncFunction(...keys, `
+                const sandbox = new Proxy({ Math, JSON, ${keys.join(', ')} }, {
+                    has: () => true,
+                    get: (t, k) => k === Symbol.unscopables ? undefined : t[k],
+                });
+                
+                try 
+                { 
+                    with(sandbox)
+                    { 
+                        return await ${variable}; 
+                    } 
+                } 
+                catch 
+                { 
+                    return undefined; 
+                }
+            `);
+        }
+        catch (e)
+        {
+            return new AsyncFunction('return undefined;');
+        }
+    }
+
     static #uuid()
     {
         return ([1e7]+-1e3+-4e3+-8e3+-1e11).replace(/[018]/g, c => (c ^ crypto.getRandomValues(new Uint8Array(1))[0] & 15 >> c / 4).toString(16));
+    }
+
+    static #hashSum(str)
+    {
+        let hash = 0;
+
+        for (let i = 0; i < str.length; i++)
+        {
+            hash = (((hash << 5) - hash) + str.charCodeAt(i)) | 0;
+        }
+
+        return hash;
     }
 }

@@ -33,7 +33,7 @@ export default class Composer
 
             for(const [ key, path, options = {} ] of manifest.stylesheets ?? [])
             {
-                Style.set(key, path?.startsWith('./') ? path.replace(/^\./, url) : path, options);
+                await Style.set(key, path?.startsWith('./') ? path.replace(/^\./, url) : path, options);
             }
         }));
     }

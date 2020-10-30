@@ -2,10 +2,11 @@ import * as Extends from '../core/extends.js';
 import Style from '../core/style.js';
 import Base from './base.js';
 import Composer from './composer.js';
+import Template from './template.js';
 
 export default class Component extends Base
 {
-    static #templates = {};
+    static #fragments = {};
 
     #ready;
     #isReady = false;
@@ -18,7 +19,7 @@ export default class Component extends Base
 
         super(args);
 
-        if(Component.#templates.hasOwnProperty(this.constructor.is) === false)
+        if(Component.#fragments.hasOwnProperty(this.constructor.is) === false)
         {
             throw new Error('Expected a template, non found. did you register the component?')
         }
@@ -33,10 +34,10 @@ export default class Component extends Base
         this.#ready = (async () => {
             await this.initialize();
 
-            const r = await this.parseTemplate(this.constructor.is);
+            const { bindings, template } = (await this.parseTemplate(this.constructor.is)) ?? { bindings: [], template: new DocumentFragment() };
 
-            this._bindings = r?.bindings ?? [];
-            this.#template = r?.template ?? DocumentFragment.fromString('');
+            this._bindings = bindings;
+            this.#template = template;
 
             await this._populate();
 
@@ -62,8 +63,8 @@ export default class Component extends Base
 
     async parseTemplate(name)
     {
-        const node = await Component.#templates[name];
-        const { html: template, bindings } = await this.constructor.parseHtml(this, this, node.cloneNode(true));
+        const fragment = await Component.#fragments[name];
+        const { template, bindings } = await this.constructor.parseHtml(this, this, fragment);
 
         await this.constructor.prepare(template);
 
@@ -124,9 +125,13 @@ export default class Component extends Base
 
         if(globalThis.customElements.get(name) === undefined)
         {
-            Component.#templates[name] = fetch(Composer.resolve(name, 'html'))
+            Component.#fragments[name] = fetch(Composer.resolve(name, 'html'))
                 .then(r => r.status === 200 ? r.text() : Promise.resolve(''))
-                .then(t => DocumentFragment.fromString(t));
+                .then(t => DocumentFragment.fromString(t))
+                // TODO(Chris Kruining)
+                //  To completely finish the xss protection
+                //  migrate this logic to the backend
+                .then(t => Template.scan(t, Object.keys(classDef.props)));
 
             globalThis.customElements.define(name, classDef);
         }

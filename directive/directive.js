@@ -1,3 +1,7 @@
+import Template, {uuidRegex} from '../template.js';
+
+const references = new WeakMap;
+
 export default class Directive
 {
     static #registry = new Map();
@@ -57,7 +61,34 @@ export default class Directive
             throw new Error(`Directive with name '${name}' is not registered, you can do so by calling "Directive.register('name-of-directive', 'path/to/directive')"`);
         }
 
-        return (await import(this.#registry.get(name))).default;
+        const directive = (await import(this.#registry.get(name))).default ?? null;
+
+        references.set(directive, name);
+
+        return directive;
+    }
+
+    static get type()
+    {
+        return references.get(this);
+    }
+
+    static async scan(node, map, allowedKeys = [])
+    {
+        const template = new DocumentFragment();
+        while(node.ownerElement.childNodes.length > 0)
+        {
+            template.appendChild(node.ownerElement.childNodes[0]);
+        }
+
+        const [ , uuid ] = node.nodeValue.match(new RegExp(uuidRegex, ''));
+        const mapping = map.get(uuid);
+        mapping.directive = {
+            type: this.type,
+            fragment: await Template.scan(template, allowedKeys),
+        };
+
+        return mapping.fragment;
     }
 }
 

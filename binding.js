@@ -1,9 +1,8 @@
 import Type from '../data/type/type.js';
 
-export const AsyncFunction = Object.getPrototypeOf(async function(){}).constructor;
-
 export default class Binding
 {
+    #tag;
     #original;
     #expression;
     #keys;
@@ -11,12 +10,18 @@ export default class Binding
     #value = Promise.resolve(undefined);
     #callable;
 
-    constructor(original, expression, keys, callable)
+    constructor(tag, original, expression, keys, callable)
     {
+        this.#tag = tag;
         this.#original = original;
         this.#expression = expression;
         this.#keys = keys;
         this.#callable = callable;
+    }
+
+    get tag()
+    {
+        return this.#tag;
     }
 
     get expression()
@@ -61,13 +66,15 @@ export default class Binding
         try
         {
             this.#value = this.#callable.apply(
-                self || scope,
+                self ?? scope,
                 Object.entries(scope.properties)
                     .filter(([ k ]) => this.#keys.includes(k))
                     .map(([ , p ]) => p instanceof Type ? p.$.value : p)
             );
         }
-        catch (e) {}
+        catch (e) {
+            console.error(e);
+        }
 
         return this.#value;
     }
