@@ -4,8 +4,6 @@ import Template, { uuidRegex } from '../template.js';
 import Directive from './directive.js';
 import Base from '../base.js';
 
-const hackedLimit = 15;
-
 export default class For extends Directive
 {
     #key;
@@ -101,6 +99,11 @@ export default class For extends Directive
             for await (const [ c, k, it ] of valueIterator(value))
             {
                 const scope = { properties: { [this.#key]: Number.tryParseInt(k), [this.#name]: it } };
+
+                if(this.#key === 'relation')
+                {
+                    console.log(c, k, it, scope);
+                }
 
                 if(this.#items.length <= c)
                 {
@@ -202,76 +205,5 @@ async function *valueIterator(value)
     {
         console.trace(value);
         throw e;
-    }
-}
-
-class VirtualScroll
-{
-    // TODO(Chris Kruining)
-    //  Implement scroll direction, it's
-    //  hardcoded for vertical right now
-
-    // TODO(Chris Kruining)
-    //  I just can't seem to come up with
-    //  a solution that would allow for
-    //  dynamic row height and perform
-    //  anywhere near acceptable,
-    //  so it is static for now...
-    static #rowHeight = 54.4;
-    static #states = new WeakMap();
-
-    // TODO(Chris Kruining)
-    //  Currently I simply update the data
-    //  position via the offset, but for
-    //  performance I don't want to rerender
-    //  every visible element in the for
-    //  directive, only the one that swaps
-    //  to the bottom
-    //  (kind of like a round robin algorithm)
-    static async *calculate(owner, node, dataLength, template, properties)
-    {
-        const scroll = node.scrollTop;
-        const offset = scroll % this.#rowHeight;
-        const rowOffset = Math.floor(scroll / this.#rowHeight);
-        const viewport = node.clientHeight;
-        const elementCount = Math.ceil(viewport / this.#rowHeight) + 2;
-
-        node.style.setProperty('--row-count', dataLength);
-        node.style.setProperty('--row-height', `${this.#rowHeight}px`); // NOTE(Chris Kruining) Leave this be, in preparation for dynamic row heights.
-
-        if(this.#states.has(node) === false)
-        {
-            const items = [];
-            const nodesToAppend = new DocumentFragment();
-
-            for(let i = 0; i < elementCount; i++)
-            {
-                const { fragment, bindings } = await Base.parseHtml(owner, null, template.cloneNode(true), properties);
-
-                items.push({ nodes: Array.from(fragment.childNodes), bindings });
-
-                nodesToAppend.appendChild(fragment);
-            }
-
-            this.#states.set(node, items);
-
-            await Promise.all(
-                Array
-                    .from(nodesToAppend.querySelectorAll(':defined'))
-                    .filter(el => el instanceof Component)
-                    .map(el => el.isReady)
-            );
-
-            node.appendChild(nodesToAppend);
-        }
-
-        const items = this.#states.get(node);
-
-        for(let i = 0; i < elementCount; i++)
-        {
-            const { nodes, bindings } = items[i];
-
-            yield { i: i + rowOffset - 1, nodes, bindings  };
-        }
     }
 }

@@ -12,6 +12,7 @@ export default class Component extends Base
     #isReady = false;
     #behaviours = [];
     #template;
+    #sugar;
 
     constructor(args = {})
     {
@@ -31,6 +32,7 @@ export default class Component extends Base
             super.shadow.adoptedStyleSheets = Style.get(...new.target.styles);
         }
 
+        this.#sugar = new Proxy({}, { get: (c, p) => this.shadow.getElementById(p) });
         this.#ready = (async () => {
             await this.initialize();
 
@@ -163,6 +165,11 @@ export default class Component extends Base
         return this;
     }
 
+    get $()
+    {
+        return this.#sugar;
+    }
+
     get isReady()
     {
         return this.#ready;
@@ -177,7 +184,7 @@ export default class Component extends Base
     {
         return this.#isReady
             ? super.shadow
-            : this.#template || super.shadow;
+            : this.#template ?? super.shadow;
     }
 
     static get is()

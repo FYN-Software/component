@@ -1,5 +1,5 @@
 import Exception from './exception.js';
-import { Type, Object as ObjectType } from '../data/types.js';
+import { Type, Object as ObjectType, Boolean as Bool } from '../data/types.js';
 import Event from '../core/event.js';
 import Queue from '../core/queue.js';
 import Template from './template.js';
@@ -51,7 +51,7 @@ export default class Base extends HTMLElement
 
             const attr = k.toDashCase();
             const value = (this.getAttribute(attr) && (this.getAttribute(attr).startsWith('{#') || this.getAttribute(attr).includes('{{')) ? null : this.getAttribute(attr))
-                || (this.hasAttribute(attr) && this.getAttribute(attr) === '')
+                || (this.hasAttribute(attr) && this.getAttribute(attr) === '' && v instanceof Bool)
                 || v.$.value;
 
             Reflect.defineProperty(this, k, {

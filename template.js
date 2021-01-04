@@ -12,8 +12,6 @@ export default class Template
     static #templates = new WeakMap();
     static #bindings = new WeakMap();
 
-    static #cache = new Map();
-
     // - Find template strings :: `{{ some random js }}`
     // - Replace each place with a UUID
     // - return changes html and map of `UUID: sandboxedFunction`
@@ -25,6 +23,11 @@ export default class Template
         for await (const { node, directive } of this.#iterator(fragment))
         {
             node.nodeValue = node.nodeValue.replaceAll(regex, (original, code) => {
+                if(code === 'product.old[item]')
+                {
+                    console.log(original, allowedKeys);
+                }
+
                 if(cache.has(code) === false)
                 {
                     const id = this.#uuid();
@@ -56,6 +59,7 @@ export default class Template
     {
         const { template, map } = fragment.clone();
         const bindings = new Map();
+
         for await (const { node } of this.#iterator(template))
         {
             const str = node.nodeValue;
