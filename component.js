@@ -38,7 +38,7 @@ export default class Component extends Base
 
             const { bindings, template } = (await this.parseTemplate(this.constructor.is)) ?? { bindings: [], template: new DocumentFragment() };
 
-            this._bindings = bindings;
+            super._bindings = bindings;
             this.#template = template;
 
             await this._populate();

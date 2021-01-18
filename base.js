@@ -8,7 +8,7 @@ window.range = (s, e) => Array(e - s).fill(1).map((_, i) => s + i);
 
 export default class Base extends HTMLElement
 {
-    _bindings = null;
+    #bindings = null;
     #internals = this.attachInternals();
     #shadow;
     #queue = new Queue;
@@ -41,7 +41,7 @@ export default class Base extends HTMLElement
             v._name = k;
             v.on({
                 changed: async () => {
-                    const bindings = this._bindings.filter(b => b.keys.includes(k));
+                    const bindings = this.#bindings.filter(b => b.keys.includes(k));
 
                     await Promise.all(bindings.map(b => b.resolve(this)));
 
@@ -114,7 +114,7 @@ export default class Base extends HTMLElement
 
     async #set(name, value)
     {
-        if(this._bindings === null)
+        if(this.#bindings === null)
         {
             this.#setQueue.enqueue([ name, value ]);
 
@@ -160,7 +160,7 @@ export default class Base extends HTMLElement
         }
 
         this.#queue.enqueue(
-            ...this._bindings
+            ...this.#bindings
                 .filter(b => b.keys.some(k => keys.includes(k)) === false)
                 .map(b => b.nodes)
                 .reduce((t, n) => [ ...t, ...n ], [])
@@ -178,12 +178,17 @@ export default class Base extends HTMLElement
 
     attributeChangedCallback(name, oldValue, newValue)
     {
-        if(this._bindings === null)
+        if(this.#bindings === null)
         {
             return;
         }
 
         this.#set(name.toCamelCase(), newValue);
+    }
+
+    set _bindings(bindings)
+    {
+        this.#bindings = bindings;
     }
 
     get internals()
