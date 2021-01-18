@@ -100,11 +100,6 @@ export default class For extends Directive
             {
                 const scope = { properties: { [this.#key]: Number.tryParseInt(k), [this.#name]: it } };
 
-                if(this.#key === 'relation')
-                {
-                    console.log(c, k, it, scope);
-                }
-
                 if(this.#items.length <= c)
                 {
                     const { template, bindings } = await Base.parseHtml(this.owner, scope, this.#fragment);
