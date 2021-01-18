@@ -1,6 +1,9 @@
+import Type from '../data/type/type.js';
 import Binding from './binding.js';
 import Fragment from './fragment.js';
 import Directive from './directive/directive.js';
+import plugins from './plugins.js';
+import Plugin from './plugin/plugin.js';
 
 export const regex = /{{\s*(.+?)\s*}}/g;
 export const uuidRegex = /{#([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})}/g;
@@ -23,16 +26,12 @@ export default class Template
         for await (const { node, directive } of this.#iterator(fragment))
         {
             node.nodeValue = node.nodeValue.replaceAll(regex, (original, code) => {
-                if(code === 'product.old[item]')
-                {
-                    console.log(original, allowedKeys);
-                }
-
                 if(cache.has(code) === false)
                 {
                     const id = this.#uuid();
                     const keys = allowedKeys.filter(k => code.includes(k)).unique();
-                    const callable = this.asSandboxedCallable(keys, code);
+                    const args = [ ...keys, ...plugins.keys() ];
+                    const callable = this.asSandboxedCallable(args, code);
 
                     cache.set(code, id);
                     map.set(id, {
@@ -72,7 +71,19 @@ export default class Template
                 if(bindings.has(uuid) === false)
                 {
                     const binding = new Binding(tag, original, code, keys, callable);
+
+                    // NOTE(Chris Kruining) Test which plugins are used and add the binding to that plugin
+                    await Plugin.discover(plugins, scope, binding, (...wrappedArgs) => {
+                        if(code === 't.nl(\'key\', { count: 2, with: \'some\', replacement: new Date().setFullYear(1995)')
+                        {
+                            console.log(wrappedArgs);
+                        }
+
+                        return callable.apply(scope, [ ...keys, ...wrappedArgs ]);
+                    });
+
                     await binding.resolve(scope, owner);
+
                     bindings.set(uuid, binding);
                 }
 
@@ -205,28 +216,30 @@ export default class Template
 
     static asSandboxedCallable(keys, variable)
     {
+        const code = `
+            const sandbox = new Proxy({ Math, JSON, Date, ${keys.join(', ')} }, {
+                has: () => true,
+                get: (t, k) => k === Symbol.unscopables ? undefined : t[k],
+            });
+            
+            try
+            {
+                with(sandbox)
+                {
+                    return await ${variable};
+                }
+            }
+            catch
+            {            
+                return undefined; 
+            }
+        `;
+
         try
         {
-            return new AsyncFunction(...keys, `
-                const sandbox = new Proxy({ Math, JSON, ${keys.join(', ')} }, {
-                    has: () => true,
-                    get: (t, k) => k === Symbol.unscopables ? undefined : t[k],
-                });
-                
-                try 
-                { 
-                    with(sandbox)
-                    { 
-                        return await ${variable}; 
-                    } 
-                } 
-                catch 
-                { 
-                    return undefined; 
-                }
-            `);
+            return new AsyncFunction(...keys, code);
         }
-        catch (e)
+        catch
         {
             return new AsyncFunction('return undefined;');
         }

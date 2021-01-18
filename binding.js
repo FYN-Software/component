@@ -1,4 +1,5 @@
 import Type from '../data/type/type.js';
+import plugins from './plugins.js';
 
 export default class Binding
 {
@@ -63,14 +64,16 @@ export default class Binding
 
     async resolve(scope, self)
     {
+        const args = [
+            ...Object.entries(scope.properties)
+                .filter(([ k ]) => this.#keys.includes(k))
+                .map(([ , p ]) => p instanceof Type ? p.$.value : p),
+            ...plugins.values()
+        ];
+
         try
         {
-            this.#value = this.#callable.apply(
-                self ?? scope,
-                Object.entries(scope.properties)
-                    .filter(([ k ]) => this.#keys.includes(k))
-                    .map(([ , p ]) => p instanceof Type ? p.$.value : p)
-            );
+            this.#value = this.#callable.apply(self ?? scope, args);
         }
         catch (e) {
             console.error(e);

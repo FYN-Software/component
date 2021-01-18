@@ -1,5 +1,5 @@
 import Exception from './exception.js';
-import { Type, Object as ObjectType, Boolean as Bool } from '../data/types.js';
+import { Object as ObjectType, Boolean as Bool } from '../data/types.js';
 import Event from '../core/event.js';
 import Queue from '../core/queue.js';
 import Template from './template.js';
