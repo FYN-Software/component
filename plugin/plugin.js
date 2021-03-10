@@ -1,4 +1,4 @@
-export default class Plugin
+export default class Plugin extends EventTarget
 {
     #bindings = [];
 
@@ -36,15 +36,22 @@ export default class Plugin
             construct: mark,
         };
 
-        await callback(...plugins.map(plugin => {
-            const mark = () => plugin.bindings.push({ binding, scope });
-            return new Proxy(() => {}, {
-                get: mark,
-                has: mark,
-                deleteProperty: mark,
-                apply: mark,
-                construct: mark,
-            })
-        }));
+        try
+        {
+            await callback(...plugins.map(plugin => {
+                const mark = () => plugin.bindings.push({ binding, scope });
+                return new Proxy(() => {}, {
+                    get: mark,
+                    has: mark,
+                    deleteProperty: mark,
+                    apply: mark,
+                    construct: mark,
+                })
+            }));
+        }
+        catch (e)
+        {
+            console.error(e);
+        }
     }
 }

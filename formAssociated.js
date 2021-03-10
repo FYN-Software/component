@@ -28,7 +28,8 @@ export default class FormAssociated extends Component
             value: (o, n) => {
                 // TODO(Chris Kruining) Do validation
 
-                this.internals.setFormValue(n);
+                // TODO(Chris Kruining) This plain String cast is obviously wrong...
+                this.internals.setFormValue(String(n));
             },
         });
     }

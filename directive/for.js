@@ -20,66 +20,19 @@ export default class For extends Directive
         this.#key = key;
         this.#fragment = fragment;
         this.#initialized = this.__initialize();
+    }
 
-        // if(node.children[0] instanceof HTMLSlotElement && node.children[0].hasAttribute('passthrough')) // TODO(Chris Kruining) Implement :for-static for slots
-        // {
-        //     const slot  = node.children[0];
-        //     slot.setAttribute('hidden', '');
-        //
-        //     let ready_cb;
-        //     this.#initialized = new Promise(r => ready_cb = r);
-        //
-        //     slot.on({
-        //         slotchange: async () => {
-        //             ready_cb();
-        //
-        //             await this.#initialized;
-        //
-        //             const old = this.#template;
-        //             this.#template = new DocumentFragment();
-        //
-        //             let elements = slot.assignedNodes({ flatten: true });
-        //
-        //             if(elements.length === 0)
-        //             {
-        //                 elements = slot.childNodes ?? [];
-        //             }
-        //
-        //             for(const el of elements)
-        //             {
-        //                 this.#template.appendChild(el.cloneNode(true));
-        //             }
-        //
-        //             this.#initialized = this.__initialize();
-        //
-        //             node.emit('templatechange', {
-        //                 old,
-        //                 new: this.#template.cloneNode(true),
-        //                 directive: this,
-        //             });
-        //         },
-        //     }).trigger('slotchange');
-        // }
-        // else
-        // {
-        //     let index = 0;
-        //
-        //     while (node.childNodes.length > index)
-        //     {
-        //         const child = node.childNodes[index];
-        //
-        //         if(child.nodeType === 1 && child.hasAttribute('for-static'))
-        //         {
-        //             index++;
-        //
-        //             continue;
-        //         }
-        //
-        //         this.#template.appendChild(child);
-        //     }
-        //
-        //     this.#initialized = this.__initialize();
-        // }
+    get fragment()
+    {
+        return this.#fragment;
+    }
+
+    set fragment(fragment)
+    {
+        this.#fragment = fragment;
+        this.#initialized = this.__initialize();
+
+        const _ = this.render();
     }
 
     async __initialize()
@@ -95,9 +48,12 @@ export default class For extends Directive
 
         await lock(this, async () => {
             const value = await this.binding.value;
+            let count;
 
             for await (const [ c, k, it ] of valueIterator(value))
             {
+                count = c + 1;
+
                 const scope = { properties: { [this.#key]: Number.tryParseInt(k), [this.#name]: it } };
 
                 if(this.#items.length <= c)
@@ -136,7 +92,21 @@ export default class For extends Directive
                         })
                 );
             }
+
+            // Remove "overflow"
+            const toRemove = this.#items.splice(count, this.#items.length - count);
+
+            for(const { nodes } of toRemove)
+            {
+                for(const node of nodes)
+                {
+                    node.remove();
+                }
+            }
         });
+
+        //NOTE(Chris Kruining) with a 0 delay in order to allow the browser to actually render the results
+        await Promise.delay(0);
 
         this.node.emit('rendered');
     }

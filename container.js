@@ -1,8 +1,10 @@
+import '../core/extends.js';
+
 export default class Container extends HTMLElement
 {
     #shadow = this.attachShadow({ mode: 'closed' });
 
-    constructor()
+    constructor(html = null)
     {
         if(window.customElements.get('fyn-container') === undefined)
         {
@@ -10,6 +12,11 @@ export default class Container extends HTMLElement
         }
 
         super();
+
+        if(html !== null)
+        {
+            this.shadow.appendChild(DocumentFragment.fromString(html));
+        }
 
         this.style.zIndex = 1000;
     }

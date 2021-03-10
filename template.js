@@ -54,6 +54,21 @@ export default class Template
         return new Fragment(fragment, map);
     }
 
+    static async scanSlot(slot, allowedKeys, clone = true)
+    {
+        const template = new DocumentFragment();
+        for(const el of slot.assignedNodes({ flatten: true }))
+        {
+            const child = clone
+                ? el.cloneNode(true)
+                : el;
+
+            template.appendChild(child);
+        }
+
+        return await Template.scan(template, allowedKeys);
+    }
+
     static async parseHtml(owner, scope, fragment, properties)
     {
         const { template, map } = fragment.clone();
@@ -74,12 +89,11 @@ export default class Template
 
                     // NOTE(Chris Kruining) Test which plugins are used and add the binding to that plugin
                     await Plugin.discover(plugins, scope, binding, (...wrappedArgs) => {
-                        if(code === 't.nl(\'key\', { count: 2, with: \'some\', replacement: new Date().setFullYear(1995)')
-                        {
-                            console.log(wrappedArgs);
-                        }
+                        const args = Object.entries(scope.properties)
+                            .filter(([ k ]) => keys.includes(k))
+                            .map(([ , p ]) => p instanceof Type ? p.$.value : p)
 
-                        return callable.apply(scope, [ ...keys, ...wrappedArgs ]);
+                        return callable.apply(scope, [ ...args, ...wrappedArgs ]);
                     });
 
                     await binding.resolve(scope, owner);
@@ -153,10 +167,18 @@ export default class Template
                     .then(v => template.replace(uuidRegex, m => v[m]))
         );
 
+        // NOTE(Chris Kruining)
+        //  Changed from `hasOwnProperty` to `in` I'm
+        //  far from certain this is correct. CHECK IT!
+        // if(node.nodeType === 2 && (node.localName.toCamelCase() in node.ownerElement))
         if(node.nodeType === 2 && node.ownerElement.hasOwnProperty(node.localName.toCamelCase()))
         {
             node.ownerElement[node.localName.toCamelCase()] = v;
         }
+        // else if(node.nodeType === 2 && (node.localName.toCamelCase() in node.ownerElement) && node.ownerElement.localName.includes('-') === false)
+        // {
+        //     node.ownerElement[node.localName.toCamelCase()] = v;
+        // }
         else
         {
             try
@@ -165,11 +187,14 @@ export default class Template
             }
             catch(e)
             {
-                console.trace(this, v);
-
                 throw e;
             }
         }
+    }
+
+    static getDirectivesFor(node)
+    {
+        return this.#directives.get(node);
     }
 
     static async *#iterator(node)
@@ -217,7 +242,7 @@ export default class Template
     static asSandboxedCallable(keys, variable)
     {
         const code = `
-            const sandbox = new Proxy({ Math, JSON, Date, ${keys.join(', ')} }, {
+            const sandbox = new Proxy({ Math, JSON, Date, range, ${keys.join(', ')} }, {
                 has: () => true,
                 get: (t, k) => k === Symbol.unscopables ? undefined : t[k],
             });
@@ -230,7 +255,7 @@ export default class Template
                 }
             }
             catch
-            {            
+            {
                 return undefined; 
             }
         `;

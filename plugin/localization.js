@@ -4,79 +4,27 @@ import Template from '../template.js';
 export default class Localization extends Plugin
 {
     #resources = {
-        en: {
-            common: {
-                key: {
-                    pluralRulesValue: 'with',
-                    one: 'hello {{ with }} world {{ replacement }}',
-                    other: 'hello {{#currency with }} worlds {{#relativeDateTime replacement }}',
-                },
-                description: {
-                    one: 'description',
-                },
-                cancel: {
-                    one: 'cancel',
-                },
-                save: {
-                    one: 'save',
-                },
-            },
-            data: {
-                diff: {
-                    deltas: {
-                        one: '{{#currency price }}, {{#percent percentage }}',
-                    },
-                    new: {
-                        one: 'new',
-                    },
-                    current: {
-                        one: 'current',
-                    },
-                    purchasePrice: {
-                        one: 'purchase price',
-                    },
-                    sellingPrice: {
-                        one: 'selling price',
-                    },
-                },
-            },
+        'ar-EG': {
+            common: fetch('https://fyncdn.nl/locales/ar-EG/common.json').then(r => r.json()),
+            data: fetch('https://fyncdn.nl/locales/ar-EG/data.json').then(r => r.json()),
         },
-        nl: {
-            common: {
-                key: {
-                    pluralRulesValue: 'count',
-                    one: 'hallo {{ with }} wereld {{ replacement }}',
-                    other: 'hallo {{#currency with }} werelden {{#relativeDateTime replacement }}',
-                },
-                description: {
-                    one: 'omschrijving',
-                },
-                cancel: {
-                    one: 'annuleren',
-                },
-                save: {
-                    one: 'opslaan',
-                },
-            },
-            data: {
-                diff: {
-                    deltas: {
-                        one: '{{#currency price }}, {{#percent percentage }}',
-                    },
-                    new: {
-                        one: 'nieuw',
-                    },
-                    current: {
-                        one: 'huidige',
-                    },
-                    purchasePrice: {
-                        one: 'inkoop prijs',
-                    },
-                    sellingPrice: {
-                        one: 'verkoop prijs',
-                    },
-                },
-            },
+        'de-DE': {
+            common: fetch('https://fyncdn.nl/locales/de-DE/common.json').then(r => r.json()),
+            data: fetch('https://fyncdn.nl/locales/de-DE/data.json').then(r => r.json()),
+        },
+        'en-GB': {
+            common: fetch('https://fyncdn.nl/locales/en-GB/common.json').then(r => r.json()),
+            data: fetch('https://fyncdn.nl/locales/en-GB/data.json').then(r => r.json()),
+            site: fetch('https://fyncdn.nl/locales/en-GB/site.json').then(r => r.json()),
+        },
+        'fr-FR': {
+            common: fetch('https://fyncdn.nl/locales/fr-FR/common.json').then(r => r.json()),
+            data: fetch('https://fyncdn.nl/locales/fr-FR/data.json').then(r => r.json()),
+        },
+        'nl-NL': {
+            common: fetch('https://fyncdn.nl/locales/nl-NL/common.json').then(r => r.json()),
+            data: fetch('https://fyncdn.nl/locales/nl-NL/data.json').then(r => r.json()),
+            site: fetch('https://fyncdn.nl/locales/nl-NL/site.json').then(r => r.json()),
         },
     };
     #formatters = {
@@ -87,36 +35,42 @@ export default class Localization extends Plugin
         percent: new NumberFormatter({ style: 'percent', signDisplay: 'exceptZero' }),
     };
     #global;
-    #current;
-    #namespace = 'common';
-    #pr = new Intl.PluralRules();
+    #fallback;
+    #namespace = [ 'common' ];
+    #cache = new Map();
 
     constructor()
     {
         super();
 
-        this.language = 'en';
-
-        let i = 0;
-        setInterval(() => this.language = [ 'nl', 'en' ][++i % 2], 2500);
+        this.#fallback = 'en-GB';
+        this.language = 'en-GB';
     }
 
-    t(key, replacements)
+    async t(key, replacements = {})
     {
-        key = key.split('.');
+        let path = key.split('.');
 
-        if(key.length === 1)
+        if(path.length === 1)
         {
-            key = [ this.#namespace, key ];
+            path = [ ...this.#namespace, path[0] ];
         }
 
-        let translation = this.#resources[this.#current];
-        for(const k of key)
+        const language = replacements?._lang ?? this.#global;
+        const translation = await this.#getTranslation(path, language);
+
+        if(translation === undefined)
         {
-            translation = translation[k];
+            return;
         }
 
-        const pluralization = this.#pr.select(replacements[translation.pluralRulesValue] ?? 1);
+        const pluralRulesValue = replacements?.[translation.pluralRulesValue] ?? 1;
+        let pluralization = this.#pluralization(language, pluralRulesValue);
+
+        if(translation.hasOwnProperty(pluralization) === false)
+        {
+            pluralization = 'one';
+        }
 
         return translation[pluralization].replace(/{{(?:#(?<type>[a-zA-Z]+)\s)?\s*(?<key>[a-zA-Z\-_]+)\s*}}/g, (...args) => {
             const { type = 'default', key } = args[5];
@@ -126,17 +80,43 @@ export default class Localization extends Plugin
         });
     }
 
+    get languages()
+    {
+        return Object.keys(this.#resources);
+    }
+    get language()
+    {
+        return this.#global;
+    }
+
     set language(language)
     {
-        this.#global = language;
-        this.#current = this.#global;
+        (async () => {
+            if(this.languages.includes(language) === false)
+            {
+                throw new Error(
+                    `Given language '${language}' is not supported, provice one of these: [ ${Object.keys(this.#resources).map(k => `'${k}'`).join(', ')} ]`
+                );
+            }
 
-        for(const formatter of Object.values(this.#formatters))
-        {
-            formatter.language = language;
-        }
+            if(language === this.#global)
+            {
+                return;
+            }
 
-        this.#rerender();
+            const old = this.#global;
+
+            this.#global = language;
+
+            for(const formatter of Object.values(this.#formatters))
+            {
+                formatter.language = language;
+            }
+
+            await this.#rerender();
+
+            this.emit('changed', { old, new: language })
+        })();
     }
 
     get key()
@@ -147,23 +127,42 @@ export default class Localization extends Plugin
     get plugin()
     {
         const proxy = new Proxy(() => {}, {
-            get: (target, property) =>
-            {
-                this.#current = property;
-
-                return proxy;
-            },
-            apply: (target, thisArg, [ key, options = {} ]) =>
-            {
-                const value = this.t(key, options);
-
-                this.#current = this.#global;
-
-                return value;
-            },
+            get: () => proxy,
+            apply: (target, thisArg, [ key, options = {} ]) => this.t(key, options),
         });
 
         return proxy;
+    }
+
+    #pluralization(language, value)
+    {
+        if(this.#cache.has(language) === false)
+        {
+            this.#cache.set(language, new Intl.PluralRules(language));
+        }
+
+        return this.#cache.get(language).select(value);
+    }
+
+    async #getTranslation(path, language)
+    {
+        let translation = await this.#resources[language];
+        for(const k of path)
+        {
+            translation = await translation[k];
+
+            if(translation === undefined)
+            {
+                break;
+            }
+        }
+
+        if(translation === undefined && language !== this.#fallback)
+        {
+            return await this.#getTranslation(path, this.#fallback);
+        }
+
+        return translation;
     }
 
     async #rerender()
@@ -181,7 +180,7 @@ export default class Localization extends Plugin
 
 class Formatter
 {
-    #language = 'en';
+    #language = 'en-GB';
 
     set language(language)
     {

@@ -60,8 +60,8 @@ export default class Component extends Base
         this.removeAttribute('loading');
     }
 
-    initialize(){}
-    ready(){}
+    async initialize(){}
+    async ready(){}
 
     async parseTemplate(name)
     {

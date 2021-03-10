@@ -186,6 +186,18 @@ export default class Base extends HTMLElement
         this.#set(name.toCamelCase(), newValue);
     }
 
+    cloneNode(deep = false)
+    {
+        const res = super.cloneNode(deep);
+
+        for(const [ key, value ] of Object.entries(this.#viewModel))
+        {
+            res[key] = value;
+        }
+
+        return res;
+    }
+
     set _bindings(bindings)
     {
         this.#bindings = bindings;

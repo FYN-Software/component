@@ -1,8 +1,10 @@
-import Localization from './plugin/localization.js';
+import LocalizationPlugin from './plugin/localization.js';
+
+export const Localization = new LocalizationPlugin();
 
 // TODO(Chris Kruining) Find a proper implementation of a plugin container...
 const plugins = [
-    new Localization(),
+    Localization,
 ];
 
 const keys = plugins.map(p => p.key);

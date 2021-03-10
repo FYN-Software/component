@@ -70,7 +70,7 @@ export default class Switch extends Directive
     {
         this.#items = [];
 
-        await Promise.all(this.#cases.map(c => c.load()));
+        await Promise.all(Array.from(this.#cases.values()).map(c => c.load()));
     }
 
     async render()
