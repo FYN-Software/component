@@ -1,16 +1,16 @@
-const _component = Symbol('component');
-
 export default class Trigger extends EventTarget
 {
+    #component;
+
     constructor(component)
     {
         super();
 
-        this[_component] = component;
+        this.#component = component;
     }
 
     get component()
     {
-        return this[_component];
+        return this.#component;
     }
 }

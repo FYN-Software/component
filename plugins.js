@@ -1,4 +1,4 @@
-import LocalizationPlugin from './plugin/localization.js';
+import LocalizationPlugin from '@fyn-software/component/plugin/localization.js';
 
 export const Localization = new LocalizationPlugin();
 

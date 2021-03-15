@@ -1,5 +1,5 @@
-import Plugin from './plugin.js';
-import Template from '../template.js';
+import Plugin from '@fyn-software/component/plugin/plugin.js';
+import Template from '@fyn-software/component/template.js';
 
 export default class Localization extends Plugin
 {

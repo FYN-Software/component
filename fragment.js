@@ -1,4 +1,4 @@
-import Component from './component.js';
+import Composer from '@fyn-software/component/composer.js';
 
 export default class Fragment
 {
@@ -7,11 +7,6 @@ export default class Fragment
 
     constructor(template, map)
     {
-        if(template instanceof Fragment)
-        {
-            console.error(template);
-        }
-
         this.#template = template;
         this.#map = map;
     }
@@ -29,24 +24,8 @@ export default class Fragment
         await Promise.all(
             Array.from(this.#template.querySelectorAll(':not(:defined)'))
                 .unique()
-                .map(n => Component.load(n.localName))
+                .map(n => Composer.load(n.localName))
         );
-    }
-
-    toString()
-    {
-        const template = this.#template.innerHTML.replace('`', '\\`');
-        const map = `{${Array.from(this.#map.entries(), ([ id, { callable, code, keys, original, directive = null } ]) => {            
-            return `'${id}': {
-                callable: ${callable.toString()},
-                code: '${code}',
-                original: '${original}',
-                keys: [ ${keys.map(k => `'${k}'`).join(', ')} ],
-                directive: null,
-            },`;
-        }).join('\n')}}`
-
-        return `new Fragment(DocumentFragment.fromString(\`${template}\`), ${map})`;
     }
 
     get template()

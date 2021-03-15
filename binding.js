@@ -1,5 +1,5 @@
-import Type from '../data/type/type.js';
-import plugins from './plugins.js';
+import Type from '@fyn-software/data/type/type.js';
+import plugins from '@fyn-software/component/plugins.js';
 
 export default class Binding
 {
@@ -48,18 +48,6 @@ export default class Binding
     get keys()
     {
         return this.#keys;
-    }
-
-    set callable(callable)
-    {
-        if((callable instanceof AsyncFunction) === false)
-        {
-            throw new Error(
-                `Expected an instance of '${ AsyncFunction.name }', got '${callable.constructor.name}' instead`
-            );
-        }
-
-        this.#callable = callable;
     }
 
     async resolve(scope, self)

@@ -1,23 +1,28 @@
-import Exception from './exception.js';
-import { Object as ObjectType, Boolean as Bool } from '../data/types.js';
-import Event from '../core/event.js';
-import Queue from '../core/queue.js';
-import Template from './template.js';
+import Exception from '@fyn-software/component/exception.js';
+import Event from '@fyn-software/core/event.js';
+import Queue from '@fyn-software/core/queue.js';
+import { Object as ObjectType, Boolean as Bool } from '@fyn-software/data/types.js';
+import Template from '@fyn-software/component/template.js';
 
-window.range = (s, e) => Array(e - s).fill(1).map((_, i) => s + i);
+globalThis.range = (s, e) => Array(e - s).fill(1).map((_, i) => s + i);
 
-export default class Base extends HTMLElement
+export default class Base extends EventTarget
 {
     #bindings = null;
-    #internals = this.attachInternals();
+    #parent = null;
+    // #internals = this.attachInternals();
     #shadow;
     #queue = new Queue;
     #setQueue = new Queue;
-    #observers = {};
     #viewModel = {};
 
-    constructor(args = {})
+    constructor(parent, args = {})
     {
+        if(parent === undefined)
+        {
+            throw new Error('Invalid element construction');
+        }
+
         if(new.target === Base.constructor)
         {
             throw new Error(`'${new.target.name}' is abstract, needs an concrete implementation to function properly`);
@@ -25,12 +30,13 @@ export default class Base extends HTMLElement
 
         if(new.target.prototype.attributeChangedCallback !== Base.prototype.attributeChangedCallback)
         {
-            throw new Error('method attributeChangedCallback is final and should therefor not be extended');
+            throw new Error('method attributeChangedCallback is final and should there for not be extended');
         }
 
         super();
 
-        this.#shadow = this.#internals.shadowRoot ?? this.attachShadow({ mode: 'closed' });
+        this.#parent = parent;
+        // this.#shadow = this.#internals.shadowRoot ?? this.attachShadow({ mode: 'closed' });
         this.#viewModel = new (ObjectType.define(this.constructor.props))();
 
         for(const k of Object.keys(this.#viewModel))
@@ -60,18 +66,79 @@ export default class Base extends HTMLElement
                 enumerable: true,
                 configurable: false,
             });
+            Reflect.defineProperty(this.#parent, k, {
+                get: () => v.$.value,
+                set: async v => await this.#set(k, v),
+                enumerable: true,
+                configurable: false,
+            });
 
             this.#set(k, args[k] ?? value);
         }
 
         this.#queue.on({
-            enqueued: Event.debounce(5, async () => {
+            enqueued: Event.debounce(10, async () => {
                 for await(const n of this.#queue)
                 {
                     await Template.render(n);
                 }
             }),
         });
+    }
+
+    get children()
+    {
+        return this.#parent.children;
+    }
+
+    get style()
+    {
+        return this.#parent.style;
+    }
+
+    get attributes()
+    {
+        return this.#parent.attributes;
+    }
+
+    get classList()
+    {
+        return this.#parent.classList;
+    }
+
+    getBoundingClientRect(...args)
+    {
+        return this.#parent.getBoundingClientRect(...args);
+    }
+
+    hasAttribute(...args)
+    {
+        return this.#parent.hasAttribute(...args);
+    }
+
+    getAttribute(...args)
+    {
+        return this.#parent.getAttribute(...args);
+    }
+
+    setAttribute(...args)
+    {
+        return this.#parent.setAttribute(...args);
+    }
+
+    removeAttribute(...args)
+    {
+        return this.#parent.removeAttribute(...args);
+    }
+
+    on(...args)
+    {
+        this.#parent.on(...args);
+    }
+
+    emit(...args)
+    {
+        this.#parent.emit(...args);
     }
 
     observe(config)
@@ -84,29 +151,6 @@ export default class Base extends HTMLElement
             }
 
             this.#viewModel.$.props[p].on({ changed: e => c.apply(this.#viewModel[p], [ e.old, e.new ]) });
-        }
-
-        return this;
-    }
-
-    modify(config)
-    {
-        for(const [ p, { get = null, set = null } ] of Object.entries(config))
-        {
-            if(Object.keys(this.#viewModel).includes(p) !== true)
-            {
-                throw new Error(`Trying to modify invalid property '${p}'`);
-            }
-
-            if(get !== null)
-            {
-                this.#viewModel.$.props[p].$.getter = get;
-            }
-
-            if(set !== null)
-            {
-                this.#viewModel.$.props[p].$.setter = set;
-            }
         }
 
         return this;
@@ -127,8 +171,6 @@ export default class Base extends HTMLElement
         }
         catch(e)
         {
-            console.log(this.#viewModel.$.value, value, e);
-
             throw new Exception(`Failed to set '${this.constructor.name}.${name}', '${value}' is not valid`, e, this);
         }
     }
@@ -168,14 +210,6 @@ export default class Base extends HTMLElement
         );
     }
 
-    connectedCallback()
-    {
-    }
-
-    disconnectedCallback()
-    {
-    }
-
     attributeChangedCallback(name, oldValue, newValue)
     {
         if(this.#bindings === null)
@@ -205,17 +239,22 @@ export default class Base extends HTMLElement
 
     get internals()
     {
-        return this.#internals;
+        return this.#parent.internals;
     }
 
     get shadow()
     {
-        return this.#shadow;
+        return this.#parent.shadow;
     }
 
     get properties()
     {
         return this.#viewModel;
+    }
+
+    static get extends()
+    {
+        return HTMLElement;
     }
 
     static get observedAttributes()

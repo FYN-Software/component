@@ -1,5 +1,5 @@
-import Trigger from './trigger.js';
-import Event from '../../../core/event.js';
+import Trigger from '@fyn-software/component/behaviour/trigger/trigger.js';
+import Event from '@fyn-software/core/event.js';
 
 export default class Scroll extends Trigger
 {
