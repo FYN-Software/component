@@ -3,13 +3,14 @@ import Component from '@fyn-software/component/component.js';
 
 export default class FormAssociated extends Component
 {
-    static get extends()
-    {
-        return class extends HTMLElement
-        {
-            static formAssociated = true;
-        };
-    }
+    static formAssociated = true;
+    // static get extends()
+    // {
+    //     return class extends HTMLElement
+    //     {
+    //         static formAssociated = true;
+    //     };
+    // }
 
     static get properties()
     {

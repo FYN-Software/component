@@ -6,22 +6,23 @@ import Template from '@fyn-software/component/template.js';
 
 globalThis.range = (s, e) => Array(e - s).fill(1).map((_, i) => s + i);
 
-export default class Base extends EventTarget
+export default class Base extends HTMLElement
 {
     #bindings = null;
     #parent = null;
-    // #internals = this.attachInternals();
+    #internals = this.attachInternals();
     #shadow;
     #queue = new Queue;
     #setQueue = new Queue;
     #viewModel = {};
 
-    constructor(parent, args = {})
+    // constructor(parent, args = {})
+    constructor(args = {})
     {
-        if(parent === undefined)
-        {
-            throw new Error('Invalid element construction');
-        }
+        // if(parent === undefined)
+        // {
+        //     throw new Error('Invalid element construction');
+        // }
 
         if(new.target === Base.constructor)
         {
@@ -35,8 +36,8 @@ export default class Base extends EventTarget
 
         super();
 
-        this.#parent = parent;
-        // this.#shadow = this.#internals.shadowRoot ?? this.attachShadow({ mode: 'closed' });
+        // this.#parent = parent;
+        this.#shadow = this.#internals.shadowRoot ?? this.attachShadow({ mode: 'closed' });
         this.#viewModel = new (ObjectType.define(this.constructor.props))();
 
         for(const k of Object.keys(this.#viewModel))
@@ -66,12 +67,12 @@ export default class Base extends EventTarget
                 enumerable: true,
                 configurable: false,
             });
-            Reflect.defineProperty(this.#parent, k, {
-                get: () => v.$.value,
-                set: async v => await this.#set(k, v),
-                enumerable: true,
-                configurable: false,
-            });
+            // Reflect.defineProperty(this.#parent, k, {
+            //     get: () => v.$.value,
+            //     set: async v => await this.#set(k, v),
+            //     enumerable: true,
+            //     configurable: false,
+            // });
 
             this.#set(k, args[k] ?? value);
         }
@@ -86,60 +87,60 @@ export default class Base extends EventTarget
         });
     }
 
-    get children()
-    {
-        return this.#parent.children;
-    }
-
-    get style()
-    {
-        return this.#parent.style;
-    }
-
-    get attributes()
-    {
-        return this.#parent.attributes;
-    }
-
-    get classList()
-    {
-        return this.#parent.classList;
-    }
-
-    getBoundingClientRect(...args)
-    {
-        return this.#parent.getBoundingClientRect(...args);
-    }
-
-    hasAttribute(...args)
-    {
-        return this.#parent.hasAttribute(...args);
-    }
-
-    getAttribute(...args)
-    {
-        return this.#parent.getAttribute(...args);
-    }
-
-    setAttribute(...args)
-    {
-        return this.#parent.setAttribute(...args);
-    }
-
-    removeAttribute(...args)
-    {
-        return this.#parent.removeAttribute(...args);
-    }
-
-    on(...args)
-    {
-        this.#parent.on(...args);
-    }
-
-    emit(...args)
-    {
-        this.#parent.emit(...args);
-    }
+    // get children()
+    // {
+    //     return this.#parent.children;
+    // }
+    //
+    // get style()
+    // {
+    //     return this.#parent.style;
+    // }
+    //
+    // get attributes()
+    // {
+    //     return this.#parent.attributes;
+    // }
+    //
+    // get classList()
+    // {
+    //     return this.#parent.classList;
+    // }
+    //
+    // getBoundingClientRect(...args)
+    // {
+    //     return this.#parent.getBoundingClientRect(...args);
+    // }
+    //
+    // hasAttribute(...args)
+    // {
+    //     return this.#parent.hasAttribute(...args);
+    // }
+    //
+    // getAttribute(...args)
+    // {
+    //     return this.#parent.getAttribute(...args);
+    // }
+    //
+    // setAttribute(...args)
+    // {
+    //     return this.#parent.setAttribute(...args);
+    // }
+    //
+    // removeAttribute(...args)
+    // {
+    //     return this.#parent.removeAttribute(...args);
+    // }
+    //
+    // on(...args)
+    // {
+    //     this.#parent.on(...args);
+    // }
+    //
+    // emit(...args)
+    // {
+    //     this.#parent.emit(...args);
+    // }
 
     observe(config)
     {
@@ -210,6 +211,12 @@ export default class Base extends EventTarget
         );
     }
 
+    connectedCallback()
+    {}
+
+    disconnectedCallback()
+    {}
+
     attributeChangedCallback(name, oldValue, newValue)
     {
         if(this.#bindings === null)
@@ -239,12 +246,14 @@ export default class Base extends EventTarget
 
     get internals()
     {
-        return this.#parent.internals;
+        // return this.#parent.internals;
+        return this.#internals;
     }
 
     get shadow()
     {
-        return this.#parent.shadow;
+        // return this.#parent.shadow;
+        return this.#shadow;
     }
 
     get properties()

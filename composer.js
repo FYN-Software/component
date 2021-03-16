@@ -3,13 +3,13 @@ import Style from '@fyn-software/core/style.js';
 import Template from '@fyn-software/component/template.js';
 import * as Comlink from '@comlink';
 
-const worker = new Worker('/test.js', { type: 'module' });
-
-console.log(worker);
+// const worker = new Worker('/test.js', { type: 'module' });
+//
+// console.log(worker);
 
 export default class Composer
 {
-    static #worker = Comlink.wrap(worker);
+    // static #worker = Comlink.wrap(worker);
     static #fragments = {};
     static #registration = new Map();
 
@@ -20,6 +20,8 @@ export default class Composer
 
         if(this.#registration.has(ns) === false)
         {
+            console.error(name, type);
+
             throw new Error(`Trying to resolve unknown namespace :: ${ns}`);
         }
 
@@ -77,50 +79,71 @@ export default class Composer
                 //  migrate this logic to the backend
                 .then(t => Template.scan(t, Object.keys(classDef.props)));
 
-            console.log(this.#worker.test('woot?'));
+            globalThis.customElements.define(name, classDef);
 
-            globalThis.customElements.define(name, class extends classDef.extends
-            {
-                #externals;
-                #internals;
-                #shadow;
+            // console.log(this.#worker.test('woot?'));
 
-                constructor(args = {})
-                {
-                    super();
-
-                    this.#internals = this.attachInternals();
-                    this.#shadow = this.#internals.shadowRoot ?? this.attachShadow({ mode: 'closed' });
-                    this.#externals = new classDef(this, args);
-                }
-
-                attributeChangedCallback(...args)
-                {
-                    this.#externals.attributeChangedCallback(...args);
-                }
-
-                observe(...args)
-                {
-                    this.#externals.observe(...args);
-                }
-
-                get internals()
-                {
-                    return this.#internals;
-                }
-
-                get shadow()
-                {
-                    return this.#shadow;
-                }
-
-                static get observedAttributes()
-                {
-                    const attributes = classDef.observedAttributes;
-
-                    return attributes;
-                }
-            });
+            // const el = class extends classDef.extends
+            // {
+            //     #externals;
+            //     #internals;
+            //     #shadow;
+            //
+            //     constructor(args = {})
+            //     {
+            //         super();
+            //
+            //         this.#internals = this.attachInternals();
+            //         this.#shadow = this.#internals.shadowRoot ?? this.attachShadow({ mode: 'closed' });
+            //         this.#externals = new classDef(this, args);
+            //
+            //         const excluded = [ 'constructor', 'ready', 'initialize' ];
+            //         const methods = Object
+            //             .entries(Object.getOwnPropertyDescriptors(classDef.prototype))
+            //             .filter(([ k, d ]) => excluded.includes(k) === false && typeof d.value === 'function');
+            //
+            //         for(const [ name, descriptor ] of methods)
+            //         {
+            //             Reflect.defineProperty(this, name, {
+            //                 configurable: false,
+            //                 enumerable: false,
+            //                 writable: false,
+            //                 value: descriptor.value.bind(this.#externals),
+            //             });
+            //         }
+            //
+            //         console.log(classDef.is, methods);
+            //     }
+            //
+            //     attributeChangedCallback(...args)
+            //     {
+            //         this.#externals.attributeChangedCallback(...args);
+            //     }
+            //
+            //     observe(...args)
+            //     {
+            //         this.#externals.observe(...args);
+            //     }
+            //
+            //     get internals()
+            //     {
+            //         return this.#internals;
+            //     }
+            //
+            //     get shadow()
+            //     {
+            //         return this.#shadow;
+            //     }
+            //
+            //     static get observedAttributes()
+            //     {
+            //         const attributes = classDef.observedAttributes;
+            //
+            //         return attributes;
+            //     }
+            // };
+            //
+            // globalThis.customElements.define(name, el, classDef.extends.prototype instanceof HTMLElement ? { is: 'form' } : undefined);
         }
 
         return globalThis.customElements.get(name);

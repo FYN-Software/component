@@ -10,11 +10,12 @@ export default class Component extends Base
     #template;
     #sugar;
 
-    constructor(parent, args = {})
+    // constructor(parent, args = {})
+    constructor(args = {})
     {
         new.target.init();
 
-        super(parent, args);
+        super(args);
 
         if(Composer.fragments.hasOwnProperty(this.constructor.is) === false)
         {
