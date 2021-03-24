@@ -16,14 +16,8 @@ export default class Base extends HTMLElement
     #setQueue = new Queue;
     #viewModel = {};
 
-    // constructor(parent, args = {})
     constructor(args = {})
     {
-        // if(parent === undefined)
-        // {
-        //     throw new Error('Invalid element construction');
-        // }
-
         if(new.target === Base.constructor)
         {
             throw new Error(`'${new.target.name}' is abstract, needs an concrete implementation to function properly`);
@@ -36,7 +30,6 @@ export default class Base extends HTMLElement
 
         super();
 
-        // this.#parent = parent;
         this.#shadow = this.#internals.shadowRoot ?? this.attachShadow({ mode: 'closed' });
         this.#viewModel = new (ObjectType.define(this.constructor.props))();
 
@@ -57,7 +50,7 @@ export default class Base extends HTMLElement
             });
 
             const attr = k.toDashCase();
-            const value = (this.getAttribute(attr) && (this.getAttribute(attr).startsWith('{#') || this.getAttribute(attr).includes('{{')) ? null : this.getAttribute(attr))
+            const value = (this.getAttribute(attr)?.startsWith('{#') || this.getAttribute(attr)?.includes('{{') ? null : this.getAttribute(attr))
                 || (this.hasAttribute(attr) && this.getAttribute(attr) === '' && v instanceof Bool)
                 || v.$.value;
 
@@ -67,12 +60,6 @@ export default class Base extends HTMLElement
                 enumerable: true,
                 configurable: false,
             });
-            // Reflect.defineProperty(this.#parent, k, {
-            //     get: () => v.$.value,
-            //     set: async v => await this.#set(k, v),
-            //     enumerable: true,
-            //     configurable: false,
-            // });
 
             this.#set(k, args[k] ?? value);
         }
@@ -86,61 +73,6 @@ export default class Base extends HTMLElement
             }),
         });
     }
-
-    // get children()
-    // {
-    //     return this.#parent.children;
-    // }
-    //
-    // get style()
-    // {
-    //     return this.#parent.style;
-    // }
-    //
-    // get attributes()
-    // {
-    //     return this.#parent.attributes;
-    // }
-    //
-    // get classList()
-    // {
-    //     return this.#parent.classList;
-    // }
-    //
-    // getBoundingClientRect(...args)
-    // {
-    //     return this.#parent.getBoundingClientRect(...args);
-    // }
-    //
-    // hasAttribute(...args)
-    // {
-    //     return this.#parent.hasAttribute(...args);
-    // }
-    //
-    // getAttribute(...args)
-    // {
-    //     return this.#parent.getAttribute(...args);
-    // }
-    //
-    // setAttribute(...args)
-    // {
-    //     return this.#parent.setAttribute(...args);
-    // }
-    //
-    // removeAttribute(...args)
-    // {
-    //     return this.#parent.removeAttribute(...args);
-    // }
-    //
-    // on(...args)
-    // {
-    //     this.#parent.on(...args);
-    // }
-    //
-    // emit(...args)
-    // {
-    //     this.#parent.emit(...args);
-    // }
 
     observe(config)
     {
@@ -246,13 +178,11 @@ export default class Base extends HTMLElement
 
     get internals()
     {
-        // return this.#parent.internals;
         return this.#internals;
     }
 
     get shadow()
     {
-        // return this.#parent.shadow;
         return this.#shadow;
     }
 
