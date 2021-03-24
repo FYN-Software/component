@@ -9,7 +9,7 @@ globalThis.range = (s, e) => Array(e - s).fill(1).map((_, i) => s + i);
 export default class Base extends HTMLElement
 {
     #bindings = null;
-    #parent = null;
+    #observers = new Map();
     #internals = this.attachInternals();
     #shadow;
     #queue = new Queue;
@@ -32,22 +32,26 @@ export default class Base extends HTMLElement
 
         this.#shadow = this.#internals.shadowRoot ?? this.attachShadow({ mode: 'closed' });
         this.#viewModel = new (ObjectType.define(this.constructor.props))();
+        this.#viewModel.on({
+            changed: async ({ property, old: o, new: n }) => {
+                for(const c of this.#observers.get(property) ?? [])
+                {
+                    c.apply(this.#viewModel[property], [ o, n ]);
+                }
+
+                const bindings = this.#bindings?.filter(b => b.keys.includes(property)) ?? [];
+
+                await Promise.all(bindings.map(b => b.resolve(this)));
+
+                const nodes = bindings.map(b => b.nodes).reduce((t, n) => [ ...t, ...n ], []).unique();
+
+                this.#queue.enqueue(...nodes);
+            },
+        });
 
         for(const k of Object.keys(this.#viewModel))
         {
             const v = this.#viewModel.$.props[k];
-
-            v._owner = this;
-            v._name = k;
-            v.on({
-                changed: async () => {
-                    const bindings = this.#bindings.filter(b => b.keys.includes(k));
-
-                    await Promise.all(bindings.map(b => b.resolve(this)));
-
-                    this.#queue.enqueue(...bindings.map(b => b.nodes).reduce((t, n) => [ ...t, ...n ], []).unique());
-                },
-            });
 
             const attr = k.toDashCase();
             const value = (this.getAttribute(attr)?.startsWith('{#') || this.getAttribute(attr)?.includes('{{') ? null : this.getAttribute(attr))
@@ -83,7 +87,12 @@ export default class Base extends HTMLElement
                 throw new Error(`Trying to observe non-observable property '${p}'`);
             }
 
-            this.#viewModel.$.props[p].on({ changed: e => c.apply(this.#viewModel[p], [ e.old, e.new ]) });
+            if(this.#observers.has(p) === false)
+            {
+                this.#observers.set(p, []);
+            }
+
+            this.#observers.get(p).push(c);
         }
 
         return this;
