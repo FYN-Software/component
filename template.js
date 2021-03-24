@@ -1,9 +1,9 @@
-import Type from '../data/type/type.js';
-import Binding from './binding.js';
-import Fragment from './fragment.js';
-import Directive from './directive/directive.js';
-import plugins from './plugins.js';
-import Plugin from './plugin/plugin.js';
+import Type from '@fyn-software/data/type/type.js';
+import Binding from '@fyn-software/component/binding.js';
+import Fragment from '@fyn-software/component/fragment.js';
+import Directive from '@fyn-software/component/directive/directive.js';
+import plugins from '@fyn-software/component/plugins.js';
+import Plugin from '@fyn-software/component/plugin/plugin.js';
 
 export const regex = /{{\s*(.+?)\s*}}/g;
 export const uuidRegex = /{#([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})}/g;
@@ -286,4 +286,18 @@ export default class Template
 
         return hash;
     }
+
+    static async #createFingerprint(string)
+    {
+        const hash = await crypto.subtle.digest('SHA-512', new TextEncoder().encode(string));
+
+        return Array.from(new Uint8Array(hash)).map(b => b.toString(16).padStart(2, '0')).join('');
+    }
 }
+
+export const fynPolicy = trustedTypes.createPolicy('FYN', {
+    createHTML: str => str.replace(/\</g, '&lt;'),
+});
+
+// console.log(document.body.innerHTML = fynPolicy.createHTML('<img src="x" onerror="alert(\'powned\')">'))
+// console.log(document.body.innerHTML = '<img src="x" onerror="alert(\'powned\')">');

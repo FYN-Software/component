@@ -1,19 +1,19 @@
-import Exception from './exception.js';
-import { Object as ObjectType, Boolean as Bool } from '../data/types.js';
-import Event from '../core/event.js';
-import Queue from '../core/queue.js';
-import Template from './template.js';
+import Exception from '@fyn-software/component/exception.js';
+import Event from '@fyn-software/core/event.js';
+import Queue from '@fyn-software/core/queue.js';
+import { Object as ObjectType, Boolean as Bool } from '@fyn-software/data/types.js';
+import Template from '@fyn-software/component/template.js';
 
-window.range = (s, e) => Array(e - s).fill(1).map((_, i) => s + i);
+globalThis.range = (s, e) => Array(e - s).fill(1).map((_, i) => s + i);
 
 export default class Base extends HTMLElement
 {
     #bindings = null;
+    #observers = new Map();
     #internals = this.attachInternals();
     #shadow;
     #queue = new Queue;
     #setQueue = new Queue;
-    #observers = {};
     #viewModel = {};
 
     constructor(args = {})
@@ -25,32 +25,36 @@ export default class Base extends HTMLElement
 
         if(new.target.prototype.attributeChangedCallback !== Base.prototype.attributeChangedCallback)
         {
-            throw new Error('method attributeChangedCallback is final and should therefor not be extended');
+            throw new Error('method attributeChangedCallback is final and should there for not be extended');
         }
 
         super();
 
         this.#shadow = this.#internals.shadowRoot ?? this.attachShadow({ mode: 'closed' });
         this.#viewModel = new (ObjectType.define(this.constructor.props))();
+        this.#viewModel.on({
+            changed: async ({ property, old: o, new: n }) => {
+                for(const c of this.#observers.get(property) ?? [])
+                {
+                    c.apply(this.#viewModel[property], [ o, n ]);
+                }
+
+                const bindings = this.#bindings?.filter(b => b.keys.includes(property)) ?? [];
+
+                await Promise.all(bindings.map(b => b.resolve(this)));
+
+                const nodes = bindings.map(b => b.nodes).reduce((t, n) => [ ...t, ...n ], []).unique();
+
+                this.#queue.enqueue(...nodes);
+            },
+        });
 
         for(const k of Object.keys(this.#viewModel))
         {
             const v = this.#viewModel.$.props[k];
 
-            v._owner = this;
-            v._name = k;
-            v.on({
-                changed: async () => {
-                    const bindings = this.#bindings.filter(b => b.keys.includes(k));
-
-                    await Promise.all(bindings.map(b => b.resolve(this)));
-
-                    this.#queue.enqueue(...bindings.map(b => b.nodes).reduce((t, n) => [ ...t, ...n ], []).unique());
-                },
-            });
-
             const attr = k.toDashCase();
-            const value = (this.getAttribute(attr) && (this.getAttribute(attr).startsWith('{#') || this.getAttribute(attr).includes('{{')) ? null : this.getAttribute(attr))
+            const value = (this.getAttribute(attr)?.startsWith('{#') || this.getAttribute(attr)?.includes('{{') ? null : this.getAttribute(attr))
                 || (this.hasAttribute(attr) && this.getAttribute(attr) === '' && v instanceof Bool)
                 || v.$.value;
 
@@ -65,7 +69,7 @@ export default class Base extends HTMLElement
         }
 
         this.#queue.on({
-            enqueued: Event.debounce(5, async () => {
+            enqueued: Event.debounce(10, async () => {
                 for await(const n of this.#queue)
                 {
                     await Template.render(n);
@@ -83,30 +87,12 @@ export default class Base extends HTMLElement
                 throw new Error(`Trying to observe non-observable property '${p}'`);
             }
 
-            this.#viewModel.$.props[p].on({ changed: e => c.apply(this.#viewModel[p], [ e.old, e.new ]) });
-        }
-
-        return this;
-    }
-
-    modify(config)
-    {
-        for(const [ p, { get = null, set = null } ] of Object.entries(config))
-        {
-            if(Object.keys(this.#viewModel).includes(p) !== true)
+            if(this.#observers.has(p) === false)
             {
-                throw new Error(`Trying to modify invalid property '${p}'`);
+                this.#observers.set(p, []);
             }
 
-            if(get !== null)
-            {
-                this.#viewModel.$.props[p].$.getter = get;
-            }
-
-            if(set !== null)
-            {
-                this.#viewModel.$.props[p].$.setter = set;
-            }
+            this.#observers.get(p).push(c);
         }
 
         return this;
@@ -127,8 +113,6 @@ export default class Base extends HTMLElement
         }
         catch(e)
         {
-            console.log(this.#viewModel.$.value, value, e);
-
             throw new Exception(`Failed to set '${this.constructor.name}.${name}', '${value}' is not valid`, e, this);
         }
     }
@@ -169,12 +153,10 @@ export default class Base extends HTMLElement
     }
 
     connectedCallback()
-    {
-    }
+    {}
 
     disconnectedCallback()
-    {
-    }
+    {}
 
     attributeChangedCallback(name, oldValue, newValue)
     {
@@ -216,6 +198,11 @@ export default class Base extends HTMLElement
     get properties()
     {
         return this.#viewModel;
+    }
+
+    static get extends()
+    {
+        return HTMLElement;
     }
 
     static get observedAttributes()

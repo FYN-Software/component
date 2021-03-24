@@ -1,9 +1,16 @@
-import * as Types from '../data/types.js';
-import Component from './component.js';
+import * as Types from '@fyn-software/data/types.js';
+import Component from '@fyn-software/component/component.js';
 
 export default class FormAssociated extends Component
 {
     static formAssociated = true;
+    // static get extends()
+    // {
+    //     return class extends HTMLElement
+    //     {
+    //         static formAssociated = true;
+    //     };
+    // }
 
     static get properties()
     {
@@ -18,9 +25,9 @@ export default class FormAssociated extends Component
         };
     }
 
-    constructor(args = {})
+    constructor(parent, args = {})
     {
-        super(args);
+        super(parent, args);
 
         // this.setValidity({ valueMissing: true }, 'Field may not empty');
 

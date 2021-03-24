@@ -1,7 +1,16 @@
-import Style from '../core/style.js';
+import '@fyn-software/core/extends.js';
+import Style from '@fyn-software/core/style.js';
+import Template from '@fyn-software/component/template.js';
+import * as Comlink from '@comlink';
+
+// const worker = new Worker('/test.js', { type: 'module' });
+//
+// console.log(worker);
 
 export default class Composer
 {
+    // static #worker = Comlink.wrap(worker);
+    static #fragments = {};
     static #registration = new Map();
 
     static resolve(name, type = 'js')
@@ -11,6 +20,8 @@ export default class Composer
 
         if(this.#registration.has(ns) === false)
         {
+            console.error(name, type);
+
             throw new Error(`Trying to resolve unknown namespace :: ${ns}`);
         }
 
@@ -21,7 +32,7 @@ export default class Composer
 
     static async register(...urls)
     {
-        return Promise.all(urls.map(async url => {
+        await Promise.all(urls.map(async url => {
             const manifest = await fetch(`${url}/app.json`).then(r => r.json());
 
             for(const components of manifest.components ?? [])
@@ -36,5 +47,119 @@ export default class Composer
                 await Style.set(key, path?.startsWith('./') ? path.replace(/^\./, url) : path, options);
             }
         }));
+    }
+
+    static async prepare(template)
+    {
+        const nodes = Array.from(template.querySelectorAll(':not(:defined)'));
+
+        await Promise.all(nodes.map(n => n.localName).unique().map(n => this.load(n)));
+
+        globalThis.customElements.upgrade(template);
+
+        return template
+    }
+
+    static get fragments()
+    {
+        return Object.freeze({ ...this.#fragments });
+    }
+
+    static registerComponent(classDef)
+    {
+        const name = classDef.is ?? `${ classDef.name.replace(/[A-Z]/g, m => `-${m.toLowerCase()}`).substr(1) }`;
+
+        if(globalThis.customElements.get(name) === undefined)
+        {
+            this.#fragments[name] = fetch(this.resolve(name, 'html'))
+                .then(r => r.status === 200 ? r.text() : Promise.resolve(''))
+                .then(t => DocumentFragment.fromString(t))
+                // TODO(Chris Kruining)
+                //  To completely finish the xss protection
+                //  migrate this logic to the backend
+                .then(t => Template.scan(t, Object.keys(classDef.props)));
+
+            globalThis.customElements.define(name, classDef);
+
+            // console.log(this.#worker.test('woot?'));
+
+            // const el = class extends classDef.extends
+            // {
+            //     #externals;
+            //     #internals;
+            //     #shadow;
+            //
+            //     constructor(args = {})
+            //     {
+            //         super();
+            //
+            //         this.#internals = this.attachInternals();
+            //         this.#shadow = this.#internals.shadowRoot ?? this.attachShadow({ mode: 'closed' });
+            //         this.#externals = new classDef(this, args);
+            //
+            //         const excluded = [ 'constructor', 'ready', 'initialize' ];
+            //         const methods = Object
+            //             .entries(Object.getOwnPropertyDescriptors(classDef.prototype))
+            //             .filter(([ k, d ]) => excluded.includes(k) === false && typeof d.value === 'function');
+            //
+            //         for(const [ name, descriptor ] of methods)
+            //         {
+            //             Reflect.defineProperty(this, name, {
+            //                 configurable: false,
+            //                 enumerable: false,
+            //                 writable: false,
+            //                 value: descriptor.value.bind(this.#externals),
+            //             });
+            //         }
+            //
+            //         console.log(classDef.is, methods);
+            //     }
+            //
+            //     attributeChangedCallback(...args)
+            //     {
+            //         this.#externals.attributeChangedCallback(...args);
+            //     }
+            //
+            //     observe(...args)
+            //     {
+            //         this.#externals.observe(...args);
+            //     }
+            //
+            //     get internals()
+            //     {
+            //         return this.#internals;
+            //     }
+            //
+            //     get shadow()
+            //     {
+            //         return this.#shadow;
+            //     }
+            //
+            //     static get observedAttributes()
+            //     {
+            //         const attributes = classDef.observedAttributes;
+            //
+            //         return attributes;
+            //     }
+            // };
+            //
+            // globalThis.customElements.define(name, el, classDef.extends.prototype instanceof HTMLElement ? { is: 'form' } : undefined);
+        }
+
+        return globalThis.customElements.get(name);
+    }
+
+    static async load(el)
+    {
+        let r = globalThis.customElements.get(el);
+
+        if(r !== undefined)
+        {
+            return r;
+        }
+
+        r = await import(this.resolve(el));
+
+        return this.registerComponent(r.default);
     }
 }

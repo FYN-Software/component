@@ -1,5 +1,3 @@
-const _trigger = Symbol('trigger');
-
 export default class Behaviour extends EventTarget
 {
     #trigger;

@@ -1,8 +1,6 @@
-import dialog from '../../suite/js/common/overlay/dialog.js';
-import Base from '../base.js';
-import { Component } from '../fyn.js';
-import Template, {uuidRegex} from '../template.js';
-import Directive from './directive.js';
+import Template, {uuidRegex} from '@fyn-software/component/template.js';
+import Base from '@fyn-software/component/base.js';
+import Directive from '@fyn-software/component/directive/directive.js';
 
 // TODO(Chris Kruining)
 //  This directive should add the binding created

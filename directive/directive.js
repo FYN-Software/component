@@ -1,4 +1,4 @@
-import Template, {uuidRegex} from '../template.js';
+import Template, {uuidRegex} from '@fyn-software/component/template.js';
 
 const references = new WeakMap;
 
@@ -10,11 +10,6 @@ export default class Directive
     #scope = null;
     #node = null;
     #binding = null;
-
-    static get attribute()
-    {
-        return this.prototype.constructor.name.toLowerCase();
-    }
 
     constructor(owner, scope, node, binding)
     {

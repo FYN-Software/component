@@ -1,4 +1,4 @@
-import '../core/extends.js';
+import '@fyn-software/core/extends.js';
 
 export default class Container extends HTMLElement
 {
@@ -15,7 +15,7 @@ export default class Container extends HTMLElement
 
         if(html !== null)
         {
-            this.shadow.appendChild(DocumentFragment.fromString(html));
+            this.#shadow.appendChild(DocumentFragment.fromString(html));
         }
 
         this.style.zIndex = 1000;

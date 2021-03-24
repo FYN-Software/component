@@ -1,6 +1,4 @@
-import Trigger from './trigger.js';
-
-const value = Symbol('value');
+import Trigger from '@fyn-software/component/behaviour/trigger/trigger.js';
 
 export default class Mouse extends Trigger
 {

@@ -1,5 +1,5 @@
-import Plugin from './plugin.js';
-import Template from '../template.js';
+import Plugin from '@fyn-software/component/plugin/plugin.js';
+import Template from '@fyn-software/component/template.js';
 
 export default class Localization extends Plugin
 {
@@ -16,6 +16,7 @@ export default class Localization extends Plugin
             common: fetch('https://fyncdn.nl/locales/en-GB/common.json').then(r => r.json()),
             data: fetch('https://fyncdn.nl/locales/en-GB/data.json').then(r => r.json()),
             site: fetch('https://fyncdn.nl/locales/en-GB/site.json').then(r => r.json()),
+            dash: fetch('https://fyncdn.nl/locales/en-GB/dash.json').then(r => r.json()),
         },
         'fr-FR': {
             common: fetch('https://fyncdn.nl/locales/fr-FR/common.json').then(r => r.json()),
@@ -25,6 +26,7 @@ export default class Localization extends Plugin
             common: fetch('https://fyncdn.nl/locales/nl-NL/common.json').then(r => r.json()),
             data: fetch('https://fyncdn.nl/locales/nl-NL/data.json').then(r => r.json()),
             site: fetch('https://fyncdn.nl/locales/nl-NL/site.json').then(r => r.json()),
+            dash: fetch('https://fyncdn.nl/locales/nl-NL/dash.json').then(r => r.json()),
         },
     };
     #formatters = {

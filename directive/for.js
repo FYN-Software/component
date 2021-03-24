@@ -1,8 +1,8 @@
-import lock from '../../core/lock.js';
-import Component from '../component.js';
-import Template, { uuidRegex } from '../template.js';
-import Directive from './directive.js';
-import Base from '../base.js';
+import lock from '@fyn-software/core/lock.js';
+import Template, { uuidRegex } from '@fyn-software/component/template.js';
+import Base from '@fyn-software/component/base.js';
+import Component from '@fyn-software/component/component.js';
+import Directive from '@fyn-software/component/directive/directive.js';
 
 export default class For extends Directive
 {
