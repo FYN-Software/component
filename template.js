@@ -286,6 +286,13 @@ export default class Template
 
         return hash;
     }
+
+    static async #createFingerprint(string)
+    {
+        const hash = await crypto.subtle.digest('SHA-512', new TextEncoder().encode(string));
+
+        return Array.from(new Uint8Array(hash)).map(b => b.toString(16).padStart(2, '0')).join('');
+    }
 }
 
 export const fynPolicy = trustedTypes.createPolicy('FYN', {
