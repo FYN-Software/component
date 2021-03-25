@@ -31,41 +31,45 @@ export default class Base extends HTMLElement
         super();
 
         this.#shadow = this.#internals.shadowRoot ?? this.attachShadow({ mode: 'closed' });
-        this.#viewModel = new (ObjectType.define(this.constructor.props))();
-        this.#viewModel.on({
-            changed: async ({ property, old: o, new: n }) => {
-                for(const c of this.#observers.get(property) ?? [])
-                {
-                    c.apply(this.#viewModel[property], [ o, n ]);
-                }
 
-                const bindings = this.#bindings?.filter(b => b.keys.includes(property)) ?? [];
-
-                await Promise.all(bindings.map(b => b.resolve(this)));
-
-                const nodes = bindings.map(b => b.nodes).reduce((t, n) => [ ...t, ...n ], []).unique();
-
-                this.#queue.enqueue(...nodes);
-            },
-        });
-
-        for(const k of Object.keys(this.#viewModel))
+        if(Object.keys(this.constructor.props).length > 0)
         {
-            const v = this.#viewModel.$.props[k];
+            this.#viewModel = new (ObjectType.define(this.constructor.props))();
+            this.#viewModel.on({
+                changed: async ({ property, old: o, new: n }) => {
+                    for(const c of this.#observers.get(property) ?? [])
+                    {
+                        c.apply(this.#viewModel[property], [ o, n ]);
+                    }
 
-            const attr = k.toDashCase();
-            const value = (this.getAttribute(attr)?.startsWith('{#') || this.getAttribute(attr)?.includes('{{') ? null : this.getAttribute(attr))
-                || (this.hasAttribute(attr) && this.getAttribute(attr) === '' && v instanceof Bool)
-                || v.$.value;
+                    const bindings = this.#bindings?.filter(b => b.keys.includes(property)) ?? [];
 
-            Reflect.defineProperty(this, k, {
-                get: () => v.$.value,
-                set: async v => await this.#set(k, v),
-                enumerable: true,
-                configurable: false,
+                    await Promise.all(bindings.map(b => b.resolve(this)));
+
+                    const nodes = bindings.map(b => b.nodes).reduce((t, n) => [ ...t, ...n ], []).unique();
+
+                    this.#queue.enqueue(...nodes);
+                },
             });
 
-            this.#set(k, args[k] ?? value);
+            for(const k of Object.keys(this.#viewModel))
+            {
+                const v = this.#viewModel.$.props[k];
+
+                const attr = k.toDashCase();
+                const value = (this.getAttribute(attr)?.startsWith('{#') || this.getAttribute(attr)?.includes('{{') ? null : this.getAttribute(attr))
+                    || (this.hasAttribute(attr) && this.getAttribute(attr) === '' && v instanceof Bool)
+                    || v.$.value;
+
+                Reflect.defineProperty(this, k, {
+                    get: () => v.$.value,
+                    set: async v => await this.#set(k, v),
+                    enumerable: true,
+                    configurable: false,
+                });
+
+                this.#set(k, args[k] ?? value);
+            }
         }
 
         this.#queue.on({

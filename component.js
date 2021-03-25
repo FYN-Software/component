@@ -10,7 +10,6 @@ export default class Component extends Base
     #template;
     #sugar;
 
-    // constructor(parent, args = {})
     constructor(args = {})
     {
         new.target.init();
