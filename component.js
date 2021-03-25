@@ -23,16 +23,23 @@ export default class Component extends Base
 
         this.setAttribute('loading', '');
 
-        if(new.target.hasOwnProperty('styles'))
-        {
-            super.shadow.adoptedStyleSheets = Style.get(...new.target.styles);
-        }
-
         this.#sugar = new Proxy({}, { get: (c, p) => this.shadow.getElementById(p) });
         this.#ready = (async () => {
             await this.initialize();
 
-            const { bindings, template } = (await this.parseTemplate(this.constructor.is)) ?? { bindings: [], template: new DocumentFragment() };
+            const self = this.constructor;
+
+            const { bindings, template, css } = (await this.parseTemplate(self.is))
+                ?? { bindings: [], template: new DocumentFragment(), css: new CSSStyleSheet() };
+
+            super.shadow.adoptedStyleSheets = Style.get(...self.styles).concat(css);
+
+            Object.defineProperty(super.shadow, 'style', {
+                value: css,
+                writable: false,
+                configurable: false,
+                enumerable: true,
+            });
 
             super._bindings = bindings;
             this.#template = template;
@@ -61,12 +68,12 @@ export default class Component extends Base
 
     async parseTemplate(name)
     {
-        const fragment = await Composer.fragments[name];
+        const { html: fragment, css } = await Composer.fragments[name];
         const { template, bindings } = await this.constructor.parseHtml(this, this, fragment);
 
         await Composer.prepare(template);
 
-        return { template, bindings };
+        return { template, bindings, css };
     }
 
     async animateKey(key, timing = null)

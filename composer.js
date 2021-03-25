@@ -65,13 +65,29 @@ export default class Composer
 
         if(globalThis.customElements.get(name) === undefined)
         {
-            this.#fragments[name] = fetch(this.resolve(name, 'html'))
-                .then(r => r.status === 200 ? r.text() : Promise.resolve(''))
-                .then(t => DocumentFragment.fromString(t))
-                // TODO(Chris Kruining)
-                //  To completely finish the xss protection
-                //  migrate this logic to the backend
-                .then(t => Template.scan(t, Object.keys(classDef.props)));
+            this.#fragments[name] = (async () => {
+                return {
+                    html: await fetch(this.resolve(name, 'html'))
+                        .then(r => r.status === 200
+                            ? r.text()
+                            : Promise.resolve(''))
+                        .then(t => DocumentFragment.fromString(t))
+                        // TODO(Chris Kruining)
+                        //  To completely finish the xss protection
+                        //  migrate this logic to the backend
+                        .then(t => Template.scan(t, Object.keys(classDef.props))),
+                    css: await fetch(this.resolve(name, 'css'))
+                        .then(r => r.status === 200
+                            ? r.text()
+                            : Promise.resolve(''))
+                        .then(css => {
+                            const sheet = new CSSStyleSheet();
+                            sheet.replace(css);
+
+                            return sheet;
+                        }),
+                };
+            })();
 
             globalThis.customElements.define(name, classDef);
         }
