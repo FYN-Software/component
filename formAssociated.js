@@ -21,6 +21,7 @@ export default class FormAssociated extends Component
             name: Types.String,
             value: Types.String,
             error: Types.String,
+            required: Types.Boolean,
             inputmode: Types.String,
         };
     }
