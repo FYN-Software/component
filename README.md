@@ -9,28 +9,18 @@ Web component suite
   - [x] Extends (normalization and extension layer, dirty implemented, monkey-patched...)
   - [x] Events abstractions
   - [x] Mixins (To be convered to `decorators` if/when they hit browsers)
+  - [x] Convert to Typescript
 - [FYN Data](https://github.com/FYN-Software/data)
   - Base class (`Type`)
-    - [ ] Assignable renderers (simple key-value object)
-    - [ ] Assingable data stores (might be usefull on type level, most likely will be remain on model level)
     - [x] Configuration API (couple of methods to configure your type)
   - Types
     - [x] `Boolean`
     - [x] `Number`
-      - [ ] `Currency`
-      - [ ] `Size`
-      - [ ] `Point` (a x and y position)
-      - [ ] `Percentage`
     - [x] `List`
     - [x] `Object`
     - [x] `Enum`
-      - [ ] `Unit` (CSS units, think: px, %, em, etc.)
-      - [ ] `Font`
-      - [ ] `TextAlignment`
-      - [ ] `Postion` (CSS prositioning)
     - [x] `Datetime`
     - [x] `String`
-      - [ ] `Color`
   - Model (Will likally become a separate package)
     - [ ] Configuration API (API to define fields and relations)
     - [ ] Assingable data stores
@@ -38,14 +28,23 @@ Web component suite
     - [ ] Configuration API
     - [ ] Assingable `Endpoint`
     - [ ] Assingable `Adapter`
+  - [x] Convert to Typescript
+  - [ ] Rewrite to make FYN Data types obsolete
 - [FYN Component](https://github.com/FYN-Software/component)
   - [x] `Base`
   - [x] `Component`
   - [x] `Loop`
   - [x] `Generic`
   - [ ] `Behavior`
+  - [x] Convert to Typescript
+  - [ ] Rewrite to make FYN Data types obsolete
 - [FYN Suite](https://github.com/FYN-Software/duite)
   - Common
+    - Data
+      - Chart
+        - [ ] `Donut`
+        - [ ] `Sparkline`
+      - [x] `Table`
     - Form
       - [x] `Button`
       - [x] `Checkbox`
@@ -54,13 +53,10 @@ Web component suite
       - [x] `Dropdown` (Select/Combobox or any other name this common element is known by)
       - [x] `Font` (picker)
       - [x] `Form`
-      - [ ] `Grid` (interactive data grid)
       - [x] `Group` (element to visually group/combine components)
       - [x] `Input` (text input field)
       - [x] `Slider`
-      - [ ] `Editor` (rich text editor, wysiwyg markdown editor)
     - Graphics
-      - [ ] `Chart`
       - [x] `Flag`
       - [x] `Icon`
       - [x] `Image`
@@ -78,3 +74,5 @@ Web component suite
     - Overlay
       - [x] `Dialog`
       - [x] `Modal` (Likally to be deprecated or converted to `Behavior`)
+  - [ ] Convert to Typescript
+  - [ ] Rewrite to make FYN Data types obsolete
