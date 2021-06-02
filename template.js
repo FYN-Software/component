@@ -4,6 +4,7 @@ import Fragment from '@fyn-software/component/fragment.js';
 import Directive from '@fyn-software/component/directive/directive.js';
 import plugins from '@fyn-software/component/plugins.js';
 import Plugin from '@fyn-software/component/plugin/plugin.js';
+import Idb from '../core/driver/idb.js';
 
 export const regex = /{{\s*(.+?)\s*}}/g;
 export const uuidRegex = /{#([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})}/g;
@@ -14,44 +15,91 @@ export default class Template
     static #directives = new WeakMap();
     static #templates = new WeakMap();
     static #bindings = new WeakMap();
+    static #cache = new Idb('Refyned').open({
+        Cache: 'id',
+    }, 1);
 
     // - Find template strings :: `{{ some random js }}`
     // - Replace each place with a UUID
     // - return changes html and map of `UUID: sandboxedFunction`
-    static async scan(fragment, allowedKeys)
+    static async cache(fragment, allowedKeys)
     {
-        const cache = new Map();
-        const map = new Map();
+        const hash = await this.#createFingerprint(fragment.innerHTML);
+        const store = await this.#cache;
 
-        for await (const { node, directive } of this.#iterator(fragment))
+        if((await store.get('Cache', hash)).length !== 1)
         {
-            node.nodeValue = node.nodeValue.replaceAll(regex, (original, code) => {
-                if(cache.has(code) === false)
-                {
-                    const id = this.#uuid();
-                    const keys = allowedKeys.filter(k => code.includes(k)).unique();
-                    const args = [ ...keys, ...plugins.keys() ];
-                    const callable = this.asSandboxedCallable(args, code);
+            const cache = new Map();
+            const map = new Map();
 
-                    cache.set(code, id);
-                    map.set(id, {
-                        original,
-                        code,
-                        keys,
-                        callable,
-                    });
-                }
-
-                return `{#${cache.get(code)}}`;
-            });
-
-            if(directive !== null)
+            for await (const { node, directive } of this.#iterator(fragment))
             {
-                await directive.scan(node, map, allowedKeys);
+                node.nodeValue = node.nodeValue.replaceAll(regex, (original, code) => {
+                    if(cache.has(code) === false)
+                    {
+                        const id = this.#uuid();
+                        const keys = allowedKeys.filter(k => code.includes(k)).unique();
+                        const args = [ ...keys, ...plugins.keys() ];
+
+                        cache.set(code, id);
+                        map.set(id, {
+                            original,
+                            code,
+                            keys,
+                            callable: {
+                                args,
+                                code: this.asSandboxedCodeString(args, code)
+                            },
+                        });
+                    }
+
+                    return `{#${cache.get(code)}}`;
+                });
+
+                if(directive !== null)
+                {
+                    await directive.scan(node, map, allowedKeys);
+                }
+            }
+
+            await store.put('Cache', {
+                id: hash,
+                html: fragment.innerHTML,
+                map,
+            });
+        }
+
+        const [ { html, map } ] = await store.get('Cache', hash);
+
+        return { html, map };
+    }
+
+    static async deserialize({ html, map })
+    {
+        // NOTE(Chris Kruining) Deserialize stored mapping
+        for(const m of map.values())
+        {
+            const { args, code } = m.callable;
+
+            m.callable = this.asSandboxedCallable(args, code);
+
+            if(m.hasOwnProperty('directive'))
+            {
+                await (await Directive.get(m.directive.type)).deserialize(m.directive);
             }
         }
 
-        return new Fragment(fragment, map);
+        return {
+            html: DocumentFragment.fromString(html),
+            map,
+        };
+    }
+
+    static async scan(fragment, allowedKeys)
+    {
+        let { html, map } = await this.deserialize(await this.cache(fragment, allowedKeys));
+
+        return new Fragment(html, map);
     }
 
     static async scanSlot(slot, allowedKeys, clone = true)
@@ -71,7 +119,7 @@ export default class Template
 
     static async parseHtml(owner, scope, fragment, properties)
     {
-        const { template, map } = fragment.clone();
+        const { template, map } = fragment;
         const bindings = new Map();
 
         for await (const { node } of this.#iterator(template))
@@ -175,18 +223,17 @@ export default class Template
         {
             node.ownerElement[node.localName.toCamelCase()] = v;
         }
-        // else if(node.nodeType === 2 && (node.localName.toCamelCase() in node.ownerElement) && node.ownerElement.localName.includes('-') === false)
-        // {
-        //     node.ownerElement[node.localName.toCamelCase()] = v;
-        // }
         else
         {
             try
             {
-                node.nodeValue = v;
+                node.nodeValue = String(v);
             }
             catch(e)
             {
+                console.dir(node);
+                console.log(node, v);
+
                 throw e;
             }
         }
@@ -195,6 +242,11 @@ export default class Template
     static getDirectivesFor(node)
     {
         return this.#directives.get(node);
+    }
+
+    static getBindingsFor(node)
+    {
+        return this.#bindings.get(node);
     }
 
     static async *#iterator(node)
@@ -239,9 +291,21 @@ export default class Template
         }
     }
 
-    static asSandboxedCallable(keys, variable)
+    static asSandboxedCallable(keys, code)
     {
-        const code = `
+        try
+        {
+            return new AsyncFunction(...keys, code);
+        }
+        catch
+        {
+            return new AsyncFunction('return undefined;');
+        }
+    }
+
+    static asSandboxedCodeString(keys, variable)
+    {
+        return `
             const sandbox = new Proxy({ Math, JSON, Date, range, ${keys.join(', ')} }, {
                 has: () => true,
                 get: (t, k) => k === Symbol.unscopables ? undefined : t[k],
@@ -259,15 +323,6 @@ export default class Template
                 return undefined; 
             }
         `;
-
-        try
-        {
-            return new AsyncFunction(...keys, code);
-        }
-        catch
-        {
-            return new AsyncFunction('return undefined;');
-        }
     }
 
     static #uuid()

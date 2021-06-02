@@ -9,7 +9,6 @@ import Directive from '@fyn-software/component/directive/directive.js';
 export default class If extends Directive
 {
     #fragment;
-    #items = [];
     #initialized = Promise.resolve(null);
 
     constructor(owner, scope, node, binding, { fragment })
@@ -22,8 +21,6 @@ export default class If extends Directive
 
     async __initialize()
     {
-        this.#items = [];
-
         await this.#fragment.load();
     }
 

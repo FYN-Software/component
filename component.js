@@ -8,7 +8,7 @@ export default class Component extends Base
     #ready;
     #isReady = false;
     #template;
-    #sugar;
+    #sugar = new Proxy({}, { get: (c, p) => this.shadow.getElementById(p) });
 
     constructor(args = {})
     {
@@ -23,37 +23,57 @@ export default class Component extends Base
 
         this.setAttribute('loading', '');
 
-        this.#sugar = new Proxy({}, { get: (c, p) => this.shadow.getElementById(p) });
-        this.#ready = (async () => {
-            await this.initialize();
+        this.#ready = this.#init();
+    }
 
-            const self = this.constructor;
+    async #init()
+    {
+        const self = this.constructor;
+        const { html, css } = Composer.fragments[self.is];
 
-            const { bindings, template, css } = (await this.parseTemplate(self.is))
-                ?? { bindings: [], template: new DocumentFragment(), css: new CSSStyleSheet() };
+        const sheet = new CSSStyleSheet();
 
-            super.shadow.adoptedStyleSheets = Style.get(...self.styles).concat(css);
+        super.shadow.adoptedStyleSheets = Style.get(...self.styles).concat(css, sheet);
 
-            Object.defineProperty(super.shadow, 'style', {
-                value: css,
-                writable: false,
-                configurable: false,
-                enumerable: true,
-            });
+        sheet.insertRule(`:host{}`, 0);
 
-            super._bindings = bindings;
-            this.#template = template;
+        Object.defineProperty(this.shadow, 'setProperty', {
+            value: sheet.rules[0].style.setProperty.bind(sheet.rules[0].style),
+            writable: false,
+            configurable: false,
+            enumerable: true,
+        });
+        Object.defineProperty(this.shadow, 'getPropertyValue', {
+            value: sheet.rules[0].style.getPropertyValue.bind(sheet.rules[0].style),
+            writable: false,
+            configurable: false,
+            enumerable: true,
+        });
 
-            await this._populate();
+        Object.defineProperty(super.shadow, 'style', {
+            value: css,
+            writable: false,
+            configurable: false,
+            enumerable: true,
+        });
 
-            super.shadow.appendChild(this.#template);
+        await this.initialize();
 
-            this.#isReady = true;
+        const { bindings, template } = (await this.parseTemplate(await html))
+        ?? { bindings: [], template: new DocumentFragment() };
 
-            this.emit('ready');
+        super._bindings = bindings;
+        this.#template = template;
 
-            await this.ready();
-        })();
+        super.shadow.appendChild(this.#template);
+
+        this.#isReady = true;
+
+        await this._populate();
+
+        await this.ready();
+
+        this.emit('ready');
     }
 
     connectedCallback()
@@ -66,14 +86,13 @@ export default class Component extends Base
     async initialize(){}
     async ready(){}
 
-    async parseTemplate(name)
+    async parseTemplate(fragment)
     {
-        const { html: fragment, css } = await Composer.fragments[name];
         const { template, bindings } = await this.constructor.parseHtml(this, this, fragment);
 
         await Composer.prepare(template);
 
-        return { template, bindings, css };
+        return { template, bindings };
     }
 
     async animateKey(key, timing = null)
@@ -125,13 +144,6 @@ export default class Component extends Base
     get isReady()
     {
         return this.#ready;
-    }
-
-    get shadow()
-    {
-        return this.#isReady
-            ? super.shadow
-            : this.#template ?? super.shadow;
     }
 
     static get is()

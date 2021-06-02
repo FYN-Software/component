@@ -1,39 +1,59 @@
-import '@fyn-software/core/extends.js';
+import Template from './template.js';
 import Style from '@fyn-software/core/style.js';
-import Template from '@fyn-software/component/template.js';
+
+type FileType = 'html'|'css'|'js';
+type ComponentConfig = {
+    [type in FileType]: string;
+} & {
+    base?: string;
+    namespace: string;
+};
+
+type StylesheetConfig = [ string, string, RequestInit? ];
+
+type AppManifest = {
+    name: string;
+    components: Array<ComponentConfig>;
+    stylesheets: Array<StylesheetConfig>;
+};
+
+type Frag = {
+    html: Promise<IFragment<any>>;
+    css: CSSStyleSheet;
+};
 
 export default class Composer
 {
-    static #fragments = {};
-    static #registration = new Map();
+    private static _fragments: { [key: string]: Frag } = {  };
+    private static _registration: Map<string, ComponentConfig> = new Map();
 
-    static resolve(name, type = 'js')
+    static resolve(name: string, type: FileType = 'js'): string
     {
         const [ vendor, namespace, ...el ] = name.split('-');
         const ns = `${vendor}-${namespace}`;
 
-        if(this.#registration.has(ns) === false)
+        if(this._registration.has(ns) === false)
         {
-            console.error(name, type);
+            console.log(this._registration);
 
             throw new Error(`Trying to resolve unknown namespace :: ${ns}`);
         }
 
-        const components = this.#registration.get(ns);
+        const components = this._registration.get(ns)!;
 
-        return `${components.base}/${components[type]}${el.join('/')}.${type}`;
+        return `${components.base}/${components[type as FileType]}${el.join('/')}.${type}`;
     }
 
-    static async register(...urls)
+    static async register(...urls: Array<string>): Promise<void>
     {
         await Promise.all(urls.map(async url => {
-            const manifest = await fetch(`${url}/app.json`).then(r => r.json());
+            const manifest: AppManifest = await fetch(`${url}/app.json`).then(r => r.json());
 
             for(const components of manifest.components ?? [])
             {
                 components.base = url;
 
-                this.#registration.set(components.namespace, components);
+                this._registration.set(components.namespace, components);
             }
 
             for(const [ key, path, options = {} ] of manifest.stylesheets ?? [])
@@ -43,29 +63,31 @@ export default class Composer
         }));
     }
 
-    static async prepare(template)
+    static async prepare(template: Element): Promise<Element>
     {
-        const nodes = Array.from(template.querySelectorAll(':not(:defined)'));
-
-        await Promise.all(nodes.map(n => n.localName).unique().map(n => this.load(n)));
+        await Promise.all(
+            Array.from(template.querySelectorAll(':not(:defined)'), n => n.localName)
+                .unique()
+                .map(n => this.load(n))
+        );
 
         globalThis.customElements.upgrade(template);
 
         return template
     }
 
-    static get fragments()
+    static get fragments(): Readonly<{ [key: string]: Frag }>
     {
-        return Object.freeze({ ...this.#fragments });
+        return Object.freeze({ ...this._fragments });
     }
 
-    static registerComponent(classDef)
+    static registerComponent<T extends IBase<T>>(classDef: ComponentConstructor<T>): ComponentConstructor<T>
     {
-        const name = classDef.is ?? `${ classDef.name.replace(/[A-Z]/g, m => `-${m.toLowerCase()}`).substr(1) }`;
+        const name = classDef.is;
 
         if(globalThis.customElements.get(name) === undefined)
         {
-            this.#fragments[name] = {
+            this._fragments[name] = {
                 html: fetch(this.resolve(name, 'html'))
                     .then(r => r.status === 200
                         ? r.text()
@@ -74,7 +96,7 @@ export default class Composer
                     // TODO(Chris Kruining)
                     //  To completely finish the xss protection
                     //  migrate this logic to the backend
-                    .then(t => Template.scan(t, Object.keys(classDef.props))),
+                    .then(t => Template.scan(t, classDef.properties)),
                 css: (() => {
                     const sheet = new CSSStyleSheet();
 
@@ -94,16 +116,16 @@ export default class Composer
         return globalThis.customElements.get(name);
     }
 
-    static async load(el)
+    public static async load<T extends IBase<T>>(name: string): Promise<ComponentConstructor<T>>
     {
-        let r = globalThis.customElements.get(el);
+        let r = globalThis.customElements.get(name);
 
         if(r !== undefined)
         {
             return r;
         }
 
-        r = await import(this.resolve(el));
+        r = await import(this.resolve(name));
 
         return this.registerComponent(r.default);
     }

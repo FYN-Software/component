@@ -6,6 +6,8 @@ import Directive from '@fyn-software/component/directive/directive.js';
 
 export default class For extends Directive
 {
+    static #indices = new WeakMap;
+
     #key;
     #name;
     #fragment;
@@ -31,6 +33,7 @@ export default class For extends Directive
     {
         this.#fragment = fragment;
         this.#initialized = this.__initialize();
+        this.node.innerHTML = '';
 
         const _ = this.render();
     }
@@ -71,13 +74,15 @@ export default class For extends Directive
                     );
 
                     this.node.appendChild(template);
+
+                    // await Promise.delay(10);
                 }
 
                 const { nodes, bindings } = this.#items[c];
 
-                for(const node of nodes.filter(n => n.nodeType === 1))
+                for(const node of nodes)
                 {
-                    node.setAttribute('index', c);
+                    For.#indices.set(node, c);
                 }
 
                 // resolve values and render them.
@@ -87,9 +92,7 @@ export default class For extends Directive
                         .map(b => b.nodes)
                         .reduce((t, n) => [ ...t, ...n ], [])
                         .unique()
-                        .map(n => {
-                            return Template.render(n)
-                        })
+                        .map(n => Template.render(n))
                 );
             }
 
@@ -103,12 +106,14 @@ export default class For extends Directive
                     node.remove();
                 }
             }
+
+            //NOTE(Chris Kruining) with a 0 delay in order to allow the browser to actually render the results
+            await Promise.delay(0);
+
+            // const _ = this.node.getBoundingClientRect();
+
+            this.node.emit('rendered');
         });
-
-        //NOTE(Chris Kruining) with a 0 delay in order to allow the browser to actually render the results
-        await Promise.delay(0);
-
-        this.node.emit('rendered');
     }
 
     static async scan(node, map)
@@ -120,7 +125,10 @@ export default class For extends Directive
         const [ name = 'it', key = name ] = n.match(/^\[?\s*(?:(\S+?)\s*(?:,|:)\s*)?\s*(\S+?)]?$/).reverse();
         const fragment = await super.scan(node, map, [ key, name ]);
 
-        mapping.callable = Template.asSandboxedCallable(mapping.keys, variable);
+        mapping.callable = {
+            args: mapping.keys,
+            code: Template.asSandboxedCodeString(mapping.keys, variable)
+        };
         mapping.directive = {
             ...mapping.directive,
             name,
@@ -128,6 +136,16 @@ export default class For extends Directive
         };
 
         return fragment;
+    }
+
+    static async deserialize(mapping)
+    {
+        await super.deserialize(mapping);
+    }
+
+    static get indices()
+    {
+        return this.#indices;
     }
 }
 

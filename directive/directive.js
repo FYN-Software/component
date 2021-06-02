@@ -1,4 +1,5 @@
 import Template, {uuidRegex} from '@fyn-software/component/template.js';
+import Fragment from '../fragment.js';
 
 const references = new WeakMap;
 
@@ -22,6 +23,17 @@ export default class Directive
         this.#scope = scope;
         this.#node = node;
         this.#binding = binding;
+    }
+
+    transferTo(node)
+    {
+        // TODO(Chris Kruining)
+        //  I suspect there are plenty
+        //  of edge-cases which need
+        //  to do more then just
+        //  re-assigning the node.
+
+        this.#node = node;
     }
 
     get owner()
@@ -80,13 +92,21 @@ export default class Directive
         const mapping = map.get(uuid);
         mapping.directive = {
             type: this.type,
-            fragment: await Template.scan(template, allowedKeys),
+            fragment: await Template.cache(template, allowedKeys),
         };
 
         return mapping.fragment;
+    }
+
+    static async deserialize(mapping)
+    {
+        const { html, map } = await Template.deserialize(mapping.fragment);
+
+        mapping.fragment = new Fragment(html, map);
     }
 }
 
 Directive.register('if', './if.js');
 Directive.register('for', './for.js');
 Directive.register('switch', './switch.js');
+Directive.register('template', './template.js');

@@ -1,6 +1,7 @@
 import Template, {uuidRegex} from '@fyn-software/component/template.js';
 import Base from '@fyn-software/component/base.js';
 import Directive from '@fyn-software/component/directive/directive.js';
+import Fragment from '../fragment.js';
 
 // TODO(Chris Kruining)
 //  This directive should add the binding created
@@ -16,48 +17,6 @@ export default class Switch extends Directive
     constructor(owner, scope, node, binding, { defaultCase, cases })
     {
         super(owner, scope, node, binding);
-
-        // for(let skip = 0; node.childNodes.length > skip;)
-        // {
-        //     const c = node.childNodes[skip];
-        //
-        //     if(c instanceof HTMLSlotElement)
-        //     {
-        //         skip++;
-        //         c.setAttribute('hidden', '');
-        //
-        //         let ready_cb;
-        //         this.#initialized = new Promise(r => ready_cb = r);
-        //
-        //         c.on({
-        //             slotchange: async () => {
-        //                 ready_cb();
-        //
-        //                 await this.#initialized;
-        //
-        //                 const old = this.#template;
-        //                 this.#template = new DocumentFragment();
-        //
-        //                 for(const el of c.assignedNodes({ flatten: true }))
-        //                 {
-        //                     this.#template.appendChild(el.cloneNode(true));
-        //                 }
-        //
-        //                 this.#initialized = this.__initialize();
-        //
-        //                 node.emit('templatechange', {
-        //                     old,
-        //                     new: this.#template.cloneNode(true),
-        //                     directive: this,
-        //                 });
-        //             },
-        //         }).trigger('slotchange');
-        //     }
-        //     else
-        //     {
-        //         this.#template.appendChild(c);
-        //     }
-        // }
 
         this.#defaultCase = defaultCase;
         this.#cases = cases;
@@ -100,16 +59,18 @@ export default class Switch extends Directive
     {
         const [ , uuid ] = node.nodeValue.match(new RegExp(uuidRegex, ''));
         const mapping = map.get(uuid);
-        const cases = new Map();
-        const defaultCase = await Template.scan(
-            node.ownerElement.querySelector(':scope > [default]') ?? document.createTextNode(''),
-            allowedKeys
-        );
 
+        const fragment = new DocumentFragment();
+        fragment.appendChild(node.ownerElement.querySelector(':scope > [default]') ?? document.createTextNode(''));
+        const defaultCase = await Template.cache(fragment, allowedKeys);
+
+        const cases = new Map();
         for(const n of node.ownerElement.querySelectorAll(':scope > [case]'))
         {
-            n.remove(); // remove from DOM
-            cases.set(n.getAttribute('case'), await Template.scan(n, allowedKeys));
+            const fragment = new DocumentFragment();
+            fragment.appendChild(n);
+
+            cases.set(n.getAttribute('case'), await Template.cache(fragment, allowedKeys));
         }
 
         mapping.directive = {
@@ -124,5 +85,22 @@ export default class Switch extends Directive
         // return none for now, this is an issue
         // I will solve when the need arises
         return null;
+    }
+
+    static async deserialize(mapping)
+    {
+        const cases = new Map();
+
+        for(const [ k, c ] of mapping.cases.entries())
+        {
+            const { html, map } = await Template.deserialize(c);
+
+            cases.set(k, new Fragment(html, map))
+        }
+
+        const { html, map } = await Template.deserialize(mapping.defaultCase);
+
+        mapping.defaultCase = new Fragment(html, map);
+        mapping.cases = cases;
     }
 }

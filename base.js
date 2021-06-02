@@ -8,12 +8,12 @@ globalThis.range = (s, e) => Array(e - s).fill(1).map((_, i) => s + i);
 
 export default class Base extends HTMLElement
 {
+    static #observers = new WeakMap();
     #bindings = null;
-    #observers = new Map();
     #internals = this.attachInternals();
     #shadow;
     #queue = new Queue;
-    #setQueue = new Queue;
+    #setQueue = new Map;
     #viewModel = {};
 
     constructor(args = {})
@@ -37,7 +37,7 @@ export default class Base extends HTMLElement
             this.#viewModel = new (ObjectType.define(this.constructor.props))();
             this.#viewModel.on({
                 changed: async ({ property, old: o, new: n }) => {
-                    for(const c of this.#observers.get(property) ?? [])
+                    for(const c of Base.#observers.get(this)?.get(property) ?? [])
                     {
                         c.apply(this.#viewModel[property], [ o, n ]);
                     }
@@ -57,9 +57,14 @@ export default class Base extends HTMLElement
                 const v = this.#viewModel.$.props[k];
 
                 const attr = k.toDashCase();
-                const value = (this.getAttribute(attr)?.startsWith('{#') || this.getAttribute(attr)?.includes('{{') ? null : this.getAttribute(attr))
-                    || (this.hasAttribute(attr) && this.getAttribute(attr) === '' && v instanceof Bool)
+                const value = (this.hasAttribute(attr) && this.getAttribute(attr) === '' && v instanceof Bool)
+                    || (this.getAttribute(attr)?.startsWith('{#') || this.getAttribute(attr)?.includes('{{') ? null : this.getAttribute(attr))
                     || v.$.value;
+
+                if(k === 'showLegend')
+                {
+                    console.log(attr, value, args[k] ?? value);
+                }
 
                 Reflect.defineProperty(this, k, {
                     get: () => v.$.value,
@@ -91,12 +96,19 @@ export default class Base extends HTMLElement
                 throw new Error(`Trying to observe non-observable property '${p}'`);
             }
 
-            if(this.#observers.has(p) === false)
+            if(Base.#observers.has(this) === false)
             {
-                this.#observers.set(p, []);
+                Base.#observers.set(this, new Map);
             }
 
-            this.#observers.get(p).push(c);
+            const observers = Base.#observers.get(this);
+
+            if(observers.has(p) === false)
+            {
+                observers.set(p, []);
+            }
+
+            observers.get(p).push(c);
         }
 
         return this;
@@ -106,7 +118,7 @@ export default class Base extends HTMLElement
     {
         if(this.#bindings === null)
         {
-            this.#setQueue.enqueue([ name, value ]);
+            this.#setQueue.set(name, value);
 
             return;
         }
@@ -123,7 +135,7 @@ export default class Base extends HTMLElement
 
     static async parseHtml(owner, scope, fragment)
     {
-        return await Template.parseHtml(owner, scope, fragment, owner.#viewModel)
+        return await Template.parseHtml(owner, scope, fragment.clone(), owner.#viewModel)
     }
 
     async _populate()
@@ -135,7 +147,7 @@ export default class Base extends HTMLElement
             this.#viewModel.$.props[key].emit('changed', { old: undefined, new: this.#viewModel[key] });
         }
 
-        for(const [ key, value ] of this.#setQueue)
+        for(const [ key, value ] of this.#setQueue.entries())
         {
             try
             {
@@ -227,7 +239,7 @@ export default class Base extends HTMLElement
         while(constructor !== Base)
         {
             props = Object.assign(constructor.properties, props);
-            constructor = constructor.__proto__;
+            constructor = Object.getPrototypeOf(constructor);
         }
 
         return props;
