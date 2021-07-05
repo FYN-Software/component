@@ -1,5 +1,3 @@
-
-
 declare interface ViewModelField<T> extends EventTarget
 {
     readonly value: T|undefined;
@@ -18,25 +16,22 @@ declare interface IPlugin extends EventTarget
 {
     key: string;
     plugin: any;
-    bindings: Array<{ binding: IBinding<any>, scope: IScope<any> }>;
+    bindings: Array<{ binding: IBinding<any>, scopes: Array<IScope> }>;
 }
 
 declare interface ParsedTemplate<T extends IBase<T>>
 {
-    template: DocumentFragment;
+    template: Node;
     bindings: Array<IBinding<T>>;
 }
 
-declare type Setter<T extends IBase<T>> = (this: T, value: any) => T[keyof T];
+declare type Setter<T extends IBase<T>> = (this: IBase<T>, value: any) => T[keyof T];
 
 declare type PropertyConfig<T extends IBase<T>> = {
-    name: string;
-    default: T[keyof T];
     aliasFor?: keyof T;
     set?: Setter<T>;
+    bindToCSS?: (value: T[keyof T]) => string;
 };
-
-declare type PropertyOptions<T extends IBase<T>> = Partial<PropertyConfig<T>>;
 
 declare interface IBase<T extends IBase<T>> extends HTMLElement, IScope<T>
 {
@@ -55,12 +50,12 @@ declare interface BaseConstructor<T extends IBase<T>> extends Constructor<IBase<
     readonly properties: Array<string>;
     readonly observedAttributes: Array<string>;
 
-    registerProperty<T extends IBase<T>>(target: BaseConstructor<T>, key: string|symbol, options?: PropertyOptions<T>): void
+    registerProperty<T extends IBase<T>>(target: BaseConstructor<T>, key: keyof T, options?: PropertyConfig<T>): void
 }
 
 declare interface IComponent<T extends IComponent<T>> extends IBase<T>
 {
-
+    readonly isReady: Promise<void>;
 }
 
 declare type AnimationConfigOptions = KeyframeAnimationOptions & { extend?: string };
@@ -80,10 +75,9 @@ declare interface ComponentConstructor<T extends IBase<T>> extends BaseConstruct
 declare interface IFragment<T extends IBase<T>>
 {
     clone(): IFragment<T>;
-    load(): Promise<void>;
 
-    template: DocumentFragment;
-    map: BindingLikeMap<T>;
+    template: Node;
+    map: Map<string, NewBinding>;
 }
 declare interface FragmentConstructor
 {
@@ -112,7 +106,7 @@ declare type ObserverConfig<T extends IBase<T>> = {
     [Key in keyof T]?: Observer<T[Key]>;
 };
 
-declare interface IScope<T extends IBase<T>>
+declare interface IScope<T extends IBase<T> = any>
 {
     readonly properties: ViewModel<T>
 }
@@ -125,16 +119,15 @@ declare interface IBindingMap<T extends IBase<T>> extends Map<string, IBinding<T
 declare interface IBinding<T extends IBase<T>>
 {
     readonly tag: string;
-    readonly original: string;
-    readonly expression: string;
-    readonly keys: Array<keyof T>;
+    readonly keys: Array<string>;
+    readonly code: string;
     readonly nodes: Set<Node>;
     readonly value: Promise<any>;
-    resolve(scope: IScope<T>, self?: IScope<T>): Promise<any>;
+    resolve(scopes: Array<IScope>): Promise<any>;
 }
 declare interface BindingConstructor<T extends IBase<T>> extends Constructor<IBinding<T>>
 {
-    new(tag: string, original: string, expression: string, keys: Array<string>, callable: AsyncFunction): IBinding<T>;
+    new(tag: string, callable: AsyncFunction): IBinding<T>;
 }
 
 declare interface BindingLikeMap<T> extends Map<string, BindingLike<T>>
@@ -154,6 +147,11 @@ declare interface BindingLike<T>
 type DirectiveCache = {
     type: string;
     [key: string]: any;
+};
+
+type NewBinding = {
+    callable: AsyncFunction;
+    directive?: DirectiveCache;
 };
 
 type CachedBinding = {
@@ -188,5 +186,12 @@ type PluginCollection = Array<IPlugin> | {
     values(): Array<any>;
     entries(): Array<[ string, IPlugin ]>;
 };
+
+interface CustomShadowRoot extends ShadowRoot
+{
+    readonly style: CSSStyleDeclaration;
+    getPropertyValue(property: string): any;
+    setProperty(property: string, value: any, priority?: string): void;
+}
 
 declare var AsyncFunction: AsyncFunctionConstructor;

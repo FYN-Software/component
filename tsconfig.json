@@ -8,24 +8,23 @@
         "baseUrl": ".",
         "rootDir": "./src",
         "paths": {
-            "@fyn-software/core/*": [ "../core/src/*" ],
-            "@fyn-software/data/*": [ "../data/src/*" ]
+            "@fyn-software/core/*": [ "../core/dist/*" ]
         },
         "sourceMap": true,
         "composite": true,
+        "incremental": true,
         "declaration": true,
         "declarationMap": true,
-        "experimentalDecorators": true
+        "experimentalDecorators": true,
+        "removeComments": true
     },
     "references": [
-        { "path": "../core/tsconfig.json" },
-        { "path": "../data/tsconfig.json" }
+        { "path": "../core/tsconfig.json" }
     ],
     "include": [
         "src",
         "types",
-        "../core/types",
-        "../data/types"
+        "../core/types"
     ],
     "exclude": [
         "dist",
