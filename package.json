@@ -28,7 +28,7 @@
     "keywords": [],
     "devDependencies": {
         "jsdom": "16.6.0",
-        "rollup": "2.52.8",
+        "rollup": "2.53.0",
         "typescript": "4.3.5"
     },
     "dependencies": {
