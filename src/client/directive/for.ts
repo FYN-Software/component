@@ -1,7 +1,6 @@
 import lock from '@fyn-software/core/lock.js';
 import Directive from './directive.js';
 import Template from '../template.js';
-import Component from '../component.js';
 
 declare type ForConf<T extends IBase<T>> = {
     fragment: IFragment<T>,
@@ -77,8 +76,7 @@ export default class For<T extends IBase<T>> extends Directive<T>
                         await Promise.all(
                             Array
                                 .from(template.querySelectorAll(':defined'))
-                                .filter(el => el instanceof Component)
-                                .map(el => (el as Component<any>).isReady)
+                                .map(el => (el as any).isReady ?? Promise.resolve(null))
                         );
                     }
 

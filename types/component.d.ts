@@ -95,10 +95,9 @@ declare interface IDirectiveMap
     [key: string]: IDirective<any>
 }
 
-interface DirectiveConstructor<T extends IBase<T>> extends Constructor<IDirective<T>>
+interface DirectiveConstructor extends Constructor<any>
 {
-    scan(node: Attr, map: Map<string, any>, allowedKeys?: Array<string>): Promise<FragmentLike>
-    deserialize(mapping: DirectiveCache): Promise<void>
+    scan(id: string, node: Attr, map: Map<string, any>): Promise<void>
 }
 
 declare type Observer<T = any> = (oldValue: T, newValue: T) => any;
@@ -159,15 +158,12 @@ type CachedBinding = {
         args: Array<string>
         code: string,
     };
-    original: string;
-    code: string;
-    keys: Array<string>;
     directive?: DirectiveCache;
 };
 
 type CacheItem = {
     id?: string;
-    html: string;
+    html: Node;
     map: Map<string, CachedBinding>;
 };
 
@@ -192,6 +188,14 @@ interface CustomShadowRoot extends ShadowRoot
     readonly style: CSSStyleDeclaration;
     getPropertyValue(property: string): any;
     setProperty(property: string, value: any, priority?: string): void;
+}
+
+declare type RootElement = Element|DocumentFragment;
+
+interface ITemplate
+{
+    scan(fragment: RootElement, allowedKeys: Array<string>): Promise<CacheItem>;
+    uuidRegex: RegExp;
 }
 
 declare var AsyncFunction: AsyncFunctionConstructor;

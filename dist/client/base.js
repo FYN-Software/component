@@ -94,20 +94,6 @@ export default class Base extends HTMLElement {
                 this._queue.enqueue(...nodes);
             },
         });
-        for (const [k, p] of this._properties) {
-            const { aliasFor } = p;
-            const key = (aliasFor ?? k);
-            Object.defineProperty(this, k, {
-                get() {
-                    return this._viewModel[key].value;
-                },
-                set(value) {
-                    return this._initialized ? this._set(key, value) : this._viewModel[key].setValue(value);
-                },
-                enumerable: true,
-                configurable: false,
-            });
-        }
         this._queue.on({
             enqueued: Event.debounce(10, async () => {
                 for await (const n of this._queue) {
@@ -118,8 +104,20 @@ export default class Base extends HTMLElement {
     }
     async init() {
         this._initialized = true;
-        for (const k of this._properties.keys()) {
-            const key = k;
+        for (const [k, p] of this._properties) {
+            const { aliasFor } = p;
+            const key = (aliasFor ?? k);
+            this._viewModel[key].setValue(this[key]);
+            Object.defineProperty(this, k, {
+                get() {
+                    return this._viewModel[key].value;
+                },
+                set(value) {
+                    return this._initialized ? this._set(key, value) : this._viewModel[key].setValue(value);
+                },
+                enumerable: true,
+                configurable: false,
+            });
             const v = this._viewModel[key].value;
             const attr = this.getAttribute(k.toDashCase());
             const value = (this.hasAttribute(k.toDashCase()) && attr === '' && typeof v === 'boolean')

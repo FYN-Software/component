@@ -132,25 +132,6 @@ export default abstract class Base<T extends Base<T>> extends HTMLElement implem
             },
         });
 
-        for(const [ k, p ] of this._properties)
-        {
-            const { aliasFor }: PropertyConfig<T> = p;
-            const key = (aliasFor ?? k) as keyof T;
-
-            Object.defineProperty(this, k, {
-                get(): T[keyof T]
-                {
-                    return this._viewModel[key].value;
-                },
-                set(value: T[keyof T]): Promise<void>
-                {
-                    return this._initialized ? this._set(key, value) : this._viewModel[key].setValue(value);
-                },
-                enumerable: true,
-                configurable: false,
-            });
-        }
-
         this._queue.on({
             enqueued: Event.debounce(10, async () => {
                 for await(const n of this._queue)
@@ -165,9 +146,25 @@ export default abstract class Base<T extends Base<T>> extends HTMLElement implem
     {
         this._initialized = true;
 
-        for(const k of this._properties.keys())
+        for(const [ k, p ] of this._properties)
         {
-            const key = k as keyof T;
+            const { aliasFor }: PropertyConfig<T> = p;
+            const key = (aliasFor ?? k) as keyof T;
+
+            this._viewModel[key].setValue(this[key]);
+
+            Object.defineProperty(this, k, {
+                get(): T[keyof T]
+                {
+                    return this._viewModel[key].value;
+                },
+                set(value: T[keyof T]): Promise<void>
+                {
+                    return this._initialized ? this._set(key, value) : this._viewModel[key].setValue(value);
+                },
+                enumerable: true,
+                configurable: false,
+            });
 
             const v: any = this._viewModel[key].value;
             const attr = this.getAttribute(k.toDashCase());

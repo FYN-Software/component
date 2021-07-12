@@ -1,23 +1,25 @@
-// import plugins from './plugins.js';
-import Directive from './directive/directive.js';
 import Binding from './binding.js';
-// import Plugin from './plugin/plugin.js';
+
+export type DirectiveMap = { [key: string]: Constructor<IDirective<any>> };
 
 export const uuidRegex: RegExp = /{([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})}/g;
 
 export default class Template
 {
-    private static _directives: WeakMap<Node, IDirectiveMap> = new WeakMap();
-    private static _directivesCache: WeakMap<Node, IDirective<IBase<any>>> = new WeakMap();
-    private static _templates: WeakMap<Node, string> = new WeakMap();
-    private static _bindings: WeakMap<Node, Array<IBinding<any>>> = new WeakMap();
     private static _map: Map<string, Map<string, NewBinding>> = new Map;
+    private static _directives: DirectiveMap = {};
+    private static _plugins: Array<IPlugin> = [];
+    private static readonly _directivesCache: WeakMap<Node, IDirective<IBase<any>>> = new WeakMap();
+    private static readonly _templates: WeakMap<Node, string> = new WeakMap();
+    private static readonly _bindings: WeakMap<Node, Array<IBinding<any>>> = new WeakMap();
 
-    static async initialize(map: { [key: string]: { [key: string]: NewBinding } }): Promise<void>
+    static async initialize(map: { [key: string]: { [key: string]: NewBinding } }, directives: DirectiveMap, plugins: Array<IPlugin>): Promise<void>
     {
         this._map = new Map(
             Object.entries(map).map(([ el, m ]) => [ el, new Map(Object.entries(m)) ])
         );
+        this._directives = directives;
+        this._plugins = plugins;
     }
 
     static async hydrate<T extends IBase<T>>(scopes: Array<IScope>, fragment: IFragment<T>): Promise<ParsedTemplate<T>>
@@ -65,15 +67,9 @@ export default class Template
                 // Detect and create directives
                 if(directive !== undefined && node instanceof Attr)
                 {
-                    if(this._directives.has(node.ownerElement!) === false)
-                    {
-                        this._directives.set(node.ownerElement!, {});
-                    }
-
-                    const directiveClass = await Directive.get(directive.type);
+                    const directiveClass = this._directives[directive.type];
                     const dir = new directiveClass(node.ownerElement, binding, scopes, directive);
 
-                    this._directives.get(node.ownerElement!)![node.localName] = dir;
                     this._directivesCache.set(node, dir);
                 }
 
@@ -119,10 +115,6 @@ export default class Template
         return this._map.get(component);
     }
 
-    public static getDirective<TDirective extends IDirective<T>, T extends IBase<T>>(ctor: DirectiveConstructor<T>, node: Node): TDirective|undefined
-    {
-        return this._directives.get(node)?.[`:${ctor.name.toLowerCase()}`] as TDirective|undefined;
-    }
 
     public static getBindingsFor(node: Node): Array<IBinding<any>>
     {
@@ -140,7 +132,7 @@ export default class Template
         );
     }
 
-    private static async *iterator<T extends IBase<T>>(node: Node): AsyncGenerator<{ node: Node, directive: DirectiveConstructor<T>|null }, void, void>
+    private static async *iterator<T extends IBase<T>>(node: Node): AsyncGenerator<{ node: Node, directive: DirectiveConstructor|null }, void, void>
     {
         switch(node.nodeType)
         {
@@ -153,7 +145,7 @@ export default class Template
                 }
 
             /* falls through */
-            case 11: // Template
+            case 11: // DocumentFragment
                 for(const c of node.childNodes)
                 {
                     yield* this.iterator(c);
@@ -167,9 +159,10 @@ export default class Template
                 {
                     yield {
                         node,
-                        directive: node.nodeType === 2 && (node as Attr).localName?.startsWith(':')
-                            ? await Directive.get<T>((node as Attr).localName?.substr(1))
-                            : null
+                        directive: null,
+                        // directive: node.nodeType === 2 && (node as Attr).localName?.startsWith(':')
+                        //     ? await Directive.get<T>((node as Attr).localName?.substr(1))
+                        //     : null,
                     };
                 }
 

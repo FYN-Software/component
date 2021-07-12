@@ -3,12 +3,14 @@ import * as Path from 'path';
 import { promises as fs, Dir, Dirent } from 'fs';
 import MagicString from 'magic-string';
 import { JSDOM } from 'jsdom';
+import Template from './template.js';
 
 type StoredNamespace = {
     namespace: string;
     html: string;
     css: string;
     ts: string;
+    import: string;
 };
 
 type StoredManifest = {
@@ -18,18 +20,26 @@ type StoredManifest = {
     stylesheets: Array<[ string, string ]>;
 }
 
-type TypeMap<T> = {
+type TypeMap<T extends Promise<string>|string = string> = {
     html: T,
     css: T,
     ts: T,
+    import: T,
 };
 
 type Component = {
+    id: string;
     namespace: string;
-    // resources: TypeMap<Promise<any>>;
-    files: TypeMap<string>;
+    module?: string;
+    meta?: {
+        name: string;
+        styles: Array<string>;
+        properties: Array<string>;
+    };
+    resources: Partial<TypeMap<Promise<string>>>;
+    files: TypeMap;
 };
-type ComponentMap = { [key: string]: Component };
+export type ComponentMap = { [key: string]: Component };
 
 type Manifest = {
     name: string;
@@ -38,7 +48,22 @@ type Manifest = {
     stylesheets: Array<[ string, string ]>;
 }
 
-async function *walk(path: Array<string>|string): AsyncGenerator<Array<string>, void, void>
+export type HtmlResult = {
+    code: MagicString;
+    map: Map<string, Map<string, CachedBinding>>;
+    imports: ComponentMap;
+    templates: Set<string>;
+};
+
+function getTemplateInnerHtml(dom: JSDOM, template: HTMLTemplateElement): string
+{
+    const div = dom.window.document.createElement('div');
+    div.appendChild(template.content.cloneNode(true));
+
+    return  div.innerHTML;
+}
+
+async function *walkDirTree(path: Array<string>|string): AsyncGenerator<Array<string>, void, void>
 {
     if(typeof path === 'string')
     {
@@ -47,7 +72,7 @@ async function *walk(path: Array<string>|string): AsyncGenerator<Array<string>, 
 
     const dir: Dir = await fs.opendir(Path.join(...path));
 
-    for await (const dirent of dir as AsyncIterableIterator<Dirent>)
+    for await (const dirent of dir as AsyncIterable<Dirent>)
     {
         switch (true)
         {
@@ -59,7 +84,7 @@ async function *walk(path: Array<string>|string): AsyncGenerator<Array<string>, 
 
             case dirent.isDirectory():
             {
-                yield* walk([ ...path, dirent.name]);
+                yield* walkDirTree([ ...path, dirent.name]);
                 break;
             }
 
@@ -78,26 +103,29 @@ async function *walk(path: Array<string>|string): AsyncGenerator<Array<string>, 
 async function *toComponent(
     partsIterator: AsyncIterable<Array<string>>,
     path: string,
-    { namespace, html, css, ts }: StoredNamespace
+    { namespace, html, css, ts, import: relative }: StoredNamespace
 ): AsyncGenerator<[ string, Component ], void, void>
 {
     for await (const parts of partsIterator)
     {
         const comp = parts.splice(-1, 1)[0].replace('.ts', '');
+        const id = [ namespace, ...parts, comp ].join('-');
 
         yield [
-            [ namespace, ...parts, comp ].join('-'),
+            id,
             {
+                id,
                 namespace,
-                // resources: {
-                //     html: fs.readFile(Path.resolve(path, html, ...parts, `${comp}.html`)),
-                //     css: fs.readFile(Path.resolve(path, css, ...parts, `${comp}.css`)),
-                //     ts: fs.readFile(Path.resolve(path, ts, ...parts, `${comp}.ts`)),
-                // },
+                resources: {
+                    // html: fs.readFile(Path.resolve(path, html, ...parts, `${comp}.html`)),
+                    // css: fs.readFile(Path.resolve(path, css, ...parts, `${comp}.css`)),
+                    // ts: fs.readFile(Path.resolve(path, ts, ...parts, `${comp}.ts`)),
+                },
                 files: {
                     html: Path.resolve(path, html, ...parts, `${comp}.html`),
                     css: Path.resolve(path, css, ...parts, `${comp}.css`),
                     ts: Path.resolve(path, ts, ...parts, `${comp}.ts`),
+                    import: relative + Path.join(...parts, `${comp}.js`),
                 },
             }
         ];
@@ -106,65 +134,207 @@ async function *toComponent(
 
 export default class Composer
 {
-    private readonly _context: Manifest;
+    private readonly _context: Promise<Manifest>;
 
-    public constructor(context: Manifest)
+    public constructor(context: Promise<Manifest>)
     {
         this._context = context;
     }
 
-    public async prepareHtml(code: string): Promise<MagicString>
+    public get components(): Promise<ComponentMap>
     {
-        const s = new MagicString(code);
-        s.prepend(`
-            <!DOCTYPE html>
-            <html lang="en">
-                <head>
-                    <meta charset="UTF-8">
-                    <meta name="google" content="notranslate">
-                    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
-                    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-                    <meta name="description" content="fyn.nl">
-                    <meta name="theme-color" content="#6e45e2">
-                    <meta name="apps" content="https://KAAAAAAS.com">
-                    <meta name="theme" content="https://fyncdn.nl/unifyned/css">
-                    <link rel="icon" href="/images/icon.svg">
-                    <link rel="apple-touch-icon" href="/images/icon.svg">
-                    <link rel="manifest" href="/manifest.json">
-                    <link rel="stylesheet" href="/css/style.css">
-    
-                    <title>Unifyned • All-in-one business software</title>
-    
-                    <script type="module" src="home.js"></script>
-                </head>
-    
-                <body>
-        `);
-        s.append(`</body></html>`);
+        return this._context.then(m => m.components);
+    }
 
-        console.log(new JSDOM(code));
+    public async resolve(id: string): Promise<Component|undefined>
+    {
+        return Object.values((await this._context).components).find(c => c.files.ts === id || c.module === id);
+    }
 
-        for(const { 0: whole, 1: template, index = -1 } of code.matchAll(/{{\s*(.+?)\s*}}/g))
+    public async loadResource(name: string, type: keyof TypeMap): Promise<string|undefined>
+    {
+        const components = (await this._context).components;
+
+        if(components.hasOwnProperty(name) === false)
         {
-            const end = index + whole.length;
-
-            s.overwrite(index, end, `{__${template}__}`);
+            return;
         }
 
-        console.log(this, code);
+        const component: Component = components[name]!;
 
-        return s;
+        component.resources[type] ??= fs.readFile(component.files[type]).then(b => b.toString());
+
+        return component.resources[type];
+    }
+
+    public async scanHtml(code: string): Promise<ComponentMap>
+    {
+        const components = (await this._context).components;
+
+        const imports: ComponentMap = {};
+
+        const dom = new JSDOM(code, {
+            includeNodeLocations: true,
+        });
+
+        for await (const { type, node } of await Template.scan(dom))
+        {
+            const name = (node as Element).localName;
+            const component = components[name];
+
+            if(component !== undefined)
+            {
+                imports[name] = component;
+            }
+
+            if(type === 'element' || type === 'template')
+            {
+                const element = node as Element;
+                const html = type === 'element'
+                    ? (await this.loadResource(element.localName, 'html'))!
+                    : getTemplateInnerHtml(dom, node as HTMLTemplateElement);
+
+                for(const [ el, comp ] of Object.entries(await this.scanHtml(html)))
+                {
+                    imports[el] = comp;
+                }
+            }
+        }
+
+        return imports;
+    }
+
+    public async parseHtml(code: string, allowedKeys?: Array<string>): Promise<HtmlResult>
+    {
+        const components = (await this._context).components;
+
+        const s = new MagicString(code);
+        const map: Map<string, Map<string, CachedBinding>> = new Map([ [ '__root__', new Map ] ]);
+        const imports: ComponentMap = {};
+        const templates: Set<string> = new Set;
+
+        const dom = new JSDOM(code, {
+            includeNodeLocations: true,
+        });
+
+        for await (const result of await Template.parse(dom, allowedKeys ?? []))
+        {
+            const { node, location } = result;
+
+            switch (result.type)
+            {
+                case 'element':
+                {
+                    const element = node as Element;
+                    const component = components[element.localName];
+
+                    if(component === undefined)
+                    {
+                        break;
+                    }
+
+                    // TODO(Chris Kruining)
+                    // - minify html
+                    // - minify css
+                    // - figure out how to load the whole css file stack
+
+                    const shadowHtml = (await this.loadResource(element.localName, 'html'))!;
+                    const shadowCss: string = component.meta?.styles.map(s => `<style for="${s}"></style>`).join('\n') ?? '';//(await this.loadResource(element.localName, 'css'))!;
+
+                    const result = await this.parseHtml(shadowHtml, component.meta?.properties);
+
+                    for(const [ id, matches ] of result.map)
+                    {
+                        map.set(id === '__root__' ? element.localName : id, matches);
+                    }
+                    imports[element.localName] = component;
+
+                    // console.log(component.files.ts);
+                    // console.log(await import(component.files.ts));
+
+                    const template = `
+                        <template shadowroot="closed">
+                            ${shadowCss}
+
+                            ${result.code}
+                        </template>
+                    `.replaceAll(/[\n\t]|\s{2,}/g, '');
+
+                    s.appendRight(location.startTag.endOffset, template);
+
+                    break;
+                }
+
+                case 'variable':
+                {
+                    const { matches, value } = result;
+
+                    if(matches)
+                    {
+                        for(const [ k, v ] of matches)
+                        {
+                            map.get('__root__')!.set(k, v);
+                        }
+                    }
+
+                    // if(node.nodeType === 2 && (node as Attr).localName.endsWith('if'))
+                    // {
+                    //     console.log(value, matches, (node as Attr).localName, node.nodeValue);
+                    // }
+
+                    s.overwrite(
+                        location.startOffset,
+                        location.endOffset,
+                        node.nodeType === 2
+                            ? `${(node as Attr).localName}="${value}"`
+                            : value!
+                    );
+
+                    break;
+                }
+
+                case 'template':
+                {
+                    templates.add(result.id);
+
+                    const template: string = getTemplateInnerHtml(dom, node as HTMLTemplateElement);
+                    const templateResult = await this.parseHtml(template);
+
+                    for(const [ id, matches ] of templateResult.map)
+                    {
+                        map.set(id === '__root__' ? result.id : id, matches);
+                    }
+
+                    s.overwrite(location.startOffset, location.endOffset, '');
+                    s.append(`<template id="${result.id}">${templateResult.code}</template>`);
+
+                    break;
+                }
+            }
+        }
+
+        return {
+            code: s,
+            map,
+            imports,
+            templates,
+        };
     }
 
     public static async loadManifest(path: string): Promise<Manifest>
     {
-        const { name = '', components: comps = [], stylesheets = [], dependencies: deps = [] }: StoredManifest = (await import(Path.resolve(path, 'app.json'))).default;
+        const {
+            name = '',
+            components: comps = [],
+            stylesheets = [],
+            dependencies: deps = []
+        }: StoredManifest = JSON.parse(await fs.readFile(Path.resolve(path, 'app.json')).then(b => b.toString()));
 
         const dependencies: Array<Manifest> = await Promise.all(deps.map(d => Composer.loadManifest(d)));
         const components = await comps.reduce<Promise<ComponentMap>>(
             async (components: Promise<ComponentMap>, namespace: StoredNamespace) => ({
                 ...(await components),
-                ...(Object.fromEntries(await arrayFromAsync(toComponent(walk(Path.resolve(path, namespace.ts)), path, namespace)))),
+                ...(Object.fromEntries(await arrayFromAsync(toComponent(walkDirTree(Path.resolve(path, namespace.ts)), path, namespace)))),
                 ...dependencies.reduce<ComponentMap>((flattened: ComponentMap, d: Manifest) => ({ ...flattened, ...d.components }), {})
             }),
             Promise.resolve({})
@@ -178,8 +348,8 @@ export default class Composer
         };
     }
 
-    public static async from(path: string): Promise<Composer>
+    public static from(path: string): Composer
     {
-        return new Composer(await Composer.loadManifest(path));
+        return new Composer(Composer.loadManifest(path));
     }
 }

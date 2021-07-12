@@ -1,5 +1,5 @@
 import Plugin from './plugin.js';
-import Template from '@fyn-software/component/template.js';
+import Template from '../template.js';
 export default class Localization extends Plugin {
     constructor() {
         super();
@@ -38,6 +38,7 @@ export default class Localization extends Plugin {
             currency: new NumberFormatter({ style: 'currency', currency: 'EUR' }),
             percent: new NumberFormatter({ style: 'percent', signDisplay: 'exceptZero' }),
         };
+        this._global = '';
         this._namespace = ['common'];
         this._cache = new Map();
         this._fallback = 'en-GB';
@@ -146,7 +147,7 @@ class NumberFormatter extends Formatter {
         this._conf = {
             notation: 'standard',
         };
-        if (conf !== null) {
+        if (conf !== undefined) {
             this._conf = conf;
         }
     }

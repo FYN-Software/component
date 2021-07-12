@@ -33,6 +33,7 @@ export default class Binding {
         return this._value;
     }
     async resolve(scopes) {
+        console.log(scopes);
         const args = scopes
             .reduce((args, scope) => args.concat(Object.entries(scope.properties)
             .filter(([k]) => this._keys.includes(k))

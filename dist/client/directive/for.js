@@ -1,7 +1,6 @@
 import lock from '@fyn-software/core/lock.js';
 import Directive from './directive.js';
 import Template from '../template.js';
-import Component from '../component.js';
 export default class For extends Directive {
     static _indices = new WeakMap;
     _key;
@@ -43,8 +42,7 @@ export default class For extends Directive {
                     if (template instanceof DocumentFragment) {
                         await Promise.all(Array
                             .from(template.querySelectorAll(':defined'))
-                            .filter(el => el instanceof Component)
-                            .map(el => el.isReady));
+                            .map(el => el.isReady ?? Promise.resolve(null)));
                     }
                     this.node.appendChild(template);
                 }
