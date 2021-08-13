@@ -4,7 +4,64 @@ import { brotliCompress } from 'zlib';
 import { promisify } from 'util';
 import MagicString from 'magic-string';
 import Composer from '../composer.js';
-import { walk } from 'estree-walker';
+import { asyncWalk as esTreeWalk } from 'estree-walker';
+const IMPORT_PREFIX = 'template:';
+const MAP_PLACEHOLDER = '__map__';
+const test = new Map;
+const dependencies = new Map;
+async function walk(context, id, code) {
+    const ast = context.parse(code);
+    let name = '';
+    let styles = [];
+    let properties = [];
+    let imports = new Map;
+    await esTreeWalk(ast, {
+        async enter(node, parent) {
+            if (node.type === 'ImportDeclaration' && parent.type === 'Program') {
+                for (const specifier of node.specifiers) {
+                    imports.set(specifier.local.name, node.source.value);
+                }
+                return;
+            }
+            if (node.type === 'ClassDeclaration' && parent.type === 'ExportDefaultDeclaration') {
+                name = node.id.name;
+                const superClassName = node.superClass?.name;
+                if (superClassName && imports.has(superClassName)) {
+                    const superClassFile = (await context.resolve(imports.get(superClassName), id))?.id;
+                    if (dependencies.has(superClassFile) === false) {
+                        dependencies.set(superClassFile, []);
+                    }
+                    dependencies.get(superClassFile).push(id);
+                }
+                return;
+            }
+            if (node.type === 'PropertyDefinition' && node.static === true) {
+                switch (node.key.name) {
+                    case 'styles':
+                        {
+                            styles = node.value.elements
+                                .filter(el => el.type === 'Literal')
+                                .map(el => el.value);
+                        }
+                }
+            }
+            if (node.type === 'PropertyDefinition' && node.static === false && node.key.name.match(/^_|#/) === null) {
+                properties.push(node.key.name);
+            }
+        },
+    });
+    if (dependencies.has(id)) {
+        for (const dependency of dependencies.get(id).map(i => test.get(i))) {
+            dependency.properties = [...properties, ...dependency.properties];
+            dependency.styles = [...styles, ...dependency.styles];
+        }
+    }
+    return {
+        name,
+        properties,
+        styles,
+    };
+}
 class TextNode {
     type = 'Html';
     start = 0;
@@ -17,7 +74,8 @@ class TextNode {
     }
 }
 async function loadTemplate(id, code, context) {
-    const result = await context.parseHtml(code);
+    const allowedKeys = ['whitelabel', 'listItems', 'masonryItems', 'prices'];
+    const result = await context.parseHtml(code, allowedKeys);
     result.code.prepend(`
         <!DOCTYPE html>
         <html lang="en">
@@ -30,15 +88,18 @@ async function loadTemplate(id, code, context) {
                 <meta name="theme-color" content="#6e45e2">
                 <meta name="apps" content="https://unifyned.com">
                 <meta name="theme" content="https://fyncdn.nl/unifyned/css">
-                <link rel="icon" href="/images/icon.svg">
-                <link rel="apple-touch-icon" href="/images/icon.svg">
+                <link rel="icon" href="/src/images/icon.svg">
+                <link rel="apple-touch-icon" href="/src/images/icon.svg">
                 
                 <link rel="manifest" href="/manifest.json">
                 <link rel="stylesheet" href="https://fyncdn.nl/node_modules/@fyn-software/suite/src/css/preload.css">
+                
+                <link rel="stylesheet" href="https://fyncdn.nl/node_modules/@fyn-software/suite/src/css/variables.css">
+                <link rel="stylesheet" href="https://fyncdn.nl/theme/unifyned/variables.css">
+                
                 <link rel="stylesheet" href="https://fyncdn.nl/node_modules/@fyn-software/suite/src/css/style.css">
                 <link rel="stylesheet" href="https://fyncdn.nl/node_modules/@fyn-software/site/src/css/style.css">
-                <link rel="stylesheet" href="https://fyncdn.nl/unifyned/css/variables.css">
-                <link rel="stylesheet" href="https://fyncdn.nl/unifyned/css/general.css">
+                <link rel="stylesheet" href="https://fyncdn.nl/theme/unifyned/general.css">
                 <link rel="stylesheet" href="/src/css/style.css">
                 <link rel="stylesheet" href="https://use.fontawesome.com/releases/v5.13.0/css/all.css">
 
@@ -48,11 +109,14 @@ async function loadTemplate(id, code, context) {
                 <script type="module" src="https://unpkg.com/element-internals-polyfill"></script>
                 <script type="module" src="https://fyncdn.nl/js/polyfills/declaritive-shadowroot.js"></script>
 
-                <script type="module" src="home.js"></script>
+                <script type="module" src="${path.basename(id).replace('.html', '')}.js"></script>
             </head>
 
             <body>
     `);
+    for (const [id, code] of result.templates) {
+        result.code.append(`<template id="${id}">${code}</template>`);
+    }
     result.code.append(`</body></html>`);
     cache2[id] = result;
     cache[id] = {
@@ -85,15 +149,16 @@ async function scriptTransform(id, code, context) {
     const magicString = new MagicString(code);
     const ast = this.parse(code);
     let importNode;
-    walk(ast, {
-        enter(node, parent) {
-            if (node.type === 'ImportDeclaration' && node.source.value.endsWith('.html')) {
+    await esTreeWalk(ast, {
+        async enter(node, parent) {
+            if (node.type === 'ImportDeclaration' && node.source.value.startsWith(IMPORT_PREFIX)) {
                 importNode = node;
                 this.skip();
             }
         }
     });
-    const htmlId = (await this.resolve(importNode.source.value, id)).id;
+    const htmlId = (await this.resolve(importNode.source.value.slice(IMPORT_PREFIX.length), id)).id;
+    const htmlImport = `import map from 'template:${htmlId}';`;
     const html = await context.loadResource(component.id, 'html');
     const scanned = await context.scanHtml(html);
     const imports = await Promise.all(Array.from(Object.entries(scanned), async ([name, component]) => {
@@ -104,7 +169,7 @@ async function scriptTransform(id, code, context) {
         }
         return `\nimport ${name} from '${component.files.import}';\n${name}.define();`;
     }));
-    magicString.overwrite(importNode.start, importNode.end, `${imports.join('')}\nimport map from 'template:${htmlId}';\n`);
+    magicString.overwrite(importNode.start, importNode.end, `${imports.join('')}${htmlImport}`);
     return {
         code: magicString.toString(),
         map: magicString.generateMap({ hires: true }),
@@ -116,7 +181,6 @@ const defaultOptions = {
 };
 export default class Compiler {
     _context;
-    _importPrefix = 'template:';
     constructor(options) {
         const normalizedOptions = { ...defaultOptions, ...options };
         this._context = Composer.from(normalizedOptions.manifest);
@@ -135,37 +199,11 @@ export default class Compiler {
                     case 'js':
                         {
                             const component = await self._context.resolve(id);
+                            test.set(id, await walk(this, id, code));
                             if (component === undefined) {
-                                console.log('NO COMP', id);
                                 return;
                             }
-                            const ast = this.parse(code);
-                            let name = '';
-                            let styles = [];
-                            let properties = [];
-                            walk(ast, {
-                                enter(node, parent) {
-                                    if (node.type === 'ClassDeclaration' && parent.type === 'ExportDefaultDeclaration') {
-                                        name = node.id.name;
-                                        return;
-                                    }
-                                    if (node.type === 'PropertyDefinition' && node.static === true) {
-                                        switch (node.key.name) {
-                                            case 'styles':
-                                                {
-                                                    styles = node.value.elements
-                                                        .filter(el => el.type === 'Literal')
-                                                        .map(el => el.value);
-                                                }
-                                        }
-                                    }
-                                    if (node.type === 'PropertyDefinition' && node.static === false && node.key.name.match(/^_|#/) === null) {
-                                        properties.push(node.key.name);
-                                    }
-                                },
-                            });
-                            console.log('SET META', component.id, { name, styles, properties });
-                            component.meta = { name, styles, properties };
+                            component.meta = test.get(id);
                             return;
                         }
                     default:
@@ -181,8 +219,14 @@ export default class Compiler {
         return {
             name: 'parse',
             async load(id) {
-                if (id.startsWith(self._importPrefix)) {
-                    return 'const map = {};\n__map__\nexport default map;';
+                if (id.startsWith(IMPORT_PREFIX)) {
+                    return `
+                        import Fragment from '@fyn-software/component/fragment.js';
+                        
+                        const map = {};
+                        ${MAP_PLACEHOLDER}
+                        
+                        export default map;`;
                 }
                 const [, extension] = id.split('.');
                 switch (extension) {
@@ -197,33 +241,37 @@ export default class Compiler {
                 }
             },
             async resolveId(id, importer) {
-                if (id.startsWith(self._importPrefix) && importer) {
+                if (id.startsWith(IMPORT_PREFIX) && importer) {
                     return id;
                 }
                 return;
             },
             async transform(code, id) {
-                if (id.startsWith(self._importPrefix)) {
-                    await Promise.delay(1500);
-                    const htmlId = id.slice(self._importPrefix.length);
-                    const html = (await fs.readFile(htmlId)).toString();
+                if (id.startsWith(IMPORT_PREFIX)) {
+                    await Promise.delay(1000);
+                    const htmlId = id.slice(IMPORT_PREFIX.length);
+                    const html = (await fs.readFile(htmlId)).toString() + '<poweredby no-edit=""><a href="{{ whitelabel.url }}">powered by <b>{{ whitelabel.name }}</b></a></poweredby>';
                     const magicString = new MagicString(code);
-                    const toReplace = '__map__';
+                    const toReplace = MAP_PLACEHOLDER;
                     const { templates, map } = await loadTemplate.call(this, htmlId, html, self._context);
+                    const index = code.indexOf(toReplace);
                     const maps = Array.from(map.entries(), ([id, matches]) => {
                         const items = Array.from(matches.entries(), ([id, { callable, directive }]) => {
-                            const func = `async callable(${callable.args}){ return await ${callable.code}; }`;
-                            const dir = directive ? ` directive: ${JSON.stringify(directive)},` : '';
+                            const func = `async callable(${callable.args}){ try { return ${callable.code}; }catch{ return undefined; } }`;
+                            let dir = '';
+                            if (directive) {
+                                const properties = Object.entries(directive).filter(([k]) => ['type', 'fragment'].includes(k) === false).map(([k, v]) => `${k}: ${JSON.stringify(v)}, `).join('');
+                                const fragment = directive.fragment
+                                    ? ` fragment: new Fragment(templates['${directive.fragment}'], new Map(Object.entries(map['${directive.fragment}']))),`
+                                    : '';
+                                dir = ` directive: { type: '${directive.type}', ${properties}${fragment} },`;
+                            }
                             return `\n\t'${id}': { ${func},${dir} },`;
                         }).join('');
-                        return items.length > 0
-                            ? `map['${id}'] = {${items}\n};\n`
-                            : '';
-                    })
-                        .filter(p => p.length > 0)
-                        .join('\n');
-                    magicString.appendLeft(0, `const templates = { ${Array.from(templates.values(), t => `'${t}': document.getElementById('${t}').content`).join(',')} };\n`);
-                    magicString.overwrite(code.indexOf(toReplace), code.indexOf(toReplace) + toReplace.length, maps);
+                        return `map['${id}'] = {${items}\n};\n`;
+                    }).reverse().join('\n');
+                    magicString.appendLeft(index, `const templates = { ${Array.from(templates.keys(), t => `'${t}': document.getElementById('${t}').content`).join(',')} };\n\n`);
+                    magicString.overwrite(index, index + toReplace.length, maps);
                     this.emitFile({
                         type: 'chunk',
                         id: htmlId,
@@ -235,18 +283,6 @@ export default class Compiler {
                         map: magicString.generateMap({}),
                     };
                 }
-                const [, extension] = id.split('.');
-                switch (extension) {
-                    case 'ts':
-                        {
-                        }
-                    default:
-                        {
-                            return;
-                        }
-                }
-            },
-            async generateBundle(options, bundle, isWrite) {
             },
         };
     }

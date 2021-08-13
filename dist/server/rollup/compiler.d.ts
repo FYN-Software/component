@@ -5,7 +5,6 @@ declare type CompilerOptions = {
 };
 export default class Compiler {
     private readonly _context;
-    private readonly _importPrefix;
     constructor(options?: Partial<CompilerOptions>);
     get discover(): Plugin;
     get parse(): Plugin;

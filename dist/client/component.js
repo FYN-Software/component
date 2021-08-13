@@ -61,11 +61,5 @@ export default class Component extends Base {
             globalThis.customElements.define(this.is, this);
         }
     }
-    static upgrade() {
-        if (globalThis.customElements.get(this.is) === undefined) {
-            return;
-        }
-        globalThis.customElements.get(this.is);
-    }
 }
 //# sourceMappingURL=component.js.map

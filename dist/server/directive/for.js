@@ -1,19 +1,28 @@
 import Directive from './directive.js';
 export default class For extends Directive {
-    static async scan(id, node, map) {
-        const match = map.get(id);
-        const [n, variable] = match.callable.code.split(/\s+(?:of|in)\s+/);
-        const [name = 'it', key = name] = n.match(/^\[?\s*(?:(\S+?)\s*(?:,|:)\s*)?\s*(\S+?)]?$/).reverse();
-        await super.scan(id, node, map, [key, name]);
-        match.callable = {
-            args: match.callable.args,
+    static async parse(template, binding, node) {
+        const [n, variable] = binding.callable.code.split(/\s+(?:of|in)\s+/);
+        if (n === undefined || variable === undefined) {
+            throw new SyntaxError(`unable to parse the iterable and/or variable from '${binding.callable.code}'.`);
+        }
+        const match = n.match(/^\[?\s*(?:(\S+?)\s*(?:,|:)\s*)?\s*(\S+?)]?$/);
+        if (match === null) {
+            throw new SyntaxError(`Unable to parse variable from '${n}'`);
+        }
+        const [name = 'it', key = name] = match.reverse();
+        const result = await super.parse(template, binding, node);
+        result.keys = [name, key];
+        binding.callable = {
+            args: binding.callable.args,
             code: variable,
         };
-        match.directive = {
-            ...match.directive,
+        binding.directive = {
+            ...binding.directive,
+            keys: [name, key],
             name,
             key,
         };
+        return result;
     }
 }
 async function* valueIterator(value) {

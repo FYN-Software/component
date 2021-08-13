@@ -1,12 +1,13 @@
 import Directive from './directive.js';
 export default class Switch extends Directive {
-    static async scan(id, node, map) {
-        const mapping = map.get(id);
-        mapping.directive = {
-            type: this.type,
+    static async parse(template, binding, node) {
+        const result = await super.parse(template, binding, node);
+        binding.directive = {
+            ...binding.directive,
             defaultCase: null,
-            cases: null,
+            cases: [],
         };
+        return result;
     }
 }
 //# sourceMappingURL=switch.js.map

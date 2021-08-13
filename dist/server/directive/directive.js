@@ -4,10 +4,14 @@ export default class Directive {
     static get type() {
         return this._references.get(this);
     }
-    static async scan(id, node, map, allowedKeys = []) {
-        const mapping = map.get(id);
-        mapping.directive = {
+    static async parse(template, binding, node) {
+        binding.directive = {
+            node,
             type: this.name.toLowerCase(),
+        };
+        return {
+            node: node.ownerElement,
+            keys: undefined,
         };
     }
 }

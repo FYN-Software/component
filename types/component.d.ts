@@ -1,3 +1,27 @@
+declare type Directive = {
+    type: string;
+    [key: string]: any;
+};
+
+declare type Binding = {
+    callable: AsyncFunction;
+    directive?: Directive;
+};
+
+declare type TemplateMapItem = {
+    [key: string]: Binding;
+};
+
+declare type TemplateMap = {
+    __root__: TemplateMapItem;
+    [key: string]: TemplateMapItem;
+};
+
+declare module 'template:*' {
+    const map: TemplateMap;
+    export default map;
+}
+
 declare interface ViewModelField<T> extends EventTarget
 {
     readonly value: T|undefined;
@@ -25,7 +49,7 @@ declare interface ParsedTemplate<T extends IBase<T>>
     bindings: Array<IBinding<T>>;
 }
 
-declare type Setter<T extends IBase<T>> = (this: IBase<T>, value: any) => T[keyof T];
+declare type Setter<T extends IBase<T>> = (this: T, value: any) => T[keyof T];
 
 declare type PropertyConfig<T extends IBase<T>> = {
     aliasFor?: keyof T;
@@ -33,27 +57,63 @@ declare type PropertyConfig<T extends IBase<T>> = {
     bindToCSS?: (value: T[keyof T]) => string;
 };
 
-declare interface IBase<T extends IBase<T>> extends HTMLElement, IScope<T>
+declare type ElementResult = {
+    type: 'element';
+    location: any,
+    node: Node;
+    id: string;
+};
+
+declare type TemplateResult = {
+    type: 'template';
+    location: any,
+    node: Node;
+    keys?: Array<string>;
+    id: string;
+};
+
+declare type VariableResult = {
+    type: 'variable';
+    location: any,
+    node: Node;
+    value: string;
+    matches: Map<string, CachedBinding>;
+    directive?: DirectiveConstructor;
+};
+
+declare type Result = ElementResult|TemplateResult|VariableResult;
+
+declare interface ITemplate
+{
+}
+
+declare interface TemplateConstructor extends Constructor<ITemplate>
+{
+    scan(dom: JSDOM): AsyncGenerator<{ type: Result['type'], node: Node }, void>;
+    parse(dom: JSDOM, allowedKeys: Array<string>): AsyncGenerator<Result, void>;
+}
+
+declare interface IBase<T extends IBase<T, TEvents>, TEvents extends EventDefinition = {}> extends Target<TEvents>, IScope<T>
 {
     connectedCallback(): void;
     disconnectedCallback(): void;
     attributeChangedCallback(name: string, oldValue: any, newValue: any): void;
 
-    cloneNode(deep?: boolean): IBase<T>;
+    cloneNode(deep?: boolean): IBase<T, TEvents>;
 
-    observe(observers: ObserverConfig<T>): IBase<T>;
+    observe(observers: ObserverConfig<T>): IBase<T, TEvents>;
 }
 
-declare interface BaseConstructor<T extends IBase<T>> extends Constructor<IBase<T>>
+declare interface BaseConstructor<T extends IBase<T, TEvents>, TEvents extends EventDefinition> extends Constructor<IBase<T, TEvents>>
 {
     new(args?: ViewModelArgs<T>): IBase<T>;
     readonly properties: Array<string>;
     readonly observedAttributes: Array<string>;
 
-    registerProperty<T extends IBase<T>>(target: BaseConstructor<T>, key: keyof T, options?: PropertyConfig<T>): void
+    registerProperty(target: BaseConstructor<T, TEvents>, key: keyof T, options?: PropertyConfig<T>): void
 }
 
-declare interface IComponent<T extends IComponent<T>> extends IBase<T>
+declare interface IComponent<T extends IComponent<T, TEvents>, TEvents extends EventDefinition> extends IBase<T, TEvents>
 {
     readonly isReady: Promise<void>;
 }
@@ -64,12 +124,12 @@ declare type AnimationConfig = {
     [key: string]: AnimationConfigArg
 };
 
-declare interface ComponentConstructor<T extends IBase<T>> extends BaseConstructor<T>
+declare interface ComponentConstructor<T extends IBase<T, TEvents>, TEvents extends EventDefinition> extends BaseConstructor<T, TEvents>
 {
     readonly is: string;
     readonly styles: Array<string>;
     readonly animations: AnimationConfig;
-    init(): Promise<ComponentConstructor<T>>
+    init(): Promise<ComponentConstructor<T, TEvents>>
 }
 
 declare interface IFragment<T extends IBase<T>>
@@ -95,9 +155,14 @@ declare interface IDirectiveMap
     [key: string]: IDirective<any>
 }
 
+declare type DirectiveParseResult = {
+    node: Node;
+    keys?: Array<string>;
+};
+
 interface DirectiveConstructor extends Constructor<any>
 {
-    scan(id: string, node: Attr, map: Map<string, any>): Promise<void>
+    parse(template: TemplateConstructor, binding: CachedBinding, node: Attr): Promise<DirectiveParseResult>
 }
 
 declare type Observer<T = any> = (oldValue: T, newValue: T) => any;
@@ -145,12 +210,8 @@ declare interface BindingLike<T>
 
 type DirectiveCache = {
     type: string;
+    keys?: Array<string>;
     [key: string]: any;
-};
-
-type NewBinding = {
-    callable: AsyncFunction;
-    directive?: DirectiveCache;
 };
 
 type CachedBinding = {
@@ -188,14 +249,6 @@ interface CustomShadowRoot extends ShadowRoot
     readonly style: CSSStyleDeclaration;
     getPropertyValue(property: string): any;
     setProperty(property: string, value: any, priority?: string): void;
-}
-
-declare type RootElement = Element|DocumentFragment;
-
-interface ITemplate
-{
-    scan(fragment: RootElement, allowedKeys: Array<string>): Promise<CacheItem>;
-    uuidRegex: RegExp;
 }
 
 declare var AsyncFunction: AsyncFunctionConstructor;

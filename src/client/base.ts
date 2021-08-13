@@ -8,7 +8,7 @@ const properties: WeakMap<Function, Map<string, PropertyConfig<any>>> = new Weak
 
 export class Model<T extends IBase<T>> extends EventTarget
 {
-    constructor(owner: IBase<T>, properties: Map<string, PropertyConfig<T>>, args: ViewModelArgs<T> = {})
+    constructor(owner: T, properties: Map<string, PropertyConfig<T>>, args: ViewModelArgs<T> = {})
     {
         super();
 
@@ -34,10 +34,10 @@ export class Model<T extends IBase<T>> extends EventTarget
 class ValueContainer<T extends IBase<T>> extends EventTarget implements ViewModelField<T[keyof T]>
 {
     private _value: T[keyof T];
-    private readonly _owner: IBase<T>;
+    private readonly _owner: T;
     private readonly _config: PropertyConfig<T>;
 
-    public constructor(owner: IBase<T>, value: T[keyof T], config: PropertyConfig<T>)
+    public constructor(owner: T, value: T[keyof T], config: PropertyConfig<T>)
     {
         super();
 
@@ -65,7 +65,7 @@ class ValueContainer<T extends IBase<T>> extends EventTarget implements ViewMode
     }
 }
 
-export default abstract class Base<T extends Base<T>> extends HTMLElement implements IBase<T>
+export default abstract class Base<T extends Base<T, TEvents>, TEvents extends EventDefinition> extends HTMLElement implements IBase<T, TEvents>
 {
     private static _observers = new WeakMap();
     private _bindings: Array<IBinding<T>>|undefined;
@@ -77,18 +77,30 @@ export default abstract class Base<T extends Base<T>> extends HTMLElement implem
     private readonly _viewModel: ViewModel<T>;
     private _initialized: boolean = false;
 
+    events: TEvents = {} as unknown as TEvents;
+
     protected constructor(args: ViewModelArgs<T> = {})
     {
         super();
 
         this._shadow = this._internals.shadowRoot ?? this.attachShadow({ mode: 'closed', delegatesFocus: false });
-        const sheet = new CSSStyleSheet();
 
-        this._shadow.adoptedStyleSheets = [ sheet ];
+        // TODO(Chris Kruining) dumb "fix" for chrome bug, fixed in chrome 94.
+        let rule: CSSStyleRule;
 
-        sheet.insertRule(`:host{}`, 0);
-        const rule = sheet.cssRules[0] as CSSStyleRule;
+        try
+        {
+            rule = this._shadow.styleSheets[0].cssRules[0] as CSSStyleRule;
+        }
+        catch
+        {
+            const sheet = new CSSStyleSheet();
+            sheet.addRule(':host');
 
+            rule = sheet.cssRules[0] as CSSStyleRule;
+        }
+
+        // const rule: CSSStyleRule = this._shadow.styleSheets[0].cssRules[0] as CSSStyleRule;
         Object.defineProperties(this._shadow, {
             setProperty: {
                 value: rule.style.setProperty.bind(rule.style),
@@ -106,7 +118,7 @@ export default abstract class Base<T extends Base<T>> extends HTMLElement implem
 
         this._properties = Base.getPropertiesOf(this.constructor);
 
-        this._viewModel = new Model<T>(this, this._properties, args) as ViewModel<T>;
+        this._viewModel = new Model<T>(this as unknown as T, this._properties, args) as ViewModel<T>;
         this._viewModel.on({
             changed: async ({ property, old: o, new: n }: { property: string, old: T[keyof T], new: T[keyof T]}) => {
                 for(const c of Base._observers.get(this)?.get(property) ?? [])
@@ -151,7 +163,7 @@ export default abstract class Base<T extends Base<T>> extends HTMLElement implem
             const { aliasFor }: PropertyConfig<T> = p;
             const key = (aliasFor ?? k) as keyof T;
 
-            this._viewModel[key].setValue(this[key]);
+            this._viewModel[key].setValue(this[k]);
 
             Object.defineProperty(this, k, {
                 get(): T[keyof T]
@@ -175,7 +187,7 @@ export default abstract class Base<T extends Base<T>> extends HTMLElement implem
         }
     }
 
-    public observe(config: ObserverConfig<T>): IBase<T>
+    public observe(config: ObserverConfig<T>): IBase<T, TEvents>
     {
         const keys = Object.keys(this._viewModel!) as Array<keyof T>;
 
@@ -277,7 +289,7 @@ export default abstract class Base<T extends Base<T>> extends HTMLElement implem
         void this._set(name.toCamelCase() as keyof T, newValue);
     }
 
-    public cloneNode(deep: boolean = false): IBase<T>
+    public cloneNode(deep: boolean = false): IBase<T, TEvents>
     {
         const res = super.cloneNode(deep) as { [Key in keyof T]: T[Key]|undefined };
 
@@ -286,7 +298,7 @@ export default abstract class Base<T extends Base<T>> extends HTMLElement implem
             res[key] = field.value;
         }
 
-        return res as unknown as IBase<T>;
+        return res as unknown as IBase<T, TEvents>;
     }
 
     protected set bindings(bindings: Array<IBinding<T>>)
@@ -332,8 +344,8 @@ export default abstract class Base<T extends Base<T>> extends HTMLElement implem
         return new Map(props);
     }
 
-    public static registerProperty<T extends IBase<T>>(
-        target: BaseConstructor<T>,
+    public static registerProperty<T extends IBase<T, TEvents>, TEvents = {}>(
+        target: BaseConstructor<T, TEvents>,
         key: keyof T,
         options: PropertyConfig<T> = {}
     ): void

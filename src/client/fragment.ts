@@ -1,9 +1,9 @@
 export default class Fragment<T extends IBase<T>> implements IFragment<T>
 {
     private readonly _template: Node;
-    private readonly _map: Map<string, NewBinding>;
+    private readonly _map: Map<string, Binding>;
 
-    constructor(template: Node, map: Map<string, NewBinding>)
+    constructor(template: Node, map: Map<string, Binding>)
     {
         this._template = template;
         this._map = map;
@@ -11,10 +11,7 @@ export default class Fragment<T extends IBase<T>> implements IFragment<T>
 
     clone(): IFragment<T>
     {
-        return new Fragment(
-            this._template.cloneNode(true),
-            new Map(this._map),
-        );
+        return new Fragment(this._template.cloneNode(true), new Map(this._map));
     }
 
     get template(): Node
@@ -22,7 +19,7 @@ export default class Fragment<T extends IBase<T>> implements IFragment<T>
         return this._template;
     }
 
-    get map(): Map<string, NewBinding>
+    get map(): Map<string, Binding>
     {
         return this._map;
     }

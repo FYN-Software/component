@@ -1,4 +1,4 @@
-import Binding from './binding.js';
+import ConcreteBinding from './binding.js';
 
 export type DirectiveMap = { [key: string]: Constructor<IDirective<any>> };
 
@@ -6,14 +6,15 @@ export const uuidRegex: RegExp = /{([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]
 
 export default class Template
 {
-    private static _map: Map<string, Map<string, NewBinding>> = new Map;
+    private static _directivesMap: WeakMap<Node, { [key: string]: IDirective<any> }> = new WeakMap();
+    private static _map: Map<string, Map<string, Binding>> = new Map;
     private static _directives: DirectiveMap = {};
     private static _plugins: Array<IPlugin> = [];
     private static readonly _directivesCache: WeakMap<Node, IDirective<IBase<any>>> = new WeakMap();
     private static readonly _templates: WeakMap<Node, string> = new WeakMap();
     private static readonly _bindings: WeakMap<Node, Array<IBinding<any>>> = new WeakMap();
 
-    static async initialize(map: { [key: string]: { [key: string]: NewBinding } }, directives: DirectiveMap, plugins: Array<IPlugin>): Promise<void>
+    static async initialize(map: { [key: string]: { [key: string]: Binding } }, directives: DirectiveMap, plugins: Array<IPlugin>): Promise<void>
     {
         this._map = new Map(
             Object.entries(map).map(([ el, m ]) => [ el, new Map(Object.entries(m)) ])
@@ -38,7 +39,7 @@ export default class Template
 
                 if(bindings.has(uuid) === false)
                 {
-                    const binding = new Binding<T>(tag, callable);
+                    const binding = new ConcreteBinding<T>(tag, callable);
 
                     // NOTE(Chris Kruining) Test which plugins are used and add the binding to that plugin
                     // await Plugin.discover<T>(plugins as Array<IPlugin>, scopes, binding, (...wrappedArgs: Array<any>) => {
@@ -67,9 +68,15 @@ export default class Template
                 // Detect and create directives
                 if(directive !== undefined && node instanceof Attr)
                 {
+                    if(this._directivesMap.has(node.ownerElement!) === false)
+                    {
+                        this._directivesMap.set(node.ownerElement!, {});
+                    }
+
                     const directiveClass = this._directives[directive.type];
                     const dir = new directiveClass(node.ownerElement, binding, scopes, directive);
 
+                    this._directivesMap.get(node.ownerElement!)![node.localName] = dir;
                     this._directivesCache.set(node, dir);
                 }
 
@@ -110,11 +117,15 @@ export default class Template
         }
     }
 
-    public static mapFor(component: string): Map<string, NewBinding>|undefined
+    public static mapFor(component: string): Map<string, Binding>|undefined
     {
         return this._map.get(component);
     }
 
+    public static getDirective<TDirective extends IDirective<any>>(ctor: DirectiveConstructor, node: Node): TDirective|undefined
+    {
+        return this._directivesMap.get(node)?.[`:${ctor.name.toLowerCase()}`] as TDirective|undefined;
+    }
 
     public static getBindingsFor(node: Node): Array<IBinding<any>>
     {

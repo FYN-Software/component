@@ -4,10 +4,10 @@ import Template from './template.js';
 import Fragment from './fragment.js';
 
 type ElementProxy = {
-    [key: string]: HTMLElement|null;
+    [key: string]: HTMLElement|undefined;
 };
 
-export default abstract class Component<T extends Component<T>> extends Base<T> implements IComponent<T>
+export default abstract class Component<T extends Component<T, TEvents>, TEvents extends EventDefinition = {}> extends Base<T, TEvents> implements IComponent<T, TEvents>
 {
     private readonly _ready: Promise<void>;
     private _sugar: ElementProxy = new Proxy({}, { get: (c: never, p: string) => this.shadow.getElementById(p) });
@@ -54,7 +54,7 @@ export default abstract class Component<T extends Component<T>> extends Base<T> 
 
     protected async animateKey(key: keyof AnimationConfig, timing?: number): Promise<Animation>
     {
-        const constructor = this.constructor as ComponentConstructor<T>
+        const constructor = this.constructor as ComponentConstructor<T, TEvents>
 
         let options = clone<AnimationConfigArg>(constructor.animations[key]);
 
@@ -113,15 +113,5 @@ export default abstract class Component<T extends Component<T>> extends Base<T> 
         {
             globalThis.customElements.define(this.is, this as unknown as CustomElementConstructor);
         }
-    }
-
-    public static upgrade()
-    {
-        if(globalThis.customElements.get(this.is) === undefined)
-        {
-            return;
-        }
-
-        globalThis.customElements.get(this.is);
     }
 }

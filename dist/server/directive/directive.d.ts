@@ -1,7 +1,7 @@
-export default abstract class Directive<T extends IBase<T>> {
+export default abstract class Directive {
     private static _registry;
     private static _references;
     static get type(): string | undefined;
-    static scan(id: string, node: Attr, map: Map<string, any>, allowedKeys?: Array<string>): Promise<void>;
+    static parse(template: TemplateConstructor, binding: CachedBinding, node: Attr): Promise<DirectiveParseResult>;
 }
 //# sourceMappingURL=directive.d.ts.map

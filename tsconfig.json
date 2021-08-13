@@ -16,7 +16,8 @@
         "importHelpers": true,
         "removeComments": true,
         "paths": {
-            "@fyn-software/core/*": [ "../core/dist/*" ]
+            "@fyn-software/core/*": [ "../core/dist/*" ],
+            "tslib": [ "./node_modules/tslib", "E:/shared/node_modules/tslib" ]
         }
     },
     "references": [

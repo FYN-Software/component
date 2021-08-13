@@ -1,5 +1,6 @@
 import { arrayFromAsync } from '../../../core/dist/functions.js';
 import * as Path from 'path';
+import * as https from 'https';
 import { promises as fs, Dir, Dirent } from 'fs';
 import MagicString from 'magic-string';
 import { JSDOM } from 'jsdom';
@@ -15,9 +16,10 @@ type StoredNamespace = {
 
 type StoredManifest = {
     name: string;
+    theme?: string;
     dependencies?: Array<string>;
     components: Array<StoredNamespace>;
-    stylesheets: Array<[ string, string ]>;
+    stylesheets: { [key: string]: string };
 }
 
 type TypeMap<T extends Promise<string>|string = string> = {
@@ -27,32 +29,36 @@ type TypeMap<T extends Promise<string>|string = string> = {
     import: T,
 };
 
+export type MetaData = {
+    name: string;
+    styles: Array<string>;
+    properties: Array<string>;
+};
+
 type Component = {
     id: string;
     namespace: string;
     module?: string;
-    meta?: {
-        name: string;
-        styles: Array<string>;
-        properties: Array<string>;
-    };
+    meta?: MetaData;
     resources: Partial<TypeMap<Promise<string>>>;
     files: TypeMap;
 };
 export type ComponentMap = { [key: string]: Component };
+export type StylesheetsMap = { [key: string]: string };
 
 type Manifest = {
     name: string;
+    theme?: string;
     dependencies: Array<Manifest>;
     components: ComponentMap;
-    stylesheets: Array<[ string, string ]>;
+    stylesheets: StylesheetsMap;
 }
 
 export type HtmlResult = {
     code: MagicString;
     map: Map<string, Map<string, CachedBinding>>;
     imports: ComponentMap;
-    templates: Set<string>;
+    templates: Map<string, MagicString>;
 };
 
 function getTemplateInnerHtml(dom: JSDOM, template: HTMLTemplateElement): string
@@ -100,6 +106,17 @@ async function *walkDirTree(path: Array<string>|string): AsyncGenerator<Array<st
     }
 }
 
+function fetch(url: string): Promise<string>
+{
+    return new Promise<string>((resolve, reject) => {
+        https.get(url, (resp) => {
+            let data = '';
+            resp.on('data', chunk => data += chunk);
+            resp.on('end', () => resolve(data));
+        }).on("error", (err) => reject(err));
+    });
+}
+
 async function *toComponent(
     partsIterator: AsyncIterable<Array<string>>,
     path: string,
@@ -135,6 +152,7 @@ async function *toComponent(
 export default class Composer
 {
     private readonly _context: Promise<Manifest>;
+    private readonly _cache: Map<string, HtmlResult> = new Map;
 
     public constructor(context: Promise<Manifest>)
     {
@@ -144,6 +162,11 @@ export default class Composer
     public get components(): Promise<ComponentMap>
     {
         return this._context.then(m => m.components);
+    }
+
+    public get stylesheets(): Promise<StylesheetsMap>
+    {
+        return this._context.then(m => m.stylesheets);
     }
 
     public async resolve(id: string): Promise<Component|undefined>
@@ -192,7 +215,7 @@ export default class Composer
                 const element = node as Element;
                 const html = type === 'element'
                     ? (await this.loadResource(element.localName, 'html'))!
-                    : getTemplateInnerHtml(dom, node as HTMLTemplateElement);
+                    : (node as HTMLTemplateElement).innerHTML;
 
                 for(const [ el, comp ] of Object.entries(await this.scanHtml(html)))
                 {
@@ -206,127 +229,196 @@ export default class Composer
 
     public async parseHtml(code: string, allowedKeys?: Array<string>): Promise<HtmlResult>
     {
-        const components = (await this._context).components;
-
-        const s = new MagicString(code);
-        const map: Map<string, Map<string, CachedBinding>> = new Map([ [ '__root__', new Map ] ]);
-        const imports: ComponentMap = {};
-        const templates: Set<string> = new Set;
-
-        const dom = new JSDOM(code, {
-            includeNodeLocations: true,
-        });
-
-        for await (const result of await Template.parse(dom, allowedKeys ?? []))
+        if(this._cache.has(code) === false)
         {
-            const { node, location } = result;
+            const { components, theme } = await this._context;
 
-            switch (result.type)
+            const s = new MagicString(code);
+            const root = new Map;
+            const map: Map<string, Map<string, CachedBinding>> = new Map([
+                [ '__root__', root ],
+            ]);
+            const imports: ComponentMap = {};
+            const templates: Map<string, MagicString> = new Map;
+
+            const dom = new JSDOM(code, {
+                includeNodeLocations: true,
+            });
+
+            for await (const result of await Template.parse(dom, allowedKeys ?? []))
             {
-                case 'element':
-                {
-                    const element = node as Element;
-                    const component = components[element.localName];
+                const { node, location } = result;
 
-                    if(component === undefined)
+                switch (result.type)
+                {
+                    case 'element':
                     {
+                        const element = node as Element;
+                        const component = components[element.localName];
+
+                        if(component === undefined)
+                        {
+                            break;
+                        }
+
+                        const shadowHtml = (await this.loadResource(element.localName, 'html'))!;
+                        const shadowCss: string = (await this.loadResource(element.localName, 'css'))!;
+
+                        const sheets = await this.stylesheets;
+                        const styles = component.meta!.styles.map(s => `/*== ${s} ==*/${sheets[s]}`);
+                        let themeStyle: string = '';
+
+                        if(theme)
+                        {
+                            const themeStylePath = Path.resolve(theme, ...(`${element.localName}.css`).split('-'));
+
+                            try
+                            {
+                                themeStyle = (await fs.readFile(themeStylePath)).toString();
+                            }
+                            catch
+                            {
+                                // NO-OP - Stupid nodejs has no file-exists anymore, try-catch is the new norm apparently...
+                            }
+                        }
+
+                        const result = await this.parseHtml(shadowHtml, component.meta?.properties ?? allowedKeys);
+
+                        for(const [ id, matches ] of result.map)
+                        {
+                            map.set(id === '__root__' ? element.localName : id, matches);
+                        }
+
+                        for(const template of result.templates.entries())
+                        {
+                            templates.set(...template);
+                        }
+
+                        imports[element.localName] = component;
+
+                        const template = `
+                            <template shadowroot="closed">
+                                <style>
+                                    :host{}
+
+                                    ${styles.join('\n')}
+
+                                    /*== Shadow ==*/
+                                    ${shadowCss}
+
+                                    /*== Theme ==*/
+                                    ${themeStyle}
+                                </style>
+
+                                ${result.code}
+                            </template>
+                        `;
+
+                        s.appendRight(location.startTag.endOffset, template);
+
                         break;
                     }
 
-                    // TODO(Chris Kruining)
-                    // - minify html
-                    // - minify css
-                    // - figure out how to load the whole css file stack
-
-                    const shadowHtml = (await this.loadResource(element.localName, 'html'))!;
-                    const shadowCss: string = component.meta?.styles.map(s => `<style for="${s}"></style>`).join('\n') ?? '';//(await this.loadResource(element.localName, 'css'))!;
-
-                    const result = await this.parseHtml(shadowHtml, component.meta?.properties);
-
-                    for(const [ id, matches ] of result.map)
+                    case 'variable':
                     {
-                        map.set(id === '__root__' ? element.localName : id, matches);
-                    }
-                    imports[element.localName] = component;
+                        const { matches, value } = result;
 
-                    // console.log(component.files.ts);
-                    // console.log(await import(component.files.ts));
-
-                    const template = `
-                        <template shadowroot="closed">
-                            ${shadowCss}
-
-                            ${result.code}
-                        </template>
-                    `.replaceAll(/[\n\t]|\s{2,}/g, '');
-
-                    s.appendRight(location.startTag.endOffset, template);
-
-                    break;
-                }
-
-                case 'variable':
-                {
-                    const { matches, value } = result;
-
-                    if(matches)
-                    {
-                        for(const [ k, v ] of matches)
+                        if(matches)
                         {
-                            map.get('__root__')!.set(k, v);
+                            for(const [ k, v ] of matches)
+                            {
+                                root.set(k, v);
+                            }
                         }
+
+                        s.overwrite(
+                            location.startOffset,
+                            location.endOffset,
+                            node.nodeType === 2
+                                ? `${(node as Attr).localName}="${value}"`
+                                : value!
+                        );
+
+                        break;
                     }
 
-                    // if(node.nodeType === 2 && (node as Attr).localName.endsWith('if'))
-                    // {
-                    //     console.log(value, matches, (node as Attr).localName, node.nodeValue);
-                    // }
-
-                    s.overwrite(
-                        location.startOffset,
-                        location.endOffset,
-                        node.nodeType === 2
-                            ? `${(node as Attr).localName}="${value}"`
-                            : value!
-                    );
-
-                    break;
-                }
-
-                case 'template':
-                {
-                    templates.add(result.id);
-
-                    const template: string = getTemplateInnerHtml(dom, node as HTMLTemplateElement);
-                    const templateResult = await this.parseHtml(template);
-
-                    for(const [ id, matches ] of templateResult.map)
+                    case 'template':
                     {
-                        map.set(id === '__root__' ? result.id : id, matches);
+                        const el = node as Element;
+                        let { keys } = result;
+                        let match = undefined;
+
+                        if(el.hasAttribute('for'))
+                        {
+                            const parentMap = map.get(el.parentElement!.localName);
+                            const m = el.getAttribute('for')?.match(/^(.+)\[(:\w+)]$/);
+
+                            if(parentMap && m)
+                            {
+                                const [ , query, dir ] = m;
+
+                                for(const { directive } of parentMap.values())
+                                {
+                                    if(directive === undefined)
+                                    {
+                                        continue;
+                                    }
+
+                                    const attr = directive.node as Attr;
+
+                                    if(attr.ownerElement?.matches(query) && attr.ownerElement?.hasAttribute(dir))
+                                    {
+                                        directive.fragment = result.id;
+
+                                        match = directive;
+                                    }
+                                }
+                            }
+                        }
+
+                        const template: string = (node as Element).innerHTML;
+                        const templateResult = await this.parseHtml(template, match?.keys ?? keys ?? allowedKeys);
+
+                        if(template.length > 0)
+                        {
+                            s.overwrite(location.startOffset, location.endOffset, '');
+                        }
+
+                        for(const [ id, matches ] of templateResult.map)
+                        {
+                            map.set(id === '__root__' ? result.id : id, matches);
+                        }
+
+                        for(const template of templateResult.templates.entries())
+                        {
+                            templates.set(...template);
+                        }
+
+                        templates.set(result.id, templateResult.code);
+
+                        break;
                     }
-
-                    s.overwrite(location.startOffset, location.endOffset, '');
-                    s.append(`<template id="${result.id}">${templateResult.code}</template>`);
-
-                    break;
                 }
             }
+
+            this._cache.set(code, {
+                code: s,
+                map,
+                imports,
+                templates,
+            });
         }
 
-        return {
-            code: s,
-            map,
-            imports,
-            templates,
-        };
+        return this._cache.get(code)!;
     }
 
     public static async loadManifest(path: string): Promise<Manifest>
     {
         const {
             name = '',
+            theme = undefined,
             components: comps = [],
-            stylesheets = [],
+            stylesheets = {},
             dependencies: deps = []
         }: StoredManifest = JSON.parse(await fs.readFile(Path.resolve(path, 'app.json')).then(b => b.toString()));
 
@@ -340,11 +432,22 @@ export default class Composer
             Promise.resolve({})
         )
 
+        for(const [ k, p ] of Object.entries(stylesheets))
+        {
+            stylesheets[k] = p.startsWith('http')
+                ? await fetch(p)
+                : (await fs.readFile(Path.resolve(path, p))).toString();
+        }
+
         return {
             name,
+            theme,
             dependencies,
             components,
-            stylesheets,
+            stylesheets: dependencies
+                .map(d => d.stylesheets)
+                .concat(stylesheets)
+                .reduce((t: StylesheetsMap, d: StylesheetsMap) => ({ ...t, ...d }), {}),
         };
     }
 

@@ -54,13 +54,19 @@ export default class Base extends HTMLElement {
     _properties;
     _viewModel;
     _initialized = false;
+    events = {};
     constructor(args = {}) {
         super();
         this._shadow = this._internals.shadowRoot ?? this.attachShadow({ mode: 'closed', delegatesFocus: false });
-        const sheet = new CSSStyleSheet();
-        this._shadow.adoptedStyleSheets = [sheet];
-        sheet.insertRule(`:host{}`, 0);
-        const rule = sheet.cssRules[0];
+        let rule;
+        try {
+            rule = this._shadow.styleSheets[0].cssRules[0];
+        }
+        catch {
+            const sheet = new CSSStyleSheet();
+            sheet.addRule(':host');
+            rule = sheet.cssRules[0];
+        }
         Object.defineProperties(this._shadow, {
             setProperty: {
                 value: rule.style.setProperty.bind(rule.style),
@@ -107,7 +113,7 @@ export default class Base extends HTMLElement {
         for (const [k, p] of this._properties) {
             const { aliasFor } = p;
             const key = (aliasFor ?? k);
-            this._viewModel[key].setValue(this[key]);
+            this._viewModel[key].setValue(this[k]);
             Object.defineProperty(this, k, {
                 get() {
                     return this._viewModel[key].value;

@@ -1,4 +1,4 @@
 import Directive from './directive.js';
-export default class If<T extends IBase<T>> extends Directive<T> {
+export default class If extends Directive {
 }
 //# sourceMappingURL=if.d.ts.map

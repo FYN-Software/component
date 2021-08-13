@@ -1,32 +1,44 @@
 import Directive from './directive.js';
 
-declare type ForConf<T extends IBase<T>> = {
-    fragment: IFragment<T>,
-    name?: string,
-    key?: string,
-};
-
-export default class For<T extends IBase<T>> extends Directive<T>
+export default class For extends Directive
 {
-    public static async scan(id: string, node: Attr, map: Map<string, any>)
+    public static async parse(template: TemplateConstructor, binding: CachedBinding, node: Attr): Promise<DirectiveParseResult>
     {
-        const match = map.get(id);
+        const [ n, variable ] = binding.callable.code.split(/\s+(?:of|in)\s+/);
 
-        const [ n, variable ] = match.callable.code.split(/\s+(?:of|in)\s+/);
-        const [ name = 'it', key = name ] = n.match(/^\[?\s*(?:(\S+?)\s*(?:,|:)\s*)?\s*(\S+?)]?$/).reverse();
+        if(n === undefined || variable === undefined)
+        {
+            throw new SyntaxError(
+                `unable to parse the iterable and/or variable from '${binding.callable.code}'.`
+            );
+        }
 
-        await super.scan(id, node, map, [ key, name ]);
+        const match = n.match(/^\[?\s*(?:(\S+?)\s*(?:,|:)\s*)?\s*(\S+?)]?$/);
 
-        match.callable = {
-            args: match.callable.args,
+        if(match === null)
+        {
+            throw new SyntaxError(
+                `Unable to parse variable from '${n}'`
+            );
+        }
+
+        const [ name = 'it', key = name ] = match.reverse();
+
+        const result = await super.parse(template, binding, node);
+        result.keys = [ name, key ]
+
+        binding.callable = {
+            args: binding.callable.args,
             code: variable,
         };
-
-        match.directive = {
-            ...match.directive,
+        binding.directive = {
+            ...binding.directive!,
+            keys: [ name, key ],
             name,
             key,
         };
+
+        return result;
     }
 }
 

@@ -14,6 +14,7 @@ const directives = {
 export const regex = /{{\s*(.+?)\s*}}/g;
 export const uuidRegex = /{([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})}/g;
 export default class Template {
+    static toExtract = new WeakMap;
     static async *scan(dom) {
         for await (const { type, node } of this.iterator(dom, dom.window.document.body)) {
             yield { type, node };
@@ -26,6 +27,8 @@ export default class Template {
             switch (type) {
                 case 'variable':
                     {
+                        const attr = node;
+                        const ids = [];
                         const value = (node.nodeValue ?? '').replaceAll(regex, (original, code) => {
                             if (cache.has(code) === false) {
                                 const id = this.uuid();
@@ -33,18 +36,29 @@ export default class Template {
                                 const args = [...keys, ...(plugins)];
                                 cache.set(code, id);
                                 matches.set(id, { callable: { args, code } });
-                                if (directive) {
-                                    directive.scan(id, node, matches);
-                                }
                             }
+                            ids.push(cache.get(code));
                             return `{${cache.get(code)}}`;
                         });
+                        if (directive) {
+                            if (ids.length !== 1) {
+                                throw new Error(`Directives expect exactly 1 template, got '${ids.length}' instead`);
+                            }
+                            const binding = matches.get(ids[0]);
+                            const result = await directive.parse(this, binding, attr);
+                            this.toExtract.set(result.node, { keys: result.keys, binding });
+                        }
                         yield { type, node, directive, value, location, matches };
                         break;
                     }
                 case 'template':
                     {
-                        yield { type, node, location, id: this.uuid() };
+                        const id = this.uuid();
+                        const { keys, binding } = this.toExtract.get(node) ?? { keys: undefined, binding: undefined };
+                        if (binding) {
+                            binding.directive.fragment = id;
+                        }
+                        yield { type, node, location, id, keys, };
                         break;
                     }
                 case 'element':
@@ -76,16 +90,22 @@ export default class Template {
                             };
                         }
                     }
-                    yield {
-                        type: node.nodeName === 'TEMPLATE'
-                            ? 'template'
-                            : 'element',
-                        location,
-                        node,
-                    };
                 }
-                for (const c of node.childNodes) {
-                    yield* this.iterator(dom, c);
+                if (location !== null) {
+                    let type = node.nodeName === 'TEMPLATE'
+                        ? 'template'
+                        : 'element';
+                    if (this.toExtract.has(node)) {
+                        type = 'template';
+                        location.startOffset = location.startTag.endOffset;
+                        location.endOffset = location.endTag.startOffset;
+                    }
+                    yield { type, location, node };
+                }
+                if (this.toExtract.has(node) === false) {
+                    for (const c of node.childNodes) {
+                        yield* this.iterator(dom, c);
+                    }
                 }
                 break;
             case 3:

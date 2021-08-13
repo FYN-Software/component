@@ -1,7 +1,10 @@
 import Component from './component.js';
 import { property } from './decorators.js';
 
-export default abstract class FormAssociated<T extends FormAssociated<T, TValue, TType>, TValue = string, TType = string> extends Component<FormAssociated<T, TValue, TType>&T>
+type FormAssociatedEvents = {};
+
+export default abstract class FormAssociated<T extends FormAssociated<T, TEvents, TValue, TType>, TEvents, TValue = string, TType = string>
+    extends Component<FormAssociated<T, FormAssociatedEvents&TEvents, TValue, TType>&T, FormAssociatedEvents&TEvents>
 {
     static formAssociated: boolean = true;
 
@@ -29,7 +32,7 @@ export default abstract class FormAssociated<T extends FormAssociated<T, TValue,
     @property()
     public inputMode: string = '';
 
-    public constructor(args: ViewModelArgs<FormAssociated<T, TValue, TType>&T> = {})
+    public constructor(args: ViewModelArgs<FormAssociated<T, TEvents, TValue, TType>&T> = {})
     {
         super(args);
 

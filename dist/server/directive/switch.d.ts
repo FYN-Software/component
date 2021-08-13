@@ -1,5 +1,5 @@
 import Directive from './directive.js';
-export default class Switch<T extends IBase<T>> extends Directive<T> {
-    static scan(id: string, node: Attr, map: Map<string, any>): Promise<void>;
+export default class Switch extends Directive {
+    static parse(template: TemplateConstructor, binding: CachedBinding, node: Attr): Promise<DirectiveParseResult>;
 }
 //# sourceMappingURL=switch.d.ts.map

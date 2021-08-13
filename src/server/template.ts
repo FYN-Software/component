@@ -8,7 +8,7 @@ import { JSDOM } from 'jsdom';
 
 const plugins = [ 't' ];
 const directives: { [key: string]: DirectiveConstructor } = {
-    ':for': For as DirectiveConstructor,
+    ':for': For,
     ':if': If,
     ':switch': Switch,
     ':template': TemplateDirective,
@@ -17,31 +17,6 @@ const directives: { [key: string]: DirectiveConstructor } = {
 export const regex: RegExp = /{{\s*(.+?)\s*}}/g;
 export const uuidRegex: RegExp = /{([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})}/g;
 
-type ElementResult = {
-    type: 'element';
-    location: any,
-    node: Node;
-    id: string;
-};
-
-type TemplateResult = {
-    type: 'template';
-    location: any,
-    node: Node;
-    id: string;
-};
-
-type VariableResult = {
-    type: 'variable';
-    location: any,
-    node: Node;
-    value: string;
-    matches: Map<string, CachedBinding>;
-    directive?: DirectiveConstructor;
-};
-
-type Result = ElementResult|TemplateResult|VariableResult;
-
 type IteratorResult = {
     type: Result['type']
     location: any,
@@ -49,8 +24,12 @@ type IteratorResult = {
     directive?: DirectiveConstructor;
 };
 
-export default class Template
+type ExtractionContext = { keys?: Array<string>, binding: CachedBinding };
+
+export default class Template implements ITemplate
 {
+    private static toExtract: WeakMap<Node, ExtractionContext> = new WeakMap;
+
     public static async *scan(dom: JSDOM): AsyncGenerator<{ type: Result['type'], node: Node }, void>
     {
         for await (const { type, node } of this.iterator(dom, dom.window.document.body))
@@ -70,6 +49,8 @@ export default class Template
             {
                 case 'variable':
                 {
+                    const attr = node as Attr;
+                    const ids: Array<string> = [];
                     const value = (node.nodeValue ?? '').replaceAll(regex, (original: string, code: string) => {
                         if(cache.has(code) === false)
                         {
@@ -79,15 +60,25 @@ export default class Template
 
                             cache.set(code, id);
                             matches.set(id, { callable: { args, code } });
-
-                            if(directive)
-                            {
-                                directive.scan(id, node as Attr, matches);
-                            }
                         }
+
+                        ids.push(cache.get(code)!);
 
                         return `{${cache.get(code)}}`;
                     });
+
+                    if(directive)
+                    {
+                        if(ids.length !== 1)
+                        {
+                            throw new Error(`Directives expect exactly 1 template, got '${ids.length}' instead`)
+                        }
+
+                        const binding = matches.get(ids[0])!;
+                        const result = await directive.parse(this, binding, attr);
+
+                        this.toExtract.set(result.node, { keys: result.keys, binding });
+                    }
 
                     yield { type, node, directive, value, location, matches };
 
@@ -96,7 +87,15 @@ export default class Template
 
                 case 'template':
                 {
-                    yield { type, node, location, id: this.uuid() };
+                    const id = this.uuid();
+                    const { keys, binding } = this.toExtract.get(node) ?? { keys: undefined, binding: undefined };
+
+                    if(binding)
+                    {
+                        binding.directive!.fragment = id;
+                    }
+
+                    yield { type, node, location, id, keys, };
 
                     break;
                 }
@@ -123,6 +122,7 @@ export default class Template
         switch(node.nodeType)
         {
             case 1: // Element
+                // Iterate attributes
                 if(location !== null)
                 {
                     for(const [ attr, loc ] of Object.entries(location.attrs ?? {}))
@@ -141,19 +141,33 @@ export default class Template
                             };
                         }
                     }
-
-                    yield {
-                        type: node.nodeName === 'TEMPLATE'
-                            ? 'template'
-                            : 'element',
-                        location,
-                        node,
-                    };
                 }
 
-                for(const c of node.childNodes)
+                // yield the node itself
+                if(location !== null)
                 {
-                    yield* this.iterator(dom, c);
+                    let type: IteratorResult['type'] = node.nodeName === 'TEMPLATE'
+                        ? 'template'
+                        : 'element'
+
+                    if(this.toExtract.has(node))
+                    {
+                        type = 'template';
+
+                        location.startOffset = location.startTag.endOffset;
+                        location.endOffset = location.endTag.startOffset;
+                    }
+
+                    yield { type, location, node };
+                }
+
+                // Iterate children
+                if(this.toExtract.has(node) === false)
+                {
+                    for(const c of node.childNodes)
+                    {
+                        yield* this.iterator(dom, c);
+                    }
                 }
 
                 break;
@@ -172,7 +186,7 @@ export default class Template
         }
     }
 
-    private static uuid()
+    public static uuid()
     {
         return crypto.randomUUID();
 

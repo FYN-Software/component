@@ -1,5 +1,6 @@
 import Component from './component.js';
-export default abstract class FormAssociated<T extends FormAssociated<T, TValue, TType>, TValue = string, TType = string> extends Component<FormAssociated<T, TValue, TType> & T> {
+declare type FormAssociatedEvents = {};
+export default abstract class FormAssociated<T extends FormAssociated<T, TEvents, TValue, TType>, TEvents, TValue = string, TType = string> extends Component<FormAssociated<T, FormAssociatedEvents & TEvents, TValue, TType> & T, FormAssociatedEvents & TEvents> {
     static formAssociated: boolean;
     required: boolean;
     tabIndex: number;
@@ -9,7 +10,7 @@ export default abstract class FormAssociated<T extends FormAssociated<T, TValue,
     value: TValue;
     error: string;
     inputMode: string;
-    constructor(args?: ViewModelArgs<FormAssociated<T, TValue, TType> & T>);
+    constructor(args?: ViewModelArgs<FormAssociated<T, TEvents, TValue, TType> & T>);
     protected init(): Promise<void>;
     setValidity(state: ValidityState, error: string): void;
     get form(): HTMLFormElement | undefined;
@@ -19,4 +20,5 @@ export default abstract class FormAssociated<T extends FormAssociated<T, TValue,
     checkValidity(): boolean;
     reportValidity(): boolean;
 }
+export {};
 //# sourceMappingURL=formAssociated.d.ts.map

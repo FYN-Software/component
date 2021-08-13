@@ -1,6 +1,7 @@
-import Binding from './binding.js';
+import ConcreteBinding from './binding.js';
 export const uuidRegex = /{([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})}/g;
 export default class Template {
+    static _directivesMap = new WeakMap();
     static _map = new Map;
     static _directives = {};
     static _plugins = [];
@@ -21,14 +22,18 @@ export default class Template {
             for (const [tag, uuid] of Array.from(str.matchAll(uuidRegex), m => [...m])) {
                 const { callable, directive } = map.get(uuid);
                 if (bindings.has(uuid) === false) {
-                    const binding = new Binding(tag, callable);
+                    const binding = new ConcreteBinding(tag, callable);
                     await binding.resolve(scopes);
                     bindings.set(uuid, binding);
                 }
                 const binding = bindings.get(uuid);
                 if (directive !== undefined && node instanceof Attr) {
+                    if (this._directivesMap.has(node.ownerElement) === false) {
+                        this._directivesMap.set(node.ownerElement, {});
+                    }
                     const directiveClass = this._directives[directive.type];
                     const dir = new directiveClass(node.ownerElement, binding, scopes, directive);
+                    this._directivesMap.get(node.ownerElement)[node.localName] = dir;
                     this._directivesCache.set(node, dir);
                 }
                 nodeBindings.add(binding);
@@ -59,6 +64,9 @@ export default class Template {
     }
     static mapFor(component) {
         return this._map.get(component);
+    }
+    static getDirective(ctor, node) {
+        return this._directivesMap.get(node)?.[`:${ctor.name.toLowerCase()}`];
     }
     static getBindingsFor(node) {
         return this._bindings.get(node) ?? [];

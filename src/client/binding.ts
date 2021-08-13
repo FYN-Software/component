@@ -52,8 +52,6 @@ export default class Binding<T extends IBase<T>> implements IBinding<T>
 
     async resolve(scopes: Array<IScope>): Promise<any>
     {
-        console.log(scopes);
-
         const args = scopes
             .reduce(
                 (args: Array<any>, scope: IScope) => args.concat(

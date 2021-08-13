@@ -1,8 +1,8 @@
 import Base from './base.js';
 declare type ElementProxy = {
-    [key: string]: HTMLElement | null;
+    [key: string]: HTMLElement | undefined;
 };
-export default abstract class Component<T extends Component<T>> extends Base<T> implements IComponent<T> {
+export default abstract class Component<T extends Component<T, TEvents>, TEvents extends EventDefinition = {}> extends Base<T, TEvents> implements IComponent<T, TEvents> {
     private readonly _ready;
     private _sugar;
     protected static localName: string;
@@ -16,7 +16,6 @@ export default abstract class Component<T extends Component<T>> extends Base<T> 
     static get is(): string;
     static get animations(): AnimationConfig;
     static define(): void;
-    static upgrade(): void;
 }
 export {};
 //# sourceMappingURL=component.d.ts.map
