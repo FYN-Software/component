@@ -19,6 +19,7 @@ export default class FormAssociated extends Component {
         this.observe({
             value: (o, n) => {
                 this.internals.setFormValue(String(n));
+                this.emit('change', { old: o, new: n });
             },
         });
     }

@@ -32,11 +32,12 @@ export default class Binding {
     get value() {
         return this._value;
     }
-    async resolve(scopes) {
+    async resolve(scopes, plugins) {
         const args = scopes
             .reduce((args, scope) => args.concat(Object.entries(scope.properties)
             .filter(([k]) => this._keys.includes(k))
-            .map(([, p]) => p.value)), []);
+            .map(([, p]) => p.value)), [])
+            .concat(plugins.values);
         try {
             this._value = this._callable.apply(scopes.first, args);
         }

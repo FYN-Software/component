@@ -1,10 +1,12 @@
 import Component from './component.js';
 import { property } from './decorators.js';
 
-type FormAssociatedEvents = {};
+type FormAssociatedEvents<TValue> = {
+    change: { old: TValue, new: TValue }
+};
 
 export default abstract class FormAssociated<T extends FormAssociated<T, TEvents, TValue, TType>, TEvents, TValue = string, TType = string>
-    extends Component<FormAssociated<T, FormAssociatedEvents&TEvents, TValue, TType>&T, FormAssociatedEvents&TEvents>
+    extends Component<FormAssociated<T, TEvents, TValue, TType>&T, FormAssociatedEvents<TValue>&TEvents>
 {
     static formAssociated: boolean = true;
 
@@ -49,6 +51,8 @@ export default abstract class FormAssociated<T extends FormAssociated<T, TEvents
 
                 // TODO(Chris Kruining) This plain String cast is obviously wrong...
                 this.internals.setFormValue(String(n));
+
+                this.emit('change', { old: o, new: n });
             },
         });
     }

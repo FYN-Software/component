@@ -7,6 +7,7 @@ export default class Component extends Base {
     _sugar = new Proxy({}, { get: (c, p) => this.shadow.getElementById(p) });
     static localName;
     constructor(args = {}) {
+        new.target.define();
         super(args);
         this._ready = this.init();
     }

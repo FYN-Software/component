@@ -1,7 +1,7 @@
 import { equals } from '@fyn-software/core/extends.js';
 import Event from '@fyn-software/core/event.js';
 import Queue from '@fyn-software/core/queue.js';
-import Template, { uuidRegex } from './template.js';
+import Template, { uuidRegex, plugins } from './template.js';
 import Exception from '@fyn-software/core/exception.js';
 const properties = new WeakMap;
 export class Model extends EventTarget {
@@ -23,6 +23,7 @@ export class Model extends EventTarget {
     }
 }
 class ValueContainer extends EventTarget {
+    events = {};
     _value;
     _owner;
     _config;
@@ -89,7 +90,7 @@ export default class Base extends HTMLElement {
                     c.apply(this._viewModel[property].value, [o, n]);
                 }
                 const bindings = this._bindings?.filter(b => b.keys.includes(property)) ?? [];
-                await Promise.all(bindings.map(b => b.resolve([this])));
+                await Promise.all(bindings.map(b => b.resolve([this], plugins)));
                 const mapper = this._properties.get(property)?.bindToCSS;
                 if (mapper !== undefined) {
                     this.shadow.setProperty(`--${property}`, mapper(n));

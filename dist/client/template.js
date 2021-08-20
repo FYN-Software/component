@@ -1,4 +1,6 @@
 import ConcreteBinding from './binding.js';
+import PluginContainer from './plugins.js';
+import LocalizationPlugin from './plugin/localization.js';
 export const uuidRegex = /{([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})}/g;
 export default class Template {
     static _directivesMap = new WeakMap();
@@ -23,7 +25,7 @@ export default class Template {
                 const { callable, directive } = map.get(uuid);
                 if (bindings.has(uuid) === false) {
                     const binding = new ConcreteBinding(tag, callable);
-                    await binding.resolve(scopes);
+                    await binding.resolve(scopes, plugins);
                     bindings.set(uuid, binding);
                 }
                 const binding = bindings.get(uuid);
@@ -72,7 +74,7 @@ export default class Template {
         return this._bindings.get(node) ?? [];
     }
     static async processBindings(bindings, scopes) {
-        await Promise.all(bindings.map(b => b.resolve(scopes)));
+        await Promise.all(bindings.map(b => b.resolve(scopes, plugins)));
         await Promise.all(bindings.map(b => b.nodes)
             .reduce((t, n) => [...t, ...n], [])
             .unique()
@@ -102,4 +104,7 @@ export default class Template {
         }
     }
 }
+export const plugins = PluginContainer.initialize({
+    localization: new LocalizationPlugin(Template),
+});
 //# sourceMappingURL=template.js.map

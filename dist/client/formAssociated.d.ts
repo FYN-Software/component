@@ -1,6 +1,11 @@
 import Component from './component.js';
-declare type FormAssociatedEvents = {};
-export default abstract class FormAssociated<T extends FormAssociated<T, TEvents, TValue, TType>, TEvents, TValue = string, TType = string> extends Component<FormAssociated<T, FormAssociatedEvents & TEvents, TValue, TType> & T, FormAssociatedEvents & TEvents> {
+declare type FormAssociatedEvents<TValue> = {
+    change: {
+        old: TValue;
+        new: TValue;
+    };
+};
+export default abstract class FormAssociated<T extends FormAssociated<T, TEvents, TValue, TType>, TEvents, TValue = string, TType = string> extends Component<FormAssociated<T, TEvents, TValue, TType> & T, FormAssociatedEvents<TValue> & TEvents> {
     static formAssociated: boolean;
     required: boolean;
     tabIndex: number;

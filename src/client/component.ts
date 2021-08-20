@@ -7,14 +7,16 @@ type ElementProxy = {
     [key: string]: HTMLElement|undefined;
 };
 
-export default abstract class Component<T extends Component<T, TEvents>, TEvents extends EventDefinition = {}> extends Base<T, TEvents> implements IComponent<T, TEvents>
+export default abstract class Component<T extends Component<T, TEvents>, TEvents extends EventDefinition = {}> extends Base<T, TEvents> implements IComponent<T>
 {
     private readonly _ready: Promise<void>;
     private _sugar: ElementProxy = new Proxy({}, { get: (c: never, p: string) => this.shadow.getElementById(p) });
     protected static localName: string;
 
-    protected constructor(args: ViewModelArgs<T> = {})
+    public constructor(args: ViewModelArgs<T> = {})
     {
+        new.target.define();
+
         super(args);
 
         this._ready = this.init();
@@ -54,7 +56,7 @@ export default abstract class Component<T extends Component<T, TEvents>, TEvents
 
     protected async animateKey(key: keyof AnimationConfig, timing?: number): Promise<Animation>
     {
-        const constructor = this.constructor as ComponentConstructor<T, TEvents>
+        const constructor = this.constructor as ComponentConstructor<T>
 
         let options = clone<AnimationConfigArg>(constructor.animations[key]);
 

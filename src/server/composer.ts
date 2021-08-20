@@ -169,6 +169,11 @@ export default class Composer
         return this._context.then(m => m.stylesheets);
     }
 
+    public get theme(): Promise<string>
+    {
+        return this._context.then(c => c.theme ?? '');
+    }
+
     public async resolve(id: string): Promise<Component|undefined>
     {
         return Object.values((await this._context).components).find(c => c.files.ts === id || c.module === id);
@@ -259,6 +264,13 @@ export default class Composer
                         if(component === undefined)
                         {
                             break;
+                        }
+
+                        if(component.meta === undefined)
+                        {
+                            throw new Error(
+                                `meta unavailable for component '${element.localName}'`
+                            );
                         }
 
                         const shadowHtml = (await this.loadResource(element.localName, 'html'))!;

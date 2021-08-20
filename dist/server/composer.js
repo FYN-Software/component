@@ -75,6 +75,9 @@ export default class Composer {
     get stylesheets() {
         return this._context.then(m => m.stylesheets);
     }
+    get theme() {
+        return this._context.then(c => c.theme ?? '');
+    }
     async resolve(id) {
         return Object.values((await this._context).components).find(c => c.files.ts === id || c.module === id);
     }
@@ -133,6 +136,9 @@ export default class Composer {
                             const component = components[element.localName];
                             if (component === undefined) {
                                 break;
+                            }
+                            if (component.meta === undefined) {
+                                throw new Error(`meta unavailable for component '${element.localName}'`);
                             }
                             const shadowHtml = (await this.loadResource(element.localName, 'html'));
                             const shadowCss = (await this.loadResource(element.localName, 'css'));

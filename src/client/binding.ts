@@ -1,5 +1,3 @@
-// import plugins from './plugins.js';
-
 const STRIP_COMMENTS = /((\/\/.*$)|(\/\*[\s\S]*?\*\/))/mg;
 const ARGUMENT_NAMES = /([^\s,]+)/g;
 function getParamNames(func: AsyncFunction): Array<string>
@@ -50,7 +48,7 @@ export default class Binding<T extends IBase<T>> implements IBinding<T>
         return this._value;
     }
 
-    async resolve(scopes: Array<IScope>): Promise<any>
+    async resolve(scopes: Array<IScope>, plugins: IPluginContainer): Promise<any>
     {
         const args = scopes
             .reduce(
@@ -61,7 +59,7 @@ export default class Binding<T extends IBase<T>> implements IBinding<T>
                 ),
                 []
             )
-            // .concat(plugins.values())
+            .concat(plugins.values)
 
         try
         {

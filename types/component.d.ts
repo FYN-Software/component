@@ -22,19 +22,29 @@ declare module 'template:*' {
     export default map;
 }
 
-declare interface ViewModelField<T> extends EventTarget
+type ViewModelFieldEvents<T> = { changed: { old: T, new: T } };
+declare interface ViewModelField<T> extends CustomTarget<ViewModelField<T>, ViewModelFieldEvents<T>>
 {
     readonly value: T|undefined;
     setValue(value: T|undefined): Promise<void>;
 }
 
-declare type ViewModel<T extends IBase<T>> = EventTarget & {
+type ViewModelEvents<T> = { changed: { property: string, old: T[keyof T], new: T[keyof T] } };
+declare type ViewModel<T extends IBase<T>> = CustomTarget<ViewModel<T>, ViewModelEvents<T>> & {
     [Key in keyof T]: ViewModelField<T[Key]>;
 };
 
-declare type ViewModelArgs<T extends IBase<T>> = {
+declare type ViewModelArgs<T extends IBase<T, T['events']>> = {
     [Key in keyof T]?: T[Key];
 };
+
+declare type IPluginContainer<TPlugins = {}> = {
+    [Key in keyof TPlugins]: TPlugins[Key]
+} & {
+    keys: Array<string>;
+    values: Array<IPlugin>;
+    entries: Array<[ string, IPlugin ]>;
+}
 
 declare interface IPlugin extends EventTarget
 {
@@ -43,7 +53,7 @@ declare interface IPlugin extends EventTarget
     bindings: Array<{ binding: IBinding<any>, scopes: Array<IScope> }>;
 }
 
-declare interface ParsedTemplate<T extends IBase<T>>
+declare interface ParsedTemplate<T extends IBase<T, T['events']>>
 {
     template: Node;
     bindings: Array<IBinding<T>>;
@@ -93,27 +103,29 @@ declare interface TemplateConstructor extends Constructor<ITemplate>
     parse(dom: JSDOM, allowedKeys: Array<string>): AsyncGenerator<Result, void>;
 }
 
-declare interface IBase<T extends IBase<T, TEvents>, TEvents extends EventDefinition = {}> extends Target<TEvents>, IScope<T>
+declare interface IBase<T extends IBase<T, T['events']>, TEvents extends EventDefinition = {}> extends Target<TEvents>, IScope<T>
 {
     connectedCallback(): void;
     disconnectedCallback(): void;
     attributeChangedCallback(name: string, oldValue: any, newValue: any): void;
 
-    cloneNode(deep?: boolean): IBase<T, TEvents>;
+    cloneNode(deep?: boolean): IBase<T, T['events']>;
 
-    observe(observers: ObserverConfig<T>): IBase<T, TEvents>;
+    observe(observers: ObserverConfig<T>): IBase<T, T['events']>;
+
+    readonly shadow: CustomShadowRoot;
 }
 
-declare interface BaseConstructor<T extends IBase<T, TEvents>, TEvents extends EventDefinition> extends Constructor<IBase<T, TEvents>>
+declare interface BaseConstructor<T extends IBase<T, T['events']>> extends Constructor<IBase<T, T['events']>>
 {
     new(args?: ViewModelArgs<T>): IBase<T>;
     readonly properties: Array<string>;
     readonly observedAttributes: Array<string>;
 
-    registerProperty(target: BaseConstructor<T, TEvents>, key: keyof T, options?: PropertyConfig<T>): void
+    registerProperty(target: BaseConstructor<T>, key: keyof T, options?: PropertyConfig<T>): void
 }
 
-declare interface IComponent<T extends IComponent<T, TEvents>, TEvents extends EventDefinition> extends IBase<T, TEvents>
+declare interface IComponent<T extends IComponent<T>> extends IBase<T, T['events']>
 {
     readonly isReady: Promise<void>;
 }
@@ -124,20 +136,20 @@ declare type AnimationConfig = {
     [key: string]: AnimationConfigArg
 };
 
-declare interface ComponentConstructor<T extends IBase<T, TEvents>, TEvents extends EventDefinition> extends BaseConstructor<T, TEvents>
+declare interface ComponentConstructor<T extends IBase<T, T['events']>> extends BaseConstructor<T>
 {
     readonly is: string;
     readonly styles: Array<string>;
     readonly animations: AnimationConfig;
-    init(): Promise<ComponentConstructor<T, TEvents>>
+    init(): Promise<ComponentConstructor<T>>
 }
 
-declare interface IFragment<T extends IBase<T>>
+declare interface IFragment<T extends IBase<T, T['events']>>
 {
     clone(): IFragment<T>;
 
     template: Node;
-    map: Map<string, NewBinding>;
+    map: Map<string, Binding>;
 }
 declare interface FragmentConstructor
 {
@@ -187,7 +199,7 @@ declare interface IBinding<T extends IBase<T>>
     readonly code: string;
     readonly nodes: Set<Node>;
     readonly value: Promise<any>;
-    resolve(scopes: Array<IScope>): Promise<any>;
+    resolve(scopes: Array<IScope>, plugins: IPluginContainer): Promise<any>;
 }
 declare interface BindingConstructor<T extends IBase<T>> extends Constructor<IBinding<T>>
 {

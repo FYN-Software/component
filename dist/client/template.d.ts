@@ -1,3 +1,4 @@
+import LocalizationPlugin from './plugin/localization.js';
 export declare type DirectiveMap = {
     [key: string]: Constructor<IDirective<any>>;
 };
@@ -23,4 +24,7 @@ export default class Template {
     static processBindings<T extends IBase<T>>(bindings: Array<IBinding<T>>, scopes: Array<IScope>): Promise<void>;
     private static iterator;
 }
+export declare const plugins: IPluginContainer<{
+    localization: LocalizationPlugin;
+}>;
 //# sourceMappingURL=template.d.ts.map

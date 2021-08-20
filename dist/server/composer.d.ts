@@ -43,6 +43,7 @@ export default class Composer {
     constructor(context: Promise<Manifest>);
     get components(): Promise<ComponentMap>;
     get stylesheets(): Promise<StylesheetsMap>;
+    get theme(): Promise<string>;
     resolve(id: string): Promise<Component | undefined>;
     loadResource(name: string, type: keyof TypeMap): Promise<string | undefined>;
     scanHtml(code: string): Promise<ComponentMap>;

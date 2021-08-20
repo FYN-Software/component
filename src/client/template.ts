@@ -1,4 +1,6 @@
 import ConcreteBinding from './binding.js';
+import PluginContainer from './plugins.js';
+import LocalizationPlugin from './plugin/localization.js';
 
 export type DirectiveMap = { [key: string]: Constructor<IDirective<any>> };
 
@@ -40,22 +42,7 @@ export default class Template
                 if(bindings.has(uuid) === false)
                 {
                     const binding = new ConcreteBinding<T>(tag, callable);
-
-                    // NOTE(Chris Kruining) Test which plugins are used and add the binding to that plugin
-                    // await Plugin.discover<T>(plugins as Array<IPlugin>, scopes, binding, (...wrappedArgs: Array<any>) => {
-                    //     const args = scopes.reduce(
-                    //         (args: Array<any>, scope: IScope) => args.concat(
-                    //             Object.entries<ViewModelField<T[keyof T]>>(scope.properties)
-                    //                 .filter(([ k ]) => binding.keys.includes(k))
-                    //                 .map(([ , p ]) => p.value)
-                    //         ),
-                    //         []
-                    //     );
-                    //
-                    //     return callable.apply(scopes.last, [ ...args, ...wrappedArgs ]);
-                    // });
-
-                    await binding.resolve(scopes);
+                    await binding.resolve(scopes, plugins);
 
                     bindings.set(uuid, binding);
                 }
@@ -134,7 +121,7 @@ export default class Template
 
     public static async processBindings<T extends IBase<T>>(bindings: Array<IBinding<T>>, scopes: Array<IScope>): Promise<void>
     {
-        await Promise.all(bindings.map(b => b.resolve(scopes)));
+        await Promise.all(bindings.map(b => b.resolve(scopes, plugins)));
         await Promise.all(
             bindings.map(b => b.nodes)
                 .reduce((t: Array<Node>, n: Set<Node>) => [ ...t, ...n ], [])
@@ -181,3 +168,7 @@ export default class Template
         }
     }
 }
+
+export const plugins = PluginContainer.initialize({
+    localization: new LocalizationPlugin(Template),
+})

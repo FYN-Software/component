@@ -14,13 +14,13 @@ export default abstract class Base<T extends Base<T, TEvents>, TEvents extends E
     events: TEvents;
     protected constructor(args?: ViewModelArgs<T>);
     protected init(): Promise<void>;
-    observe(config: ObserverConfig<T>): IBase<T, TEvents>;
+    observe(config: ObserverConfig<T>): IBase<T, T['events']>;
     private _set;
     protected _populate(): Promise<void>;
     connectedCallback(): void;
     disconnectedCallback(): void;
     attributeChangedCallback(name: string, oldValue: any, newValue: any): void;
-    cloneNode(deep?: boolean): IBase<T, TEvents>;
+    cloneNode(deep?: boolean): IBase<T, T['events']>;
     protected set bindings(bindings: Array<IBinding<T>>);
     protected get internals(): ElementInternals;
     get shadow(): CustomShadowRoot;
@@ -28,6 +28,6 @@ export default abstract class Base<T extends Base<T, TEvents>, TEvents extends E
     static get observedAttributes(): Array<string>;
     static get properties(): Array<string>;
     private static getPropertiesOf;
-    static registerProperty<T extends IBase<T, TEvents>, TEvents = {}>(target: BaseConstructor<T, TEvents>, key: keyof T, options?: PropertyConfig<T>): void;
+    static registerProperty<T extends IBase<T, T['events']>>(target: BaseConstructor<T>, key: keyof T, options?: PropertyConfig<T>): void;
 }
 //# sourceMappingURL=base.d.ts.map

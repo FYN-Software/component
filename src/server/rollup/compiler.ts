@@ -10,7 +10,7 @@ import {
     NormalizedOutputOptions,
     OutputBundle,
     ResolveIdResult,
-    SourceDescription, TransformResult,
+    SourceDescription, TransformResult, OutputChunk,
 } from 'rollup';
 import MagicString from 'magic-string';
 import Composer, { ComponentMap, HtmlResult, MetaData } from '../composer.js';
@@ -122,8 +122,22 @@ class TextNode implements AcornNode
 async function loadTemplate(this: PluginContext, id: string, code: string, context: Composer): Promise<HtmlResult>
 {
     // TODO(Chris Kruining) retrieve these keys from the actual page instead of hardcoded...
-    const allowedKeys = [ 'whitelabel', 'listItems', 'masonryItems', 'prices' ];
+    const allowedKeys = [ 'whitelabel', 'listItems', 'masonryItems', 'prices', 'products' ];
     const result = await context.parseHtml(code, allowedKeys);
+    const theme = await context.theme;
+
+    const themeVariables = this.emitFile({
+        type: 'asset',
+        name: `variables.css`,
+        source: await fs.readFile(`${theme}/variables.css`),
+    });
+
+    const themeGeneral = this.emitFile({
+        type: 'asset',
+        name: `general.css`,
+        source: await fs.readFile(`${theme}/general.css`),
+    });
+
     result.code.prepend(`
         <!DOCTYPE html>
         <html lang="en">
@@ -140,14 +154,15 @@ async function loadTemplate(this: PluginContext, id: string, code: string, conte
                 <link rel="apple-touch-icon" href="/src/images/icon.svg">
                 
                 <link rel="manifest" href="/manifest.json">
+                
                 <link rel="stylesheet" href="https://fyncdn.nl/node_modules/@fyn-software/suite/src/css/preload.css">
                 
                 <link rel="stylesheet" href="https://fyncdn.nl/node_modules/@fyn-software/suite/src/css/variables.css">
-                <link rel="stylesheet" href="https://fyncdn.nl/theme/unifyned/variables.css">
+                <link rel="stylesheet" href="./{#file:${themeVariables}}">
                 
                 <link rel="stylesheet" href="https://fyncdn.nl/node_modules/@fyn-software/suite/src/css/style.css">
                 <link rel="stylesheet" href="https://fyncdn.nl/node_modules/@fyn-software/site/src/css/style.css">
-                <link rel="stylesheet" href="https://fyncdn.nl/theme/unifyned/general.css">
+                <link rel="stylesheet" href="./{#file:${themeGeneral}}">
                 <link rel="stylesheet" href="/src/css/style.css">
                 <link rel="stylesheet" href="https://use.fontawesome.com/releases/v5.13.0/css/all.css">
 
@@ -168,7 +183,7 @@ async function loadTemplate(this: PluginContext, id: string, code: string, conte
         result.code.append(`<template id="${id}">${code}</template>`);
     }
 
-    result.code.append(`</body></html>`);
+    result.code.append(`</body></html><!--`);
 
     cache2[id] = result;
     cache[id] = {
@@ -226,6 +241,7 @@ async function scriptTransform(this: PluginContext, id: string, code: string, co
     const html = await context.loadResource(component.id, 'html');
 
     const scanned: ComponentMap = await context.scanHtml(html!);
+
     const imports = await Promise.all(Array.from(Object.entries(scanned), async ([ name, component ]) => {
         name = name.toPascalCase();
 
@@ -280,7 +296,8 @@ export default class Compiler
 
             async transform(this: PluginContext, code: string, id: string): Promise<TransformResult>
             {
-                const [ , extension ] = id.split('.');
+                const extension = id.slice(id.lastIndexOf('.') + 1);
+
                 switch (extension)
                 {
                     case 'ts':
@@ -334,7 +351,7 @@ export default class Compiler
                         export default map;`;
                 }
 
-                const [ , extension ] = id.split('.');
+                const extension = id.slice(id.lastIndexOf('.') + 1);
                 switch (extension)
                 {
                     case 'html':
@@ -428,6 +445,14 @@ export default class Compiler
                     };
                 }
             },
+
+            async generateBundle(this: PluginContext, options: NormalizedOutputOptions, bundle: OutputBundle, isWrite: boolean)
+            {
+                for(const [ id, chunk ] of Object.entries(bundle).filter(([ id ]) => id.endsWith('.html')) as Array<[ string, OutputChunk ]>)
+                {
+                    chunk.code = chunk.code.replaceAll(/{#file:([a-z0-9]+?)\}/g, (w: string, ref: string) => this.getFileName(ref));
+                }
+            }
         };
     }
 }

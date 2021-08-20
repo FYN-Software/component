@@ -1,7 +1,7 @@
 import { equals } from '@fyn-software/core/extends.js';
 import Event from '@fyn-software/core/event.js';
 import Queue from '@fyn-software/core/queue.js';
-import Template, { uuidRegex } from './template.js';
+import Template, { uuidRegex, plugins } from './template.js';
 import Exception from '@fyn-software/core/exception.js';
 
 const properties: WeakMap<Function, Map<string, PropertyConfig<any>>> = new WeakMap;
@@ -33,6 +33,8 @@ export class Model<T extends IBase<T>> extends EventTarget
 
 class ValueContainer<T extends IBase<T>> extends EventTarget implements ViewModelField<T[keyof T]>
 {
+    events: ViewModelField<T[keyof T]>['events'] = {} as unknown as ViewModelField<T[keyof T]>['events'];
+
     private _value: T[keyof T];
     private readonly _owner: T;
     private readonly _config: PropertyConfig<T>;
@@ -128,7 +130,7 @@ export default abstract class Base<T extends Base<T, TEvents>, TEvents extends E
 
                 const bindings = this._bindings?.filter(b => b.keys.includes(property)) ?? [];
 
-                await Promise.all(bindings.map(b => b.resolve([ this ])));
+                await Promise.all(bindings.map(b => b.resolve([ this ], plugins)));
 
                 const mapper = this._properties.get(property)?.bindToCSS
                 if(mapper !== undefined)
@@ -163,7 +165,7 @@ export default abstract class Base<T extends Base<T, TEvents>, TEvents extends E
             const { aliasFor }: PropertyConfig<T> = p;
             const key = (aliasFor ?? k) as keyof T;
 
-            this._viewModel[key].setValue(this[k]);
+            this._viewModel[key].setValue((this as { [k: string]: any })[k]);
 
             Object.defineProperty(this, k, {
                 get(): T[keyof T]
@@ -187,7 +189,7 @@ export default abstract class Base<T extends Base<T, TEvents>, TEvents extends E
         }
     }
 
-    public observe(config: ObserverConfig<T>): IBase<T, TEvents>
+    public observe(config: ObserverConfig<T>): IBase<T, T['events']>
     {
         const keys = Object.keys(this._viewModel!) as Array<keyof T>;
 
@@ -289,16 +291,16 @@ export default abstract class Base<T extends Base<T, TEvents>, TEvents extends E
         void this._set(name.toCamelCase() as keyof T, newValue);
     }
 
-    public cloneNode(deep: boolean = false): IBase<T, TEvents>
+    public cloneNode(deep: boolean = false): IBase<T, T['events']>
     {
-        const res = super.cloneNode(deep) as { [Key in keyof T]: T[Key]|undefined };
+        const res = super.cloneNode(deep) as unknown as { [Key in keyof T]: T[Key]|undefined };
 
         for(const [ key, field ] of Object.entries(this._viewModel!) as Array<[ keyof T, ViewModelField<T[keyof T]> ]>)
         {
             res[key] = field.value;
         }
 
-        return res as unknown as IBase<T, TEvents>;
+        return res as unknown as IBase<T, T['events']>;
     }
 
     protected set bindings(bindings: Array<IBinding<T>>)
@@ -344,8 +346,8 @@ export default abstract class Base<T extends Base<T, TEvents>, TEvents extends E
         return new Map(props);
     }
 
-    public static registerProperty<T extends IBase<T, TEvents>, TEvents = {}>(
-        target: BaseConstructor<T, TEvents>,
+    public static registerProperty<T extends IBase<T, T['events']>>(
+        target: BaseConstructor<T>,
         key: keyof T,
         options: PropertyConfig<T> = {}
     ): void
