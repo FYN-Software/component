@@ -33,7 +33,7 @@
     "keywords": [],
     "devDependencies": {
         "@types/jsdom": "16.2.13",
-        "@types/node": "16.11.7",
+        "@types/node": "16.11.8",
         "estree-walker": "3.0.0",
         "jsdom": "18.1.0",
         "rollup": "2.60.0",
