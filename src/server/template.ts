@@ -152,10 +152,11 @@ export default class Template implements ITemplate
 
                     if(this.toExtract.has(node))
                     {
-                        type = 'template';
+                        const loc = clone(location);
+                        loc.startOffset = location.startTag.endOffset;
+                        loc.endOffset = location.endTag.startOffset;
 
-                        location.startOffset = location.startTag.endOffset;
-                        location.endOffset = location.endTag.startOffset;
+                        yield { type: 'template', location: loc, node };
                     }
 
                     yield { type, location, node };
