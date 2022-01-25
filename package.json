@@ -36,7 +36,7 @@
         "@types/node": "16.11.21",
         "estree-walker": "3.0.1",
         "jsdom": "19.0.0",
-        "rollup": "2.66.0",
+        "rollup": "2.66.1",
         "typescript": "4.5.5"
     },
     "dependencies": {
