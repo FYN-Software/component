@@ -1,7 +1,7 @@
 import Base from './base.js';
-import { clone } from '@fyn-software/core/extends.js';
-import Template from './template.js';
+import { hydrate, mapFor } from './template.js';
 import Fragment from './fragment.js';
+import { delay } from '@fyn-software/core/function/promise.js';
 
 type ElementProxy = {
     [key: string]: HTMLElement|undefined;
@@ -9,9 +9,11 @@ type ElementProxy = {
 
 export default abstract class Component<T extends Component<T, TEvents>, TEvents extends EventDefinition = {}> extends Base<T, TEvents> implements IComponent<T>
 {
-    private readonly _ready: Promise<void>;
-    private _sugar: ElementProxy = new Proxy({}, { get: (c: never, p: string) => this.shadow.getElementById(p) });
+    static readonly __observerLimit__ = Component;
     protected static localName: string;
+
+    readonly #ready: Promise<void>;
+    readonly #sugar: ElementProxy = new Proxy({}, { get: (c: never, p: string) => this.shadow.getElementById(p) });
 
     public constructor(args: ViewModelArgs<T> = {})
     {
@@ -19,16 +21,16 @@ export default abstract class Component<T extends Component<T, TEvents>, TEvents
 
         super(args);
 
-        this._ready = this.init();
+        this.#ready = this.init();
     }
 
     protected async init(): Promise<void>
     {
         // NOTE(Chris Kruining)
         //  Delay so that the constructors of
-        //  derived classes have run before
+        //  derived classes have ran before
         //  running the initialization
-        await Promise.delay(0);
+        await delay(0);
 
         await super.init();
 
@@ -43,7 +45,7 @@ export default abstract class Component<T extends Component<T, TEvents>, TEvents
 
         await this.initialize();
 
-        const { bindings } = await Template.hydrate<T>([ this ], new Fragment<T>(this.shadow, Template.mapFor(this.localName)!));
+        const { bindings } = await hydrate<T>([ this ], new Fragment<T>(this.shadow, mapFor(this.localName)!));
 
         super.bindings = bindings;
 
@@ -54,59 +56,17 @@ export default abstract class Component<T extends Component<T, TEvents>, TEvents
         this.emit('ready');
     }
 
-    protected async animateKey(key: keyof AnimationConfig, timing?: number): Promise<Animation>
-    {
-        const constructor = this.constructor as ComponentConstructor<T>
-
-        let options = clone<AnimationConfigArg>(constructor.animations[key]);
-
-        while(options[1].hasOwnProperty('extend'))
-        {
-            const newOptions = clone<AnimationConfigArg>(constructor.animations[options[1].extend!] ?? [[], {}]);
-
-            delete options[1].extend;
-
-            options = [ newOptions[0], { ...newOptions[1], ...options[1] } ];
-        }
-
-        const animation = super.animate(...options);
-
-        if(animation.effect === undefined || timing === null)
-        {
-            const duration = (animation.effect?.getTiming().duration as number) ?? 0;
-
-            await Promise.delay(duration * (timing ?? 0));
-
-            return animation;
-        }
-
-        return animation.finished;
-    }
-
     protected abstract initialize(): Promise<void>;
     protected abstract ready(): Promise<void>;
 
-    get $(): ElementProxy
+    protected get $(): ElementProxy
     {
-        return this._sugar;
-    }
-
-    get isReady(): Promise<void>
-    {
-        return this._ready;
+        return this.#sugar;
     }
 
     static get is(): string
     {
         return this.localName || `${ this.name.replace(/[A-Z]/g, m => `-${m.toLowerCase()}`).substr(1) }`;
-    }
-
-    // TODO(Chris Kruining)
-    //  Convert this to a decorator,
-    //  or better yet; make it obsolete
-    static get animations(): AnimationConfig
-    {
-        return {};
     }
 
     public static define()

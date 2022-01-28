@@ -10,11 +10,28 @@ import {
     NormalizedOutputOptions,
     OutputBundle,
     ResolveIdResult,
-    SourceDescription, TransformResult, OutputChunk,
+    TransformResult, OutputChunk,
 } from 'rollup';
 import MagicString from 'magic-string';
 import Composer, { ComponentMap, HtmlResult, MetaData } from '../composer.js';
 import { asyncWalk as esTreeWalk, BaseNode } from 'estree-walker';
+import { toPascalCase } from '@fyn-software/core/function/string.js';
+import { delay } from '@fyn-software/core/function/promise.js';
+import { unique } from '@fyn-software/core/function/array.js';
+
+async function fileIsAvailable(path: string, mode?: number): Promise<boolean>
+{
+    try
+    {
+        await fs.access(path, mode);
+
+        return true;
+    }
+    catch
+    {
+        return false;
+    }
+}
 
 const IMPORT_PREFIX: string = 'template:';
 const MAP_PLACEHOLDER: string = '__map__';
@@ -28,7 +45,6 @@ async function walk(context: PluginContext, id: string, code: string): Promise<M
     let name: string = '';
     let styles: Array<string> = [];
     let properties: Array<string> = [];
-
     let imports: Map<string, string> = new Map;
 
     await esTreeWalk(ast, {
@@ -79,7 +95,8 @@ async function walk(context: PluginContext, id: string, code: string): Promise<M
                 }
             }
 
-            if(node.type === 'PropertyDefinition' && node.static === false && node.key.name.match(/^_|#/) === null)
+            // NOTE(Chris Kruining) This get the names of both properties and accessors
+            if(node.static === false && (node.type === 'PropertyDefinition' || node.type === 'MethodDefinition' && ['set', 'get'].includes(node.kind)))
             {
                 properties.push(node.key.name);
             }
@@ -90,7 +107,7 @@ async function walk(context: PluginContext, id: string, code: string): Promise<M
     {
         for(const dependency of dependencies.get(id)!.map(i => test.get(i)!))
         {
-            dependency.properties = [ ...properties, ...dependency.properties ];
+            dependency.properties = [ ...unique(properties), ...dependency.properties ];
             dependency.styles = [ ...styles, ...dependency.styles ];
         }
     }
@@ -122,20 +139,40 @@ class TextNode implements AcornNode
 async function loadTemplate(this: PluginContext, id: string, code: string, context: Composer): Promise<HtmlResult>
 {
     // TODO(Chris Kruining) retrieve these keys from the actual page instead of hardcoded...
-    const allowedKeys = [ 'whitelabel', 'listItems', 'masonryItems', 'prices', 'products' ];
+    const allowedKeys: Array<string> = [
+        'company', 'listItems', 'masonryItems', 'prices', 'products',
+        'product', 'categories', 'category', 'languages', 'language',
+        'blockMarkets', 'customerExperiences', 'blockServices',
+        'imagePartners', 'employeesFrontoffice', 'employeesBackoffice',
+        'item', 'items', 'shipment', 'shipments', 'customerQuotes',
+    ];
     const result = await context.parseHtml(code, allowedKeys);
     const theme = await context.theme;
 
-    const themeVariables = this.emitFile({
+    const style = this.emitFile({
         type: 'asset',
-        name: `variables.css`,
-        source: await fs.readFile(`${theme}/variables.css`),
-    });
-
-    const themeGeneral = this.emitFile({
-        type: 'asset',
-        name: `general.css`,
-        source: await fs.readFile(`${theme}/general.css`),
+        name: 'style.css',
+        source: `
+            /* ===== VARS ===== */
+            /* ===== suite ===== */
+            ${await fs.readFile(`/var/www/apps/cdn/node_modules/@fyn-software/suite/src/css/variables.css`)}
+            
+            /* ===== theme ===== */
+            ${theme !== '' ? await fs.readFile(`${theme}/css/variables.css`) : ''}
+            
+            /* ===== BASE ===== */
+            /* ===== suite ===== */
+            ${await fs.readFile(`/var/www/apps/cdn/node_modules/@fyn-software/suite/src/css/style.css`)}
+            
+            /* ===== site ===== */
+            ${await fs.readFile(`/var/www/apps/cdn/node_modules/@unifyned/site/src/css/style.css`)}
+            
+            /* ===== theme ===== */
+            ${theme !== '' ? await fs.readFile(`${theme}/css/general.css`) : ''}
+            
+            /* ===== OVERRIDES ===== */
+            ${await fs.readFile(`./src/css/style.css`)}
+        `,
     });
 
     result.code.prepend(`
@@ -150,27 +187,18 @@ async function loadTemplate(this: PluginContext, id: string, code: string, conte
                 <meta name="theme-color" content="#6e45e2">
                 <meta name="apps" content="https://unifyned.com">
                 <meta name="theme" content="https://fyncdn.nl/unifyned/css">
-                <link rel="icon" href="/src/images/icon.svg">
-                <link rel="apple-touch-icon" href="/src/images/icon.svg">
-                
-                <link rel="manifest" href="/manifest.json">
-                
-                <link rel="stylesheet" href="https://fyncdn.nl/node_modules/@fyn-software/suite/src/css/preload.css">
-                
-                <link rel="stylesheet" href="https://fyncdn.nl/node_modules/@fyn-software/suite/src/css/variables.css">
-                <link rel="stylesheet" href="./{#file:${themeVariables}}">
-                
-                <link rel="stylesheet" href="https://fyncdn.nl/node_modules/@fyn-software/suite/src/css/style.css">
-                <link rel="stylesheet" href="https://fyncdn.nl/node_modules/@fyn-software/site/src/css/style.css">
-                <link rel="stylesheet" href="./{#file:${themeGeneral}}">
-                <link rel="stylesheet" href="/src/css/style.css">
-                <link rel="stylesheet" href="https://use.fontawesome.com/releases/v5.13.0/css/all.css">
+                <link rel="icon" href="/src/img/icon.svg">
+                <link rel="apple-touch-icon" href="/src/img/icon.svg">
 
                 <title>Unifyned • All-in-one business software</title>
-                
-                <!-- POLYFILLS -->
-                <script type="module" src="https://unpkg.com/element-internals-polyfill"></script>
-                <script type="module" src="https://fyncdn.nl/js/polyfills/declaritive-shadowroot.js"></script>
+
+                <link rel="manifest" href="/manifest.json">
+
+                <style>
+                    ${await fs.readFile(`/var/www/apps/cdn/node_modules/@fyn-software/suite/src/css/preload.css`)}
+                </style>
+
+                <link rel="stylesheet" href="./{#file:${style}}">
 
                 <script type="module" src="${path.basename(id).replace('.html', '')}.js"></script>
             </head>
@@ -186,28 +214,10 @@ async function loadTemplate(this: PluginContext, id: string, code: string, conte
     result.code.append(`</body></html><!--`);
 
     cache2[id] = result;
-    cache[id] = {
-        ast: {
-            type: 'Program',
-            start: 0,
-            end: result.code.length(),
-            body: [
-                new TextNode(result.code.length()),
-            ],
-            sourceType: 'module',
-        } as AcornNode,
-        moduleSideEffects: true,
-        code: result.code.toString(),
-        map: result.code.generateMap({
-            source: id,
-            file: `${id}.map`,
-        }),
-    };
 
     return result
 }
 
-const cache: { [key: string]: SourceDescription }  = {};
 const cache2: { [key: string]: HtmlResult }  = {};
 async function scriptTransform(this: PluginContext, id: string, code: string, context: Composer): Promise<any>
 {
@@ -243,7 +253,7 @@ async function scriptTransform(this: PluginContext, id: string, code: string, co
     const scanned: ComponentMap = await context.scanHtml(html!);
 
     const imports = await Promise.all(Array.from(Object.entries(scanned), async ([ name, component ]) => {
-        name = name.toPascalCase();
+        name = toPascalCase(name);
 
         const module = await this.resolve(component.files.import, id, { skipSelf: true });
 
@@ -252,14 +262,17 @@ async function scriptTransform(this: PluginContext, id: string, code: string, co
             component.module = module.id;
         }
 
-        return `\nimport ${name} from '${component.files.import}';\n${name}.define();`;
+        return `import ${name} from '${component.files.import}';`;
     }));
+    const definitions = Array.from(Object.entries(scanned), ([ name ]) => `${toPascalCase(name)}.define();`);
 
     magicString.overwrite(
         importNode.start,
         importNode.end,
-        `${imports.join('')}${htmlImport}`
+        `${imports.join('\n')}\n${htmlImport}`
     );
+
+    magicString.appendRight(importNode.end, `${definitions.join('\n')}`);
 
     return {
         code: magicString.toString(),
@@ -311,9 +324,10 @@ export default class Compiler
 
                         test.set(id, await walk(this, id, code));
 
+                        // console.log(id, component, test.get(id));
+
                         if(component === undefined)
                         {
-
                             return;
                         }
 
@@ -344,9 +358,19 @@ export default class Compiler
                 {
                     return `
                         import Fragment from '@fyn-software/component/fragment.js';
+                        import { initialize } from '@fyn-software/component/template.js';
+                        import For from '@fyn-software/component/directive/for.js';
+                        import If from '@fyn-software/component/directive/if.js';
+                        import Switch from '@fyn-software/component/directive/switch.js';
                         
                         const map = {};
                         ${MAP_PLACEHOLDER}
+                        
+                        await initialize(map, {
+                            'for': For,
+                            'if': If,
+                            'switch': Switch,
+                        }, [])
                         
                         export default map;`;
                 }
@@ -356,7 +380,25 @@ export default class Compiler
                 {
                     case 'html':
                     {
-                        return cache[id];
+                        const result = cache2[id];
+
+                        return {
+                            ast: {
+                                type: 'Program',
+                                start: 0,
+                                end: result.code.length(),
+                                body: [
+                                    new TextNode(result.code.length()),
+                                ],
+                                sourceType: 'module',
+                            } as AcornNode,
+                            moduleSideEffects: true,
+                            code: result.code.toString(),
+                            map: result.code.generateMap({
+                                source: id,
+                                file: `${id}.map`,
+                            }),
+                        }
                     }
 
                     default:
@@ -385,7 +427,7 @@ export default class Compiler
                     // to make sure the meta data
                     // of components is set before
                     // continuing.
-                    await Promise.delay(1000);
+                    await delay(1000);
 
                     const htmlId = id.slice(IMPORT_PREFIX.length);
                     const html = (await fs.readFile(htmlId)).toString() + '<poweredby no-edit=""><a href="{{ whitelabel.url }}">powered by <b>{{ whitelabel.name }}</b></a></poweredby>';
@@ -403,6 +445,8 @@ export default class Compiler
                     //  should improve developer ergonomics
                     //  a lot.
 
+                    const toFragment = (id: string) => `new Fragment(templates['${id}'], new Map(Object.entries(map['${id}'])))`;
+
                     const index = code.indexOf(toReplace);
                     const maps = Array.from(map.entries(), ([ id, matches ]) => {
                         const items = Array.from(
@@ -414,12 +458,13 @@ export default class Compiler
 
                                 if(directive)
                                 {
-                                    const properties = Object.entries(directive).filter(([k]) => ['type', 'fragment'].includes(k) === false).map(([ k, v]) => `${k}: ${JSON.stringify(v)}, `).join('');
-                                    const fragment = directive.fragment
-                                        ? ` fragment: new Fragment(templates['${directive.fragment}'], new Map(Object.entries(map['${directive.fragment}']))),`
-                                        : '';
+                                    const fragments = `{ ${Array.from(directive.fragments.entries(), ([ k, v ]) => `'${k}': ${toFragment(v)}`).join(',')} }`;
+                                    const properties = Object.entries(directive)
+                                        .filter(([ k]) => ['type', 'fragments', 'node'].includes(k) === false)
+                                        .map(([ k, v]) => `${k}: ${JSON.stringify(v)}`)
+                                        .join(', ');
 
-                                    dir = ` directive: { type: '${directive.type}', ${properties}${fragment} },`;
+                                    dir = ` directive: { type: '${directive.type}', fragments: ${fragments}, ${properties} },`;
                                 }
 
                                 return `\n\t'${id}': { ${func},${dir} },`;
@@ -467,12 +512,14 @@ export function brotli(options = {}): Plugin
         await fs.writeFile(file, await brotli(await fs.readFile(file), options));
     }
 
-    const compress = async (file: string, { map, options }: CompressionConfig) => Promise.all([
-        brotliCompressFile(file, options),
-        map === true && await fs.access(`${file}.map`)
-            ? brotliCompressFile(`${file}.map`, options)
-            : Promise.resolve(),
-    ]);
+    const compress = async (file: string, { map, options }: CompressionConfig) => {
+        return Promise.all([
+            brotliCompressFile(file, options),
+            map === true && await fileIsAvailable(`${file}.map`)
+                ? brotliCompressFile(`${file}.map`, options)
+                : Promise.resolve(),
+        ]);
+    }
 
     return {
         name: 'brotli',

@@ -1,12 +1,12 @@
 import Directive from './directive.js';
 declare type IfConf<T extends IBase<T>> = {
-    fragment: IFragment<T>;
+    fragments: {
+        [key: string]: IFragment<T>;
+    };
 };
 export default class If<T extends IBase<T>> extends Directive<T> {
-    private readonly _fragment;
-    private readonly _initialized;
-    constructor(node: Element, binding: IBinding<T>, scopes: Array<IScope>, { fragment }: IfConf<T>);
-    private _initialize;
+    #private;
+    constructor(node: Element, binding: IBinding<T>, scopes: Array<IScope>, { fragments }: IfConf<T>);
     render(): Promise<void>;
 }
 export {};

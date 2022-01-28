@@ -1,18 +1,18 @@
 export default class Fragment {
-    _template;
-    _map;
+    #template;
+    #map;
     constructor(template, map) {
-        this._template = template;
-        this._map = map;
+        this.#template = template;
+        this.#map = map;
     }
     clone() {
-        return new Fragment(this._template.cloneNode(true), new Map(this._map));
+        return new Fragment(this.#template.cloneNode(true), new Map(this.#map));
     }
     get template() {
-        return this._template;
+        return this.#template;
     }
     get map() {
-        return this._map;
+        return this.#map;
     }
 }
 //# sourceMappingURL=fragment.js.map

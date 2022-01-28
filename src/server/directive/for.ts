@@ -2,7 +2,7 @@ import Directive from './directive.js';
 
 export default class For extends Directive
 {
-    public static async parse(template: TemplateConstructor, binding: CachedBinding, node: Attr): Promise<DirectiveParseResult>
+    public static async parse(binding: CachedBinding, node: Attr): Promise<DirectiveParseResult>
     {
         const [ n, variable ] = binding.callable.code.split(/\s+(?:of|in)\s+/);
 
@@ -24,7 +24,7 @@ export default class For extends Directive
 
         const [ name = 'it', key = name ] = match.reverse();
 
-        const result = await super.parse(template, binding, node);
+        const result = await super.parse(binding, node);
         result.keys = [ name, key ]
 
         binding.callable = {
@@ -39,47 +39,5 @@ export default class For extends Directive
         };
 
         return result;
-    }
-}
-
-async function *valueIterator(value: any): AsyncGenerator<[ number, string|number, any ], void, void>
-{
-    try
-    {
-        if (typeof value?.[Symbol.asyncIterator] === 'function')
-        {
-            let i = 0;
-            for await(const v of value)
-            {
-                yield [i, i, v];
-
-                i++;
-            }
-        }
-        else if (typeof value?.[Symbol.iterator] === 'function')
-        {
-            let i = 0;
-            for (const v of value)
-            {
-                yield [i, i, v];
-
-                i++;
-            }
-        }
-        else
-        {
-            let i = 0;
-            for await(const [k, v] of Object.entries(value ?? {}))
-            {
-                yield [i, k, v];
-
-                i++;
-            }
-        }
-    }
-    catch (e)
-    {
-        console.trace(value);
-        throw e;
     }
 }

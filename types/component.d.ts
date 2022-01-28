@@ -22,6 +22,9 @@ declare module 'template:*' {
     export default map;
 }
 
+
+
+
 type ViewModelFieldEvents<T> = { changed: { old: T, new: T } };
 declare interface ViewModelField<T> extends CustomTarget<ViewModelField<T>, ViewModelFieldEvents<T>>
 {
@@ -34,13 +37,14 @@ declare type ViewModel<T extends IBase<T>> = CustomTarget<ViewModel<T>, ViewMode
     [Key in keyof T]: ViewModelField<T[Key]>;
 };
 
-declare type ViewModelArgs<T extends IBase<T, T['events']>> = {
+declare type ViewModelArgs<T extends IBase<T, EventsType<T>>> = {
     [Key in keyof T]?: T[Key];
 };
 
-declare type IPluginContainer<TPlugins = {}> = {
+declare type IPluginContainer<TPlugins extends { [key:string]: IPlugin } = {}> = {
     [Key in keyof TPlugins]: TPlugins[Key]
 } & {
+    plugins: TPlugins;
     keys: Array<string>;
     values: Array<IPlugin>;
     entries: Array<[ string, IPlugin ]>;
@@ -53,7 +57,7 @@ declare interface IPlugin extends EventTarget
     bindings: Array<{ binding: IBinding<any>, scopes: Array<IScope> }>;
 }
 
-declare interface ParsedTemplate<T extends IBase<T, T['events']>>
+declare interface ParsedTemplate<T extends IBase<T, EventsType<T>>>
 {
     template: Node;
     bindings: Array<IBinding<T>>;
@@ -95,28 +99,20 @@ declare type Result = ElementResult|TemplateResult|VariableResult;
 
 declare interface ITemplate
 {
+    processBindings<T extends IBase<T>>(bindings: Array<IBinding<T>>, scopes: Array<IScope>): Promise<void>;
 }
 
-declare interface TemplateConstructor extends Constructor<ITemplate>
+declare interface IBase<T extends IBase<T, TEvents>, TEvents extends EventDefinition = {}> extends Target<TEvents>, IScope<T>
 {
-    scan(dom: JSDOM): AsyncGenerator<{ type: Result['type'], node: Node }, void>;
-    parse(dom: JSDOM, allowedKeys: Array<string>): AsyncGenerator<Result, void>;
-}
-
-declare interface IBase<T extends IBase<T, T['events']>, TEvents extends EventDefinition = {}> extends Target<TEvents>, IScope<T>
-{
-    connectedCallback(): void;
-    disconnectedCallback(): void;
     attributeChangedCallback(name: string, oldValue: any, newValue: any): void;
 
-    cloneNode(deep?: boolean): IBase<T, T['events']>;
-
-    observe(observers: ObserverConfig<T>): IBase<T, T['events']>;
+    observe(observers: ObserverConfig<T>): IBase<T, TEvents>;
 
     readonly shadow: CustomShadowRoot;
+    readonly viewModel: IObservable<T>;
 }
 
-declare interface BaseConstructor<T extends IBase<T, T['events']>> extends Constructor<IBase<T, T['events']>>
+declare interface BaseConstructor<T extends IBase<T, EventsType<T>>> extends Constructor<IBase<T, EventsType<T>>>
 {
     new(args?: ViewModelArgs<T>): IBase<T>;
     readonly properties: Array<string>;
@@ -125,9 +121,8 @@ declare interface BaseConstructor<T extends IBase<T, T['events']>> extends Const
     registerProperty(target: BaseConstructor<T>, key: keyof T, options?: PropertyConfig<T>): void
 }
 
-declare interface IComponent<T extends IComponent<T>> extends IBase<T, T['events']>
+declare interface IComponent<T extends IComponent<T>> extends IBase<T, EventsType<T>>
 {
-    readonly isReady: Promise<void>;
 }
 
 declare type AnimationConfigOptions = KeyframeAnimationOptions & { extend?: string };
@@ -136,7 +131,7 @@ declare type AnimationConfig = {
     [key: string]: AnimationConfigArg
 };
 
-declare interface ComponentConstructor<T extends IBase<T, T['events']>> extends BaseConstructor<T>
+declare interface ComponentConstructor<T extends IBase<T, EventsType<T>>> extends BaseConstructor<T>
 {
     readonly is: string;
     readonly styles: Array<string>;
@@ -144,27 +139,18 @@ declare interface ComponentConstructor<T extends IBase<T, T['events']>> extends 
     init(): Promise<ComponentConstructor<T>>
 }
 
-declare interface IFragment<T extends IBase<T, T['events']>>
+declare interface IFragment<T extends IBase<T, EventsType<T>>>
 {
     clone(): IFragment<T>;
 
     template: Node;
     map: Map<string, Binding>;
 }
-declare interface FragmentConstructor
-{
-    new<T extends IBase<T>>(template: DocumentFragment, map: BindingLikeMap<T>): IFragment<T>;
-}
 
-declare interface IDirective<T extends IBase<T>>
+declare interface IDirective<T extends IBase<T>, TEvents extends EventDefinition = {}> extends CustomTarget<IDirective<T, TEvents>, TEvents>
 {
     readonly node: Node;
     render(): Promise<void>;
-}
-
-declare interface IDirectiveMap
-{
-    [key: string]: IDirective<any>
 }
 
 declare type DirectiveParseResult = {
@@ -174,29 +160,23 @@ declare type DirectiveParseResult = {
 
 interface DirectiveConstructor extends Constructor<any>
 {
-    parse(template: TemplateConstructor, binding: CachedBinding, node: Attr): Promise<DirectiveParseResult>
+    parse(binding: CachedBinding, node: Attr): Promise<DirectiveParseResult>
 }
 
 declare type Observer<T = any> = (oldValue: T, newValue: T) => any;
-declare type ObserverConfig<T extends IBase<T>> = {
-    [Key in keyof T]?: Observer<T[Key]>;
+declare type ObserverConfig<T extends IBase<T, EventsType<T>>> = {
+    [Key in keyof Omit<T, keyof IBase<T, EventsType<T>>>]?: Observer<T[Key]>;
 };
 
-declare interface IScope<T extends IBase<T> = any>
+declare interface IScope<T = any>
 {
-    readonly properties: ViewModel<T>
-}
-
-declare interface IBindingMap<T extends IBase<T>> extends Map<string, IBinding<T>>
-{
-
+    readonly properties: T
 }
 
 declare interface IBinding<T extends IBase<T>>
 {
     readonly tag: string;
     readonly keys: Array<string>;
-    readonly code: string;
     readonly nodes: Set<Node>;
     readonly value: Promise<any>;
     resolve(scopes: Array<IScope>, plugins: IPluginContainer): Promise<any>;
@@ -206,23 +186,10 @@ declare interface BindingConstructor<T extends IBase<T>> extends Constructor<IBi
     new(tag: string, callable: AsyncFunction): IBinding<T>;
 }
 
-declare interface BindingLikeMap<T> extends Map<string, BindingLike<T>>
-{
-
-}
-
-declare interface BindingLike<T>
-{
-    callable: AsyncFunction;
-    original: string;
-    code: string;
-    keys: Array<keyof T>;
-    directive?: DirectiveCache;
-}
-
 type DirectiveCache = {
     type: string;
     keys?: Array<string>;
+    fragments: Map<string, string>,
     [key: string]: any;
 };
 
@@ -232,28 +199,6 @@ type CachedBinding = {
         code: string,
     };
     directive?: DirectiveCache;
-};
-
-type CacheItem = {
-    id?: string;
-    html: Node;
-    map: Map<string, CachedBinding>;
-};
-
-type FragmentConfig = {
-    html: DocumentFragment,
-    map: Map<string, BindingLike<any>>;
-};
-
-type FragmentLike = {
-    html: string,
-    map: BindingLikeMap<any>;
-};
-
-type PluginCollection = Array<IPlugin> | {
-    keys(): Array<string>;
-    values(): Array<any>;
-    entries(): Array<[ string, IPlugin ]>;
 };
 
 interface CustomShadowRoot extends ShadowRoot

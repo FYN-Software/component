@@ -5,6 +5,8 @@ import Switch from './directive/switch.js';
 import TemplateDirective from './directive/template.js';
 import * as crypto from 'crypto';
 import { JSDOM } from 'jsdom';
+import { unique } from '@fyn-software/core/function/array.js';
+import { clone } from '@fyn-software/core/function/object.js';
 
 const plugins = [ 't' ];
 const directives: { [key: string]: DirectiveConstructor } = {
@@ -26,7 +28,7 @@ type IteratorResult = {
 
 type ExtractionContext = { keys?: Array<string>, binding: CachedBinding };
 
-export default class Template implements ITemplate
+export default class Template
 {
     private static toExtract: WeakMap<Node, ExtractionContext> = new WeakMap;
 
@@ -55,7 +57,7 @@ export default class Template implements ITemplate
                         if(cache.has(code) === false)
                         {
                             const id = this.uuid();
-                            const keys = allowedKeys.filter(k => code.includes(k)).unique();
+                            const keys = unique(allowedKeys.filter(k => code.includes(k)));
                             const args = [ ...keys, ...(plugins) ];
 
                             cache.set(code, id);
@@ -75,7 +77,7 @@ export default class Template implements ITemplate
                         }
 
                         const binding = matches.get(ids[0])!;
-                        const result = await directive.parse(this, binding, attr);
+                        const result = await directive.parse(binding, attr);
 
                         this.toExtract.set(result.node, { keys: result.keys, binding });
                     }
@@ -92,7 +94,7 @@ export default class Template implements ITemplate
 
                     if(binding)
                     {
-                        binding.directive!.fragment = id;
+                        binding.directive!.fragments.set('__root__', id);
                     }
 
                     yield { type, node, location, id, keys, };
@@ -102,7 +104,11 @@ export default class Template implements ITemplate
 
                 case 'element':
                 {
-                    yield { type, node, location, id: (node as Element).localName };
+                    const id = this.uuid();
+
+                    (node as Element).setAttribute('data-id', id);
+
+                    yield { type, node, location, id };
 
                     break;
                 }
@@ -157,6 +163,11 @@ export default class Template implements ITemplate
                         loc.endOffset = location.endTag.startOffset;
 
                         yield { type: 'template', location: loc, node };
+
+                        // type = 'template';
+                        //
+                        // location.startOffset = location.startTag.endOffset;
+                        // location.endOffset = location.endTag.startOffset;
                     }
 
                     yield { type, location, node };

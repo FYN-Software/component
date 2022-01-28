@@ -2,9 +2,9 @@ import Directive from './directive.js';
 
 export default class Switch extends Directive
 {
-    public static async parse(template: TemplateConstructor, binding: CachedBinding, node: Attr): Promise<DirectiveParseResult>
+    public static async parse(binding: CachedBinding, node: Attr): Promise<DirectiveParseResult>
     {
-        const result = await super.parse(template, binding, node);
+        const result = await super.parse(binding, node);
 
         binding.directive = {
             ...binding.directive!,

@@ -1,98 +1,38 @@
-import { equals } from '@fyn-software/core/extends.js';
-import Event from '@fyn-software/core/event.js';
+import { getPropertiesOf } from '@fyn-software/core/function/common.js';
+import observe from '@fyn-software/core/observable.js';
+import { debounce } from '@fyn-software/core/event.js';
 import Queue from '@fyn-software/core/queue.js';
-import Template, { uuidRegex, plugins } from './template.js';
+import { render, uuidRegex, plugins } from './template.js';
 import Exception from '@fyn-software/core/exception.js';
+import { unique } from '@fyn-software/core/function/array.js';
+import { toCamelCase, toDashCase } from '@fyn-software/core/function/string.js';
 
 const properties: WeakMap<Function, Map<string, PropertyConfig<any>>> = new WeakMap;
 
-export class Model<T extends IBase<T>> extends EventTarget
-{
-    constructor(owner: T, properties: Map<string, PropertyConfig<T>>, args: ViewModelArgs<T> = {})
-    {
-        super();
-
-        for(const [ key, propertyConfig ] of Array.from(properties.entries()))
-        {
-            const k = key as keyof T;
-            const value = new ValueContainer<T>(owner, args[k]!, propertyConfig);
-
-            value.on({
-                changed: details => this.emit('changed', { property: k, ...details }),
-            });
-
-            Object.defineProperty(this, key, {
-                value,
-                writable: false,
-                enumerable: true,
-                configurable: false,
-            });
-        }
-    }
-}
-
-class ValueContainer<T extends IBase<T>> extends EventTarget implements ViewModelField<T[keyof T]>
-{
-    events: ViewModelField<T[keyof T]>['events'] = {} as unknown as ViewModelField<T[keyof T]>['events'];
-
-    private _value: T[keyof T];
-    private readonly _owner: T;
-    private readonly _config: PropertyConfig<T>;
-
-    public constructor(owner: T, value: T[keyof T], config: PropertyConfig<T>)
-    {
-        super();
-
-        this._value = value;
-        this._owner = owner;
-        this._config = config;
-    }
-
-    public get value(): T[keyof T]
-    {
-        return this._value;
-    }
-
-    public async setValue(value: T[keyof T]): Promise<void>
-    {
-        const old = this._value;
-        const setter: Setter<T> = this._config.set ?? (v => v);
-
-        this._value = setter.call(this._owner, value);
-
-        if(equals(old, this._value) === false)
-        {
-            this.emit('changed', { old, new: this._value });
-        }
-    }
-}
-
 export default abstract class Base<T extends Base<T, TEvents>, TEvents extends EventDefinition> extends HTMLElement implements IBase<T, TEvents>
 {
-    private static _observers = new WeakMap();
-    private _bindings: Array<IBinding<T>>|undefined;
-    private readonly _internals: ElementInternals = this.attachInternals();
-    private readonly _shadow: ShadowRoot;
-    private readonly _queue: Queue<Node> = new Queue;
-    private readonly _setQueue: Map<keyof T, T[keyof T]> = new Map;
-    private readonly _properties: Map<string, PropertyConfig<T>>;
-    private readonly _viewModel: ViewModel<T>;
-    private _initialized: boolean = false;
+    static #observers = new WeakMap();
+    readonly #internals: ElementInternals = this.attachInternals();
+    readonly #shadow: ShadowRoot;
+    readonly #queue: Queue<Node> = new Queue;
+    readonly #properties: Map<string, PropertyConfig<T>>;
+    readonly #initialArgs: Partial<T>;
+    #bindings: Array<IBinding<T>>|undefined;
+    #viewModel!: IObservable<T>;
 
-    events: TEvents = {} as unknown as TEvents;
-
-    protected constructor(args: ViewModelArgs<T> = {})
+    protected constructor(args: Partial<T> = {})
     {
         super();
 
-        this._shadow = this._internals.shadowRoot ?? this.attachShadow({ mode: 'closed', delegatesFocus: false });
+        this.#initialArgs = args;
+        this.#shadow = this.#internals.shadowRoot ?? this.attachShadow({ mode: 'closed', delegatesFocus: false });
 
         // TODO(Chris Kruining) dumb "fix" for chrome bug, fixed in chrome 94.
         let rule: CSSStyleRule;
 
         try
         {
-            rule = this._shadow.styleSheets[0].cssRules[0] as CSSStyleRule;
+            rule = this.#shadow.styleSheets[0].cssRules[0] as CSSStyleRule;
         }
         catch
         {
@@ -102,8 +42,8 @@ export default abstract class Base<T extends Base<T, TEvents>, TEvents extends E
             rule = sheet.cssRules[0] as CSSStyleRule;
         }
 
-        // const rule: CSSStyleRule = this._shadow.styleSheets[0].cssRules[0] as CSSStyleRule;
-        Object.defineProperties(this._shadow, {
+        // const rule: CSSStyleRule = this.#shadow.styleSheets[0].cssRules[0] as CSSStyleRule;
+        Object.defineProperties(this.#shadow, {
             setProperty: {
                 value: rule.style.setProperty.bind(rule.style),
                 writable: false,
@@ -118,94 +58,132 @@ export default abstract class Base<T extends Base<T, TEvents>, TEvents extends E
             },
         });
 
-        this._properties = Base.getPropertiesOf(this.constructor);
-
-        this._viewModel = new Model<T>(this as unknown as T, this._properties, args) as ViewModel<T>;
-        this._viewModel.on({
-            changed: async ({ property, old: o, new: n }: { property: string, old: T[keyof T], new: T[keyof T]}) => {
-                for(const c of Base._observers.get(this)?.get(property) ?? [])
+        this.#properties = Base.getPropertiesOf(this.constructor);
+        this.#queue.on({
+            enqueued: debounce(10, async () => {
+                for await(const n of this.#queue)
                 {
-                    c.apply(this._viewModel[property as keyof T].value, [ o, n ]);
+                    await render<T>(n);
                 }
 
-                const bindings = this._bindings?.filter(b => b.keys.includes(property)) ?? [];
-
-                await Promise.all(bindings.map(b => b.resolve([ this ], plugins)));
-
-                const mapper = this._properties.get(property)?.bindToCSS
-                if(mapper !== undefined)
-                {
-                    this.shadow.setProperty(`--${property}`, mapper(n));
-                }
-
-                const nodes = bindings.map(b => b.nodes)
-                    .reduce((t: Array<Node>, n: Set<Node>) => [ ...t, ...n ], [])
-                    .unique();
-
-                this._queue.enqueue(...nodes);
-            },
-        });
-
-        this._queue.on({
-            enqueued: Event.debounce(10, async () => {
-                for await(const n of this._queue)
-                {
-                    await Template.render<T>(n);
-                }
+                this.emit('#rendered');
             }),
         });
     }
 
     protected async init(): Promise<void>
     {
-        this._initialized = true;
+        const props = getPropertiesOf(this);
 
-        for(const [ k, p ] of this._properties)
+        for(const d of Object.values(props))
         {
-            const { aliasFor }: PropertyConfig<T> = p;
-            const key = (aliasFor ?? k) as keyof T;
+            if(d.get)
+            {
+                d.get = d.get.bind(this);
+            }
 
-            this._viewModel[key].setValue((this as { [k: string]: any })[k]);
+            if(d.set)
+            {
+                d.set = d.set.bind(this);
+            }
+        }
 
+        for(const attribute of this.attributes)
+        {
+            const k = toCamelCase(attribute.localName) as keyof T;
+
+            if(props.hasOwnProperty(k) === false)
+            {
+                continue;
+            }
+
+            const v = (attribute.value === '' && typeof this[k] === 'boolean')
+                || (attribute.value.match(uuidRegex) === null ? attribute.value : this[k]);
+
+            if(props[k].writable)
+            {
+                props[k].value = v;
+            }
+            else if(props[k].set)
+            {
+                props[k].set(v);
+            }
+        }
+
+        for(const [ k, v ] of Object.entries(this.#initialArgs))
+        {
+            if(props.hasOwnProperty(k) === false)
+            {
+                continue;
+            }
+
+            if(props[k as keyof T].writable)
+            {
+                props[k].value = v;
+            }
+            else if(props[k].set)
+            {
+                props[k].set(v);
+            }
+        }
+
+        const model = {};
+
+        Object.defineProperties(model, props);
+
+        this.#viewModel = observe(model as unknown as T);
+        this.#viewModel.on({
+            changed: async ({ property, target, old: o, new: n }) => {
+                if(target !== this.#viewModel)
+                {
+                    return;
+                }
+
+                for(const c of Base.#observers.get(this)?.get(property) ?? [])
+                {
+                    c.apply(this.properties[property as keyof T], [o, n]);
+                }
+
+                const bindings = this.#bindings?.filter(b => b.keys.includes(property)) ?? [];
+                await Promise.all(bindings.map(b => b.resolve([this], plugins)));
+
+                const mapper = this.#properties.get(property)?.bindToCSS;
+                if(mapper !== undefined)
+                {
+                    this.shadow.setProperty(`--${property}`, mapper(n));
+                }
+
+                const nodes = unique(bindings.map(b => b.nodes).reduce((t, n) => [...t, ...n], []));
+                this.#queue.enqueue(...nodes);
+            },
+        });
+
+        for(const k of Object.keys(this.properties))
+        {
             Object.defineProperty(this, k, {
-                get(): T[keyof T]
-                {
-                    return this._viewModel[key].value;
-                },
-                set(value: T[keyof T]): Promise<void>
-                {
-                    return this._initialized ? this._set(key, value) : this._viewModel[key].setValue(value);
-                },
+                get: () => this.properties[k as keyof T],
+                set: value => this.properties[k as keyof T] = value,
                 enumerable: true,
                 configurable: false,
             });
-
-            const v: any = this._viewModel[key].value;
-            const attr = this.getAttribute(k.toDashCase());
-            const value = (this.hasAttribute(k.toDashCase()) && attr === '' && typeof v === 'boolean')
-                || ((attr?.match(uuidRegex) || attr?.includes('{{') ? null : attr) ?? v);
-
-            void this._set(key, value);
         }
     }
 
-    public observe(config: ObserverConfig<T>): IBase<T, T['events']>
+    public observe(config: ObserverConfig<T>): IBase<T, EventsType<T>>
     {
-        const keys = Object.keys(this._viewModel!) as Array<keyof T>;
-
         for(const [ p, c ] of Object.entries(config) as Array<[ keyof T, Observer<T[keyof T]> ]>)
         {
-            if(keys.includes(p) !== true)
+            if((p in this.properties) !== true)
             {
                 throw new Error(`Trying to observe non-observable property '${p}'`);
             }
 
-            if(Base._observers.has(this) === false)
+            if(Base.#observers.has(this) === false)
             {
-                Base._observers.set(this, new Map);
+                Base.#observers.set(this, new Map);
             }
 
-            const observers = Base._observers.get(this);
+            const observers = Base.#observers.get(this);
 
             if(observers.has(p) === false)
             {
@@ -218,116 +196,55 @@ export default abstract class Base<T extends Base<T, TEvents>, TEvents extends E
         return this;
     }
 
-    private async _set(name: keyof T, value: any): Promise<void>
-    {
-        // TODO(Chris Kruining)
-        //  I think the setQueue is obsolete
-        //  if there is no longer any waiting
-        //  on resources from the network
-        if(this._bindings === undefined)
-        {
-            this._setQueue.set(name, value);
-
-            return;
-        }
-
-        try
-        {
-            await this._viewModel[name].setValue(value);
-        }
-        catch(e)
-        {
-            throw new Exception(`Failed to set '${this.constructor.name}.${name}', '${value}' is not valid`, e, this);
-        }
-    }
-
     protected async _populate()
     {
-        const keys = Object.keys(this._viewModel!);
-
-        for(const key of keys as Array<keyof T>)
+        for(const key of Object.getOwnPropertyNames(this.properties) as IterableIterator<keyof T>)
         {
-            this._viewModel![key].emit('changed', { old: undefined, new: this._viewModel![key].value });
+            this.#viewModel.emit('changed', {
+                old: undefined,
+                new: this.properties[key],
+                property: key as string,
+                target: this.#viewModel
+            });
         }
-
-        for(const [ key, value ] of this._setQueue.entries())
-        {
-            try
-            {
-                await this._set(key, value);
-            }
-            catch(e)
-            {
-                throw new Error(`Failed to populate '${key}', '${value}' is not a valid value`);
-            }
-        }
-
-        this._queue.enqueue(
-            ...this._bindings!
-                .filter(b => b.keys.some(k => keys.includes(k)) === false)
-                .map(b => b.nodes)
-                .reduce((t: Array<Node>, n: Set<Node>) => [ ...t, ...n ], [])
-                .unique()
-        );
-    }
-
-    public connectedCallback(): void
-    {
-
-    }
-
-    public disconnectedCallback(): void
-    {
-
     }
 
     public attributeChangedCallback(name: string, oldValue: any, newValue: any): void
     {
-        if(this._bindings === undefined)
+        if(this.#bindings === undefined)
         {
             return;
         }
 
-        void this._set(name.toCamelCase() as keyof T, newValue);
-    }
-
-    public cloneNode(deep: boolean = false): IBase<T, T['events']>
-    {
-        const res = super.cloneNode(deep) as unknown as { [Key in keyof T]: T[Key]|undefined };
-
-        for(const [ key, field ] of Object.entries(this._viewModel!) as Array<[ keyof T, ViewModelField<T[keyof T]> ]>)
-        {
-            res[key] = field.value;
-        }
-
-        return res as unknown as IBase<T, T['events']>;
+        this.properties[toCamelCase(name) as keyof T] = newValue;
     }
 
     protected set bindings(bindings: Array<IBinding<T>>)
     {
-        this._bindings = bindings;
+        this.#bindings = bindings;
     }
 
     protected get internals()
     {
-        return this._internals;
+        return this.#internals;
     }
 
     public get shadow(): CustomShadowRoot
     {
-        return this._shadow as CustomShadowRoot;
+        return this.#shadow as CustomShadowRoot;
     }
 
-    public get properties(): ViewModel<T>
+    public get properties(): T
     {
-        return this._viewModel!;
+        return this.#viewModel.get();
+    }
+
+    public get viewModel(): IObservable<T>
+    {
+        return this.#viewModel;
     }
 
     public static get observedAttributes(): Array<string>
-    {
-        return Array.from(this.getPropertiesOf(this)?.keys() ?? []);
-    }
-    public static get properties(): Array<string>
     {
         return Array.from(this.getPropertiesOf(this)?.keys() ?? []);
     }
@@ -346,7 +263,7 @@ export default abstract class Base<T extends Base<T, TEvents>, TEvents extends E
         return new Map(props);
     }
 
-    public static registerProperty<T extends IBase<T, T['events']>>(
+    public static registerProperty<T extends IBase<T, EventsType<T>>>(
         target: BaseConstructor<T>,
         key: keyof T,
         options: PropertyConfig<T> = {}

@@ -40,6 +40,7 @@ export declare type HtmlResult = {
 export default class Composer {
     private readonly _context;
     private readonly _cache;
+    private readonly _cache2;
     constructor(context: Promise<Manifest>);
     get components(): Promise<ComponentMap>;
     get stylesheets(): Promise<StylesheetsMap>;

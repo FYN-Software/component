@@ -1,4 +1,4 @@
-import { arrayFromAsync } from '../../../core/dist/functions.js';
+import { fromAsync } from '../../../core/dist/function/array.js';
 import * as Path from 'path';
 import * as https from 'https';
 import { promises as fs, Dir, Dirent } from 'fs';
@@ -153,6 +153,7 @@ export default class Composer
 {
     private readonly _context: Promise<Manifest>;
     private readonly _cache: Map<string, HtmlResult> = new Map;
+    private readonly _cache2: Map<string, { result: HtmlResult, template: string }> = new Map;
 
     public constructor(context: Promise<Manifest>)
     {
@@ -258,58 +259,65 @@ export default class Composer
                 {
                     case 'element':
                     {
+                        const { id } = result;
                         const element = node as Element;
                         const component = components[element.localName];
+
+                        if(element.localName === 'fyn-common-form-group')
+                        {
+                            console.log(result, component);
+                        }
 
                         if(component === undefined)
                         {
                             break;
                         }
 
-                        if(component.meta === undefined)
+                        if(this._cache2.has(element.localName) === false)
                         {
-                            throw new Error(
-                                `meta unavailable for component '${element.localName}'`
-                            );
-                        }
-
-                        const shadowHtml = (await this.loadResource(element.localName, 'html'))!;
-                        const shadowCss: string = (await this.loadResource(element.localName, 'css'))!;
-
-                        const sheets = await this.stylesheets;
-                        const styles = component.meta!.styles.map(s => `/*== ${s} ==*/${sheets[s]}`);
-                        let themeStyle: string = '';
-
-                        if(theme)
-                        {
-                            const themeStylePath = Path.resolve(theme, ...(`${element.localName}.css`).split('-'));
-
-                            try
+                            if(component.meta === undefined)
                             {
-                                themeStyle = (await fs.readFile(themeStylePath)).toString();
+                                throw new Error(
+                                    `meta unavailable for component '${element.localName}'`
+                                );
                             }
-                            catch
+
+                            const shadowHtml = (await this.loadResource(element.localName, 'html'))!;
+                            const shadowCss: string = (await this.loadResource(element.localName, 'css'))!;
+
+                            const sheets = await this.stylesheets;
+                            const styles = component.meta!.styles.map(s => `/*== ${s} ==*/${sheets[s] ?? ''}`);
+                            let themeStyle: string = '';
+
+                            if(theme)
                             {
-                                // NO-OP - Stupid nodejs has no file-exists anymore, try-catch is the new norm apparently...
+                                const themeStylePath = Path.resolve(theme, 'css', ...(`${element.localName}.css`).split('-'));
+
+                                try
+                                {
+                                    themeStyle = (await fs.readFile(themeStylePath)).toString();
+                                }
+                                catch
+                                {
+                                    // NO-OP - Stupid nodejs has no file-exists anymore, try-catch is the new norm apparently...
+                                }
                             }
-                        }
 
-                        const result = await this.parseHtml(shadowHtml, component.meta?.properties ?? allowedKeys);
+                            const result = await this.parseHtml(shadowHtml, component.meta?.properties ?? allowedKeys);
 
-                        for(const [ id, matches ] of result.map)
-                        {
-                            map.set(id === '__root__' ? element.localName : id, matches);
-                        }
+                            for(const [ id, matches ] of result.map)
+                            {
+                                map.set(id === '__root__' ? element.localName : id, matches);
+                            }
 
-                        for(const template of result.templates.entries())
-                        {
-                            templates.set(...template);
-                        }
+                            for(const template of result.templates.entries())
+                            {
+                                templates.set(...template);
+                            }
 
-                        imports[element.localName] = component;
+                            imports[element.localName] = component;
 
-                        const template = `
-                            <template shadowroot="closed">
+                            const template = `<template shadowroot="closed">
                                 <style>
                                     :host{}
 
@@ -323,10 +331,30 @@ export default class Composer
                                 </style>
 
                                 ${result.code}
-                            </template>
-                        `;
+                            </template>`;
 
-                        s.appendRight(location.startTag.endOffset, template);
+                            if(element.localName === 'fyn-common-form-group')
+                            {
+                                console.error(templates, component, template, result);
+                            }
+
+                            this._cache2.set(element.localName, { result, template });
+                        }
+
+                        const { result: r, template } = this._cache2.get(element.localName)!;
+
+                        for(const [ id, matches ] of r.map)
+                        {
+                            map.set(id === '__root__' ? element.localName : id, matches);
+                        }
+
+                        for(const template of r.templates.entries())
+                        {
+                            templates.set(...template);
+                        }
+
+                        s.prependLeft(location.startTag.endOffset - 1, ` data-id="${id}"`);
+                        s.prependRight(location.startTag.endOffset, template);
 
                         break;
                     }
@@ -348,7 +376,8 @@ export default class Composer
                             location.endOffset,
                             node.nodeType === 2
                                 ? `${(node as Attr).localName}="${value}"`
-                                : value!
+                                : value!,
+                            { contentOnly: true },
                         );
 
                         break;
@@ -380,7 +409,7 @@ export default class Composer
 
                                     if(attr.ownerElement?.matches(query) && attr.ownerElement?.hasAttribute(dir))
                                     {
-                                        directive.fragment = result.id;
+                                        directive.fragments.set(el.parentElement!.getAttribute('data-id')!, result.id);
 
                                         match = directive;
                                     }
@@ -438,7 +467,7 @@ export default class Composer
         const components = await comps.reduce<Promise<ComponentMap>>(
             async (components: Promise<ComponentMap>, namespace: StoredNamespace) => ({
                 ...(await components),
-                ...(Object.fromEntries(await arrayFromAsync(toComponent(walkDirTree(Path.resolve(path, namespace.ts)), path, namespace)))),
+                ...(Object.fromEntries(await fromAsync(toComponent(walkDirTree(Path.resolve(path, namespace.ts)), path, namespace)))),
                 ...dependencies.reduce<ComponentMap>((flattened: ComponentMap, d: Manifest) => ({ ...flattened, ...d.components }), {})
             }),
             Promise.resolve({})

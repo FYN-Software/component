@@ -8,4 +8,8 @@ export function range(min, max) {
     return (target, key) => {
     };
 }
+export function component(name, styles) {
+    return (target) => {
+    };
+}
 //# sourceMappingURL=decorators.js.map

@@ -19,30 +19,30 @@ export default class Plugin extends EventTarget implements IPlugin
     }
 
     public static async discover<T extends IBase<T>>(
-        plugins: Array<IPlugin>,
+        plugins: IPluginContainer,
         scopes: Array<IScope>,
         binding: IBinding<T>,
-        callback: (...wrappedArgs: Array<any>) => Promise<any>
+        callback: (wrappedArgs: { [p: string]: IPlugin }) => Promise<any>
     ){
-        const wrappedArgs = plugins.map(plugin => {
+        const wrappedArgs = Object.fromEntries(Object.values<IPlugin>(plugins.plugins).map(plugin => {
             const mark = (): any => {
                 plugin.bindings.push({ binding, scopes });
 
                 return undefined;
             };
 
-            return new Proxy(() => {}, {
+            return [ plugin.key, new Proxy(() => {}, {
                 get: mark,
                 has: mark,
                 deleteProperty: mark,
                 apply: mark,
                 construct: mark,
-            })
-        });
+            }) as unknown as IPlugin ]
+        }));
 
         try
         {
-            await callback(...wrappedArgs);
+            await callback(wrappedArgs);
         }
         catch (e)
         {

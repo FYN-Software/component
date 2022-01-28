@@ -3,12 +3,12 @@ import Component from './component.js';
 import { property } from './decorators.js';
 export default class FormAssociated extends Component {
     static formAssociated = true;
-    required = false;
-    tabIndex = 0;
+    required;
+    tabIndex;
     type = '';
     label = '';
     name = '';
-    value = '';
+    value;
     error = '';
     inputMode = '';
     constructor(args = {}) {

@@ -8,68 +8,71 @@ function getParamNames(func: AsyncFunction): Array<string>
 
 export default class Binding<T extends IBase<T>> implements IBinding<T>
 {
-    private readonly _tag: string;
-    private readonly _keys: Array<string>;
-    private readonly _code: string;
-    private readonly _nodes: Set<Node> = new Set();
-    private _value = Promise.resolve(undefined);
-    private readonly _callable: AsyncFunction;
+    readonly #tag: string;
+    readonly #keys: Array<string>;
+    readonly #nodes: Set<Node> = new Set();
+    #value = Promise.resolve(undefined);
+    readonly #callable: AsyncFunction;
 
     constructor(tag: string, callable: AsyncFunction)
     {
-        this._tag = tag;
-        this._keys = getParamNames(callable);
-        this._code = callable.toString().replace(STRIP_COMMENTS, '');
-        this._callable = callable;
+        this.#tag = tag;
+        this.#keys = getParamNames(callable);
+        this.#callable = callable;
     }
 
     get tag(): string
     {
-        return this._tag;
+        return this.#tag;
     }
 
     get keys(): Array<string>
     {
-        return this._keys;
-    }
-
-    get code(): string
-    {
-        return this._code;
+        return this.#keys;
     }
 
     get nodes(): Set<Node>
     {
-        return this._nodes;
+        return this.#nodes;
     }
 
     get value(): any
     {
-        return this._value;
+        return this.#value;
     }
 
     async resolve(scopes: Array<IScope>, plugins: IPluginContainer): Promise<any>
     {
-        const args = scopes
-            .reduce(
-                (args: Array<any>, scope: IScope) => args.concat(
-                    Object.entries<ViewModelField<T[keyof T]>>(scope.properties)
-                        .filter(([ k ]) => this._keys.includes(k))
-                        .map(([ , p ]) => p.value)
-                ),
-                []
-            )
-            .concat(plugins.values)
+        const inverseScopes = [ ...scopes].reverse();
+        const p = Object.fromEntries(plugins.entries);
+        const args = this.#keys.map(key => {
+            let val;
+
+            for(const scope of inverseScopes)
+            {
+                if(scope.properties.hasOwnProperty(key))
+                {
+                    val = scope.properties[key];
+                }
+            }
+
+            if(val === undefined && p.hasOwnProperty(key))
+            {
+                val = p[key];
+            }
+
+            return val;
+        });
 
         try
         {
-            this._value = this._callable.apply(scopes.first, args);
+            this.#value = this.#callable.apply(scopes[0], args);
         }
         catch (e)
         {
             console.error(e);
         }
 
-        return this._value;
+        return this.#value;
     }
 }

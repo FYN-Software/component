@@ -1,26 +1,28 @@
-import Template from '../template.js';
+import { hydrate, processBindings } from '../template.js';
 import Directive from './directive.js';
+import { setAttributeOnAssert } from '@fyn-software/core/function/dom.js';
 export default class If extends Directive {
-    _fragment;
-    _initialized = Promise.resolve();
-    constructor(node, binding, scopes, { fragment }) {
+    #fragment;
+    #initialized = Promise.resolve();
+    constructor(node, binding, scopes, { fragments }) {
         super(node, binding, scopes);
-        this._fragment = fragment;
-        this._initialized = this._initialize();
+        this.#fragment = fragments[node.getRootNode().host?.getAttribute('data-id') ?? '']
+            ?? fragments.__root__;
+        this.#initialized = this.#initialize();
     }
-    async _initialize() {
+    async #initialize() {
     }
     async render() {
         const element = this.node;
         element.setAttribute('hidden', '');
-        await this._initialized;
+        await this.#initialized;
         const value = Boolean(await this.binding.value);
-        element.attributes.setOnAssert(value === false, 'hidden');
+        setAttributeOnAssert(element, value === false, 'hidden');
         if (value) {
             element.innerHTML = '';
-            const { template, bindings } = await Template.hydrate(this.scopes, this._fragment.clone());
+            const { template, bindings } = await hydrate(this.scopes, this.#fragment.clone());
             element.appendChild(template);
-            await Template.processBindings(bindings, this.scopes);
+            await processBindings(bindings, this.scopes);
         }
     }
 }

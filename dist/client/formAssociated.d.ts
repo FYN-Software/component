@@ -15,7 +15,7 @@ export default abstract class FormAssociated<T extends FormAssociated<T, TEvents
     value: TValue;
     error: string;
     inputMode: string;
-    constructor(args?: ViewModelArgs<FormAssociated<T, TEvents, TValue, TType> & T>);
+    constructor(args?: Partial<FormAssociated<T, TEvents, TValue, TType> & T>);
     protected init(): Promise<void>;
     setValidity(state: ValidityState, error: string): void;
     get form(): HTMLFormElement | undefined;

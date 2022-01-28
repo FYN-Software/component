@@ -4,6 +4,8 @@ import If from './directive/if.js';
 import Switch from './directive/switch.js';
 import TemplateDirective from './directive/template.js';
 import * as crypto from 'crypto';
+import { unique } from '@fyn-software/core/function/array.js';
+import { clone } from '@fyn-software/core/function/object.js';
 const plugins = ['t'];
 const directives = {
     ':for': For,
@@ -32,7 +34,7 @@ export default class Template {
                         const value = (node.nodeValue ?? '').replaceAll(regex, (original, code) => {
                             if (cache.has(code) === false) {
                                 const id = this.uuid();
-                                const keys = allowedKeys.filter(k => code.includes(k)).unique();
+                                const keys = unique(allowedKeys.filter(k => code.includes(k)));
                                 const args = [...keys, ...(plugins)];
                                 cache.set(code, id);
                                 matches.set(id, { callable: { args, code } });
@@ -45,7 +47,7 @@ export default class Template {
                                 throw new Error(`Directives expect exactly 1 template, got '${ids.length}' instead`);
                             }
                             const binding = matches.get(ids[0]);
-                            const result = await directive.parse(this, binding, attr);
+                            const result = await directive.parse(binding, attr);
                             this.toExtract.set(result.node, { keys: result.keys, binding });
                         }
                         yield { type, node, directive, value, location, matches };
@@ -56,14 +58,16 @@ export default class Template {
                         const id = this.uuid();
                         const { keys, binding } = this.toExtract.get(node) ?? { keys: undefined, binding: undefined };
                         if (binding) {
-                            binding.directive.fragment = id;
+                            binding.directive.fragments.set('__root__', id);
                         }
                         yield { type, node, location, id, keys, };
                         break;
                     }
                 case 'element':
                     {
-                        yield { type, node, location, id: node.localName };
+                        const id = this.uuid();
+                        node.setAttribute('data-id', id);
+                        yield { type, node, location, id };
                         break;
                     }
             }
@@ -96,9 +100,10 @@ export default class Template {
                         ? 'template'
                         : 'element';
                     if (this.toExtract.has(node)) {
-                        type = 'template';
-                        location.startOffset = location.startTag.endOffset;
-                        location.endOffset = location.endTag.startOffset;
+                        const loc = clone(location);
+                        loc.startOffset = location.startTag.endOffset;
+                        loc.endOffset = location.endTag.startOffset;
+                        yield { type: 'template', location: loc, node };
                     }
                     yield { type, location, node };
                 }

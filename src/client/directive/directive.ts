@@ -1,29 +1,33 @@
-export default abstract class Directive<T extends IBase<T>> implements IDirective<T>
+export default abstract class Directive<T extends IBase<T> = any, TEvents extends EventDefinition = {}> extends EventTarget implements IDirective<T, TEvents>
 {
-    private _node: Node;
-    private readonly _binding: IBinding<T>;
-    private readonly _scopes: Array<IScope>;
+    #node: Node;
+    readonly #binding: IBinding<T>;
+    readonly #scopes: Array<IScope>;
+
+    public readonly events!: TEvents;
 
     public get scopes(): Array<IScope>
     {
-        return this._scopes;
+        return this.#scopes;
     }
 
     public get node(): Node
     {
-        return this._node;
+        return this.#node;
     }
 
     public get binding(): IBinding<T>
     {
-        return this._binding;
+        return this.#binding;
     }
 
     protected constructor(node: Node, binding: IBinding<T>, scopes: Array<IScope>)
     {
-        this._node = node;
-        this._binding = binding;
-        this._scopes = scopes;
+        super();
+
+        this.#node = node;
+        this.#binding = binding;
+        this.#scopes = scopes;
     }
 
     public transferTo(node: Node): void
@@ -34,7 +38,7 @@ export default abstract class Directive<T extends IBase<T>> implements IDirectiv
         //  to do more then just
         //  re-assigning the node.
 
-        this._node = node;
+        this.#node = node;
     }
 
     abstract render(): Promise<void>;

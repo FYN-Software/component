@@ -1,4 +1,4 @@
-import { arrayFromAsync } from '../../../core/dist/functions.js';
+import { fromAsync } from '../../../core/dist/function/array.js';
 import * as Path from 'path';
 import * as https from 'https';
 import { promises as fs } from 'fs';
@@ -66,6 +66,7 @@ async function* toComponent(partsIterator, path, { namespace, html, css, ts, imp
 export default class Composer {
     _context;
     _cache = new Map;
+    _cache2 = new Map;
     constructor(context) {
         this._context = context;
     }
@@ -132,37 +133,41 @@ export default class Composer {
                 switch (result.type) {
                     case 'element':
                         {
+                            const { id } = result;
                             const element = node;
                             const component = components[element.localName];
+                            if (element.localName === 'fyn-common-form-group') {
+                                console.log(result, component);
+                            }
                             if (component === undefined) {
                                 break;
                             }
-                            if (component.meta === undefined) {
-                                throw new Error(`meta unavailable for component '${element.localName}'`);
-                            }
-                            const shadowHtml = (await this.loadResource(element.localName, 'html'));
-                            const shadowCss = (await this.loadResource(element.localName, 'css'));
-                            const sheets = await this.stylesheets;
-                            const styles = component.meta.styles.map(s => `/*== ${s} ==*/${sheets[s]}`);
-                            let themeStyle = '';
-                            if (theme) {
-                                const themeStylePath = Path.resolve(theme, ...(`${element.localName}.css`).split('-'));
-                                try {
-                                    themeStyle = (await fs.readFile(themeStylePath)).toString();
+                            if (this._cache2.has(element.localName) === false) {
+                                if (component.meta === undefined) {
+                                    throw new Error(`meta unavailable for component '${element.localName}'`);
                                 }
-                                catch {
+                                const shadowHtml = (await this.loadResource(element.localName, 'html'));
+                                const shadowCss = (await this.loadResource(element.localName, 'css'));
+                                const sheets = await this.stylesheets;
+                                const styles = component.meta.styles.map(s => `/*== ${s} ==*/${sheets[s] ?? ''}`);
+                                let themeStyle = '';
+                                if (theme) {
+                                    const themeStylePath = Path.resolve(theme, 'css', ...(`${element.localName}.css`).split('-'));
+                                    try {
+                                        themeStyle = (await fs.readFile(themeStylePath)).toString();
+                                    }
+                                    catch {
+                                    }
                                 }
-                            }
-                            const result = await this.parseHtml(shadowHtml, component.meta?.properties ?? allowedKeys);
-                            for (const [id, matches] of result.map) {
-                                map.set(id === '__root__' ? element.localName : id, matches);
-                            }
-                            for (const template of result.templates.entries()) {
-                                templates.set(...template);
-                            }
-                            imports[element.localName] = component;
-                            const template = `
-                            <template shadowroot="closed">
+                                const result = await this.parseHtml(shadowHtml, component.meta?.properties ?? allowedKeys);
+                                for (const [id, matches] of result.map) {
+                                    map.set(id === '__root__' ? element.localName : id, matches);
+                                }
+                                for (const template of result.templates.entries()) {
+                                    templates.set(...template);
+                                }
+                                imports[element.localName] = component;
+                                const template = `<template shadowroot="closed">
                                 <style>
                                     :host{}
 
@@ -176,9 +181,21 @@ export default class Composer {
                                 </style>
 
                                 ${result.code}
-                            </template>
-                        `;
-                            s.appendRight(location.startTag.endOffset, template);
+                            </template>`;
+                                if (element.localName === 'fyn-common-form-group') {
+                                    console.error(templates, component, template, result);
+                                }
+                                this._cache2.set(element.localName, { result, template });
+                            }
+                            const { result: r, template } = this._cache2.get(element.localName);
+                            for (const [id, matches] of r.map) {
+                                map.set(id === '__root__' ? element.localName : id, matches);
+                            }
+                            for (const template of r.templates.entries()) {
+                                templates.set(...template);
+                            }
+                            s.prependLeft(location.startTag.endOffset - 1, ` data-id="${id}"`);
+                            s.prependRight(location.startTag.endOffset, template);
                             break;
                         }
                     case 'variable':
@@ -191,7 +208,7 @@ export default class Composer {
                             }
                             s.overwrite(location.startOffset, location.endOffset, node.nodeType === 2
                                 ? `${node.localName}="${value}"`
-                                : value);
+                                : value, { contentOnly: true });
                             break;
                         }
                     case 'template':
@@ -210,7 +227,7 @@ export default class Composer {
                                         }
                                         const attr = directive.node;
                                         if (attr.ownerElement?.matches(query) && attr.ownerElement?.hasAttribute(dir)) {
-                                            directive.fragment = result.id;
+                                            directive.fragments.set(el.parentElement.getAttribute('data-id'), result.id);
                                             match = directive;
                                         }
                                     }
@@ -246,7 +263,7 @@ export default class Composer {
         const dependencies = await Promise.all(deps.map(d => Composer.loadManifest(d)));
         const components = await comps.reduce(async (components, namespace) => ({
             ...(await components),
-            ...(Object.fromEntries(await arrayFromAsync(toComponent(walkDirTree(Path.resolve(path, namespace.ts)), path, namespace)))),
+            ...(Object.fromEntries(await fromAsync(toComponent(walkDirTree(Path.resolve(path, namespace.ts)), path, namespace)))),
             ...dependencies.reduce((flattened, d) => ({ ...flattened, ...d.components }), {})
         }), Promise.resolve({}));
         for (const [k, p] of Object.entries(stylesheets)) {

@@ -1,32 +1,32 @@
 import Directive from './directive.js';
-import Template from '../template.js';
+import { hydrate, processBindings } from '../template.js';
 export default class Switch extends Directive {
-    _defaultCase;
-    _cases;
-    _items = [];
-    _initialized;
+    #defaultCase;
+    #cases;
+    #items = [];
+    #initialized;
     constructor(node, binding, scopes, { defaultCase, cases }) {
         super(node, binding, scopes);
-        this._defaultCase = defaultCase;
-        this._cases = cases;
-        this._initialized = this._initialize();
+        this.#defaultCase = defaultCase;
+        this.#cases = cases;
+        this.#initialized = this.#initialize();
     }
-    async _initialize() {
-        this._items = [];
+    async #initialize() {
+        this.#items = [];
     }
     async render() {
         const element = this.node;
         element.setAttribute('hidden', '');
-        await this._initialized;
+        await this.#initialized;
         const current = element.querySelector('[case]');
         if (current !== null) {
             current.remove();
         }
         const value = String(await this.binding.value);
-        const fragment = this._cases.get(value) ?? this._defaultCase;
-        const { template, bindings } = await Template.hydrate(this.scopes, fragment);
+        const fragment = this.#cases.get(value) ?? this.#defaultCase;
+        const { template, bindings } = await hydrate(this.scopes, fragment);
         element.appendChild(template);
-        await Template.processBindings(bindings, this.scopes);
+        await processBindings(bindings, this.scopes);
         element.removeAttribute('hidden');
     }
 }

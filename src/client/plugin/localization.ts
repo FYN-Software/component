@@ -23,11 +23,12 @@ type Resources = {
 
 export default class Localization extends Plugin
 {
-    private _resources: Resources = {
+    #locale!: Intl.Locale;
+    #resources: Resources = {
         [Language.Arabic]: {
             common: fetch(`https://fyncdn.nl/locales/${Language.Arabic}/common.json`).then(r => r.json()),
             data: fetch(`https://fyncdn.nl/locales/${Language.Arabic}/data.json`).then(r => r.json()),
-            // shop: fetch(`https://fyncdn.nl/locales/${Language.Arabic}/shop.json`).then(r => r.json()),
+            shop: fetch(`https://fyncdn.nl/locales/${Language.Arabic}/shop.json`).then(r => r.json()),
         },
         [Language.German]: {
             common: fetch(`https://fyncdn.nl/locales/${Language.German}/common.json`).then(r => r.json()),
@@ -48,51 +49,51 @@ export default class Localization extends Plugin
         [Language.Dutch]: {
             common: fetch(`https://fyncdn.nl/locales/${Language.Dutch}/common.json`).then(r => r.json()),
             data: fetch(`https://fyncdn.nl/locales/${Language.Dutch}/data.json`).then(r => r.json()),
-            // shop: fetch(`https://fyncdn.nl/locales/${Language.Dutch}/shop.json`).then(r => r.json()),
+            shop: fetch(`https://fyncdn.nl/locales/${Language.Dutch}/shop.json`).then(r => r.json()),
             kiosk: fetch(`https://fyncdn.nl/locales/${Language.Dutch}/kiosk.json`).then(r => r.json()),
         },
     };
-    private _template;
-    private _formatters: { [key: string]: Formatter } = {
+    #formatters: { [key: string]: Formatter } = {
         default: new Formatter(),
         relativeDateTime: new RelativeDateTime(),
         dateTime: new DateTime(),
         currency: new NumberFormatter({ style: 'currency', currency: 'EUR' }),
         percent: new NumberFormatter({ style: 'percent', signDisplay: 'exceptZero' }),
     };
-    private _global: Language|undefined = undefined;
-    private _fallback: Language;
-    private _namespace = [ 'common' ];
-    private _cache: Map<string, Intl.PluralRules> = new Map();
+    #global!: Language;
+    #namespace = [ 'common' ];
+    #cache: Map<string, Intl.PluralRules> = new Map();
+    readonly #processBindings: ITemplate['processBindings'];
+    readonly #fallback: Language;
 
-    constructor(template: { processBindings<T extends IBase<T>>(bindings: Array<IBinding<T>>, scopes: Array<IScope>): Promise<void> })
+    constructor(processBindings: ITemplate['processBindings'], defaultLanguage: Language)
     {
         super();
 
-        this._template = template;
-        this._fallback = Language.English;
-        this.language = Language.English;
+        this.#processBindings = processBindings;
+        this.#fallback = defaultLanguage;
+        this.language = defaultLanguage;
     }
 
-    async t(key: string, replacements: { [key: string]: any } = {})
+    async t(key: string, replacements: { [key: string]: any } = {}): Promise<string|undefined>
     {
         let path = key.split('.');
 
         if(path.length === 1)
         {
-            path = [ ...this._namespace, path[0] ];
+            path = [ ...this.#namespace, path[0] ];
         }
 
-        const language: Language = replacements?._lang ?? this._global;
-        const translation: Translation = await this._getTranslation(path, language);
+        const language: Language = replacements?._lang ?? this.#global;
+        const translation: Translation = await this.#getTranslation(path, language);
 
         if(translation === undefined)
         {
-            return;
+            return replacements?._returnKey === true ? key : undefined;
         }
 
         const pluralRulesValue = replacements?.[translation.pluralRulesValue] ?? 1;
-        let pluralization: Intl.LDMLPluralRule = this._pluralization(language, pluralRulesValue);
+        let pluralization: Intl.LDMLPluralRule = this.#pluralization(language, pluralRulesValue);
 
         if(translation.hasOwnProperty(pluralization) === false)
         {
@@ -101,7 +102,7 @@ export default class Localization extends Plugin
 
         return translation[pluralization]!.replace(/{{(?:#(?<type>[a-zA-Z]+)\s)?\s*(?<key>[a-zA-Z\-_]+)\s*}}/g, (...args: Array<any>) => {
             const { type = 'default', key }: { type: string, key: string } = args[5];
-            const formatter = this._formatters[type] ?? this._formatters.default;
+            const formatter = this.#formatters[type] ?? this.#formatters.default;
 
             return formatter.format(replacements[key] ?? '???');
         });
@@ -113,38 +114,36 @@ export default class Localization extends Plugin
     }
     get language(): Language
     {
-        return this._global!;
+        return this.#global!;
     }
 
     set language(language: Language)
     {
         (async () => {
-            if(this.languages.includes(language) === false)
-            {
-                const keys: string = Object.keys(this._resources).map(k => `'${k}'`).join(', ');
-                throw new Error(
-                    `Given language '${language}' is not supported, provice one of these: [ ${keys} ]`
-                );
-            }
-
-            if(language === this._global)
+            if(language === this.#global)
             {
                 return;
             }
 
-            const old = this._global;
+            const old = this.#global;
 
-            this._global = language;
+            this.#global = language;
+            this.#locale = new Intl.Locale(language);
 
-            for(const formatter of Object.values(this._formatters))
+            for(const formatter of Object.values(this.#formatters))
             {
                 formatter.language = language;
             }
 
-            await this._rerender();
+            await this.#rerender();
 
-            this.emit('changed', { old, new: language })
+            this.emit('changed', { old, new: language });
         })();
+    }
+
+    get locale(): Intl.Locale
+    {
+        return this.#locale;
     }
 
     get key(): string
@@ -162,19 +161,19 @@ export default class Localization extends Plugin
         return proxy;
     }
 
-    private _pluralization(language: string, value: number): Intl.LDMLPluralRule
+    #pluralization(language: string, value: number): Intl.LDMLPluralRule
     {
-        if(this._cache.has(language) === false)
+        if(this.#cache.has(language) === false)
         {
-            this._cache.set(language, new Intl.PluralRules(language));
+            this.#cache.set(language, new Intl.PluralRules(language));
         }
 
-        return this._cache.get(language)!.select(value);
+        return this.#cache.get(language)!.select(value);
     }
 
-    private async _getTranslation(path: Array<string>, language: Language): Promise<Translation>
+    async #getTranslation(path: Array<string>, language: Language): Promise<Translation>
     {
-        let translation: Namespace|Translation = await this._resources[language];
+        let translation: Namespace|Translation = await this.#resources[language];
 
         for(const k of path)
         {
@@ -186,34 +185,34 @@ export default class Localization extends Plugin
             }
         }
 
-        if(translation === undefined && language !== this._fallback)
+        if(translation === undefined && language !== this.#fallback)
         {
-            return await this._getTranslation(path, this._fallback);
+            return this.#getTranslation(path, this.#fallback);
         }
 
         return translation as Translation;
     }
 
-    private async _rerender(): Promise<void>
+    async #rerender(): Promise<void>
     {
         await Promise.all(this.bindings.map(
-            ({ binding, scopes }) => this._template.processBindings([ binding ], scopes)
+            ({ binding, scopes }) => this.#processBindings([ binding ], scopes)
         ));
     }
 }
 
 class Formatter
 {
-    private _language: string = 'en-GB';
+    #language: string = 'en-GB';
 
     set language(language: string)
     {
-        this._language = language;
+        this.#language = language;
     }
 
     get language(): string
     {
-        return this._language;
+        return this.#language;
     }
 
     format(value: any): string
@@ -224,8 +223,8 @@ class Formatter
 
 class NumberFormatter extends Formatter
 {
-    private _cache: Map<string, Intl.NumberFormat> = new Map();
-    private readonly _conf: Intl.NumberFormatOptions = {
+    #cache: Map<string, Intl.NumberFormat> = new Map();
+    readonly #conf: Intl.NumberFormatOptions = {
         notation: 'standard',
     };
 
@@ -235,15 +234,15 @@ class NumberFormatter extends Formatter
 
         if(conf !== undefined)
         {
-            this._conf = conf;
+            this.#conf = conf;
         }
     }
 
     set language(language: string)
     {
-        if(this._cache.has(language) === false)
+        if(this.#cache.has(language) === false)
         {
-            this._cache.set(language, new Intl.NumberFormat(language, this._conf));
+            this.#cache.set(language, new Intl.NumberFormat(language, this.#conf));
         }
 
         super.language = language;
@@ -256,29 +255,29 @@ class NumberFormatter extends Formatter
 
     format(value: number): string
     {
-        return this._cache.get(this.language)!.format(value);
+        return this.#cache.get(this.language)!.format(value);
     }
 }
 
 enum RelativeDateTimeUnits
 {
-    year  = 24 * 60 * 60 * 1000 * 365,
-    month = 24 * 60 * 60 * 1000 * 365/12,
-    day   = 24 * 60 * 60 * 1000,
-    hour  = 60 * 60 * 1000,
-    minute= 60 * 1000,
-    second= 1000,
+    year   = 24 * 60 * 60 * 1000 * 365,
+    month  = 24 * 60 * 60 * 1000 * 365/12,
+    day    = 24 * 60 * 60 * 1000,
+    hour   = 60 * 60 * 1000,
+    minute = 60 * 1000,
+    second = 1000,
 }
 
 class RelativeDateTime extends Formatter
 {
-    private _cache: Map<string, Intl.RelativeTimeFormat> = new Map();
+    #cache: Map<string, Intl.RelativeTimeFormat> = new Map();
 
     set language(language: string)
     {
-        if(this._cache.has(language) === false)
+        if(this.#cache.has(language) === false)
         {
-            this._cache.set(language, new Intl.RelativeTimeFormat(language, { numeric: 'auto' }));
+            this.#cache.set(language, new Intl.RelativeTimeFormat(language, { numeric: 'auto' }));
         }
 
         super.language = language;
@@ -298,7 +297,7 @@ class RelativeDateTime extends Formatter
         {
             if (Math.abs(elapsed) > milliseconds || unit === 'second')
             {
-                return this._cache.get(this.language)!.format(
+                return this.#cache.get(this.language)!.format(
                     Math.round(elapsed / (milliseconds as number)),
                     unit as Intl.RelativeTimeFormatUnit
                 );
@@ -311,13 +310,13 @@ class RelativeDateTime extends Formatter
 
 class DateTime extends Formatter
 {
-    private _cache: Map<string, Intl.DateTimeFormat> = new Map();
+    #cache: Map<string, Intl.DateTimeFormat> = new Map();
 
     set language(language: string)
     {
-        if(this._cache.has(language) === false)
+        if(this.#cache.has(language) === false)
         {
-            this._cache.set(language, new Intl.DateTimeFormat(language));
+            this.#cache.set(language, new Intl.DateTimeFormat(language));
         }
 
         super.language = language;
@@ -330,6 +329,6 @@ class DateTime extends Formatter
 
     format(value: number|Date): string
     {
-        return this._cache.get(this.language)!.format(value);
+        return this.#cache.get(this.language)!.format(value);
     }
 }

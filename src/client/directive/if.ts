@@ -1,8 +1,9 @@
-import Template from '../template.js';
+import { hydrate, processBindings } from '../template.js';
 import Directive from './directive.js';
+import { setAttributeOnAssert } from '@fyn-software/core/function/dom.js';
 
 declare type IfConf<T extends IBase<T>> = {
-    fragment: IFragment<T>;
+    fragments: { [key: string]: IFragment<T> };
 };
 
 // TODO(Chris Kruining)
@@ -11,20 +12,21 @@ declare type IfConf<T extends IBase<T>> = {
 //  get rendered due to this disconnect!
 export default class If<T extends IBase<T>> extends Directive<T>
 {
-    private readonly _fragment: IFragment<T>;
-    private readonly _initialized: Promise<void> = Promise.resolve();
+    readonly #fragment: IFragment<T>;
+    readonly #initialized: Promise<void> = Promise.resolve();
 
-    constructor(node: Element, binding: IBinding<T>, scopes: Array<IScope>, { fragment }: IfConf<T>)
+    constructor(node: Element, binding: IBinding<T>, scopes: Array<IScope>, { fragments }: IfConf<T>)
     {
         super(node, binding, scopes);
 
-        this._fragment = fragment;
-        this._initialized = this._initialize();
+        this.#fragment = fragments[(node.getRootNode() as ShadowRoot).host?.getAttribute('data-id') ?? '']
+            ?? fragments.__root__;
+        this.#initialized = this.#initialize();
     }
 
-    private async _initialize()
+    async #initialize()
     {
-        // await this._fragment.load();
+        // await this.#fragment.load();
     }
 
     public async render()
@@ -32,21 +34,21 @@ export default class If<T extends IBase<T>> extends Directive<T>
         const element = this.node as Element;
         element.setAttribute('hidden', '');
 
-        await this._initialized;
+        await this.#initialized;
 
         const value = Boolean(await this.binding.value);
 
-        element.attributes.setOnAssert(value === false, 'hidden');
+        setAttributeOnAssert(element, value === false, 'hidden');
 
         if(value)
         {
             element.innerHTML = '';
 
-            const { template, bindings } = await Template.hydrate(this.scopes, this._fragment.clone());
+            const { template, bindings } = await hydrate(this.scopes, this.#fragment.clone());
 
             element.appendChild(template);
 
-            await Template.processBindings(bindings, this.scopes);
+            await processBindings(bindings, this.scopes);
         }
     }
 }

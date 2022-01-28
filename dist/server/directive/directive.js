@@ -4,9 +4,10 @@ export default class Directive {
     static get type() {
         return this._references.get(this);
     }
-    static async parse(template, binding, node) {
+    static async parse(binding, node) {
         binding.directive = {
             node,
+            fragments: new Map,
             type: this.name.toLowerCase(),
         };
         return {

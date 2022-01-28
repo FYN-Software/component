@@ -8,10 +8,12 @@ export var Language;
     Language["Dutch"] = "nl-NL";
 })(Language || (Language = {}));
 export default class Localization extends Plugin {
-    _resources = {
+    #locale;
+    #resources = {
         [Language.Arabic]: {
             common: fetch(`https://fyncdn.nl/locales/${Language.Arabic}/common.json`).then(r => r.json()),
             data: fetch(`https://fyncdn.nl/locales/${Language.Arabic}/data.json`).then(r => r.json()),
+            shop: fetch(`https://fyncdn.nl/locales/${Language.Arabic}/shop.json`).then(r => r.json()),
         },
         [Language.German]: {
             common: fetch(`https://fyncdn.nl/locales/${Language.German}/common.json`).then(r => r.json()),
@@ -30,45 +32,46 @@ export default class Localization extends Plugin {
         [Language.Dutch]: {
             common: fetch(`https://fyncdn.nl/locales/${Language.Dutch}/common.json`).then(r => r.json()),
             data: fetch(`https://fyncdn.nl/locales/${Language.Dutch}/data.json`).then(r => r.json()),
+            shop: fetch(`https://fyncdn.nl/locales/${Language.Dutch}/shop.json`).then(r => r.json()),
             kiosk: fetch(`https://fyncdn.nl/locales/${Language.Dutch}/kiosk.json`).then(r => r.json()),
         },
     };
-    _template;
-    _formatters = {
+    #formatters = {
         default: new Formatter(),
         relativeDateTime: new RelativeDateTime(),
         dateTime: new DateTime(),
         currency: new NumberFormatter({ style: 'currency', currency: 'EUR' }),
         percent: new NumberFormatter({ style: 'percent', signDisplay: 'exceptZero' }),
     };
-    _global = undefined;
-    _fallback;
-    _namespace = ['common'];
-    _cache = new Map();
-    constructor(template) {
+    #global;
+    #namespace = ['common'];
+    #cache = new Map();
+    #processBindings;
+    #fallback;
+    constructor(processBindings, defaultLanguage) {
         super();
-        this._template = template;
-        this._fallback = Language.English;
-        this.language = Language.English;
+        this.#processBindings = processBindings;
+        this.#fallback = defaultLanguage;
+        this.language = defaultLanguage;
     }
     async t(key, replacements = {}) {
         let path = key.split('.');
         if (path.length === 1) {
-            path = [...this._namespace, path[0]];
+            path = [...this.#namespace, path[0]];
         }
-        const language = replacements?._lang ?? this._global;
-        const translation = await this._getTranslation(path, language);
+        const language = replacements?._lang ?? this.#global;
+        const translation = await this.#getTranslation(path, language);
         if (translation === undefined) {
-            return;
+            return replacements?._returnKey === true ? key : undefined;
         }
         const pluralRulesValue = replacements?.[translation.pluralRulesValue] ?? 1;
-        let pluralization = this._pluralization(language, pluralRulesValue);
+        let pluralization = this.#pluralization(language, pluralRulesValue);
         if (translation.hasOwnProperty(pluralization) === false) {
             pluralization = 'one';
         }
         return translation[pluralization].replace(/{{(?:#(?<type>[a-zA-Z]+)\s)?\s*(?<key>[a-zA-Z\-_]+)\s*}}/g, (...args) => {
             const { type = 'default', key } = args[5];
-            const formatter = this._formatters[type] ?? this._formatters.default;
+            const formatter = this.#formatters[type] ?? this.#formatters.default;
             return formatter.format(replacements[key] ?? '???');
         });
     }
@@ -76,25 +79,25 @@ export default class Localization extends Plugin {
         return Object.values(Language);
     }
     get language() {
-        return this._global;
+        return this.#global;
     }
     set language(language) {
         (async () => {
-            if (this.languages.includes(language) === false) {
-                const keys = Object.keys(this._resources).map(k => `'${k}'`).join(', ');
-                throw new Error(`Given language '${language}' is not supported, provice one of these: [ ${keys} ]`);
-            }
-            if (language === this._global) {
+            if (language === this.#global) {
                 return;
             }
-            const old = this._global;
-            this._global = language;
-            for (const formatter of Object.values(this._formatters)) {
+            const old = this.#global;
+            this.#global = language;
+            this.#locale = new Intl.Locale(language);
+            for (const formatter of Object.values(this.#formatters)) {
                 formatter.language = language;
             }
-            await this._rerender();
+            await this.#rerender();
             this.emit('changed', { old, new: language });
         })();
+    }
+    get locale() {
+        return this.#locale;
     }
     get key() {
         return 't';
@@ -106,55 +109,55 @@ export default class Localization extends Plugin {
         });
         return proxy;
     }
-    _pluralization(language, value) {
-        if (this._cache.has(language) === false) {
-            this._cache.set(language, new Intl.PluralRules(language));
+    #pluralization(language, value) {
+        if (this.#cache.has(language) === false) {
+            this.#cache.set(language, new Intl.PluralRules(language));
         }
-        return this._cache.get(language).select(value);
+        return this.#cache.get(language).select(value);
     }
-    async _getTranslation(path, language) {
-        let translation = await this._resources[language];
+    async #getTranslation(path, language) {
+        let translation = await this.#resources[language];
         for (const k of path) {
             translation = await translation[k];
             if (translation === undefined) {
                 break;
             }
         }
-        if (translation === undefined && language !== this._fallback) {
-            return await this._getTranslation(path, this._fallback);
+        if (translation === undefined && language !== this.#fallback) {
+            return this.#getTranslation(path, this.#fallback);
         }
         return translation;
     }
-    async _rerender() {
-        await Promise.all(this.bindings.map(({ binding, scopes }) => this._template.processBindings([binding], scopes)));
+    async #rerender() {
+        await Promise.all(this.bindings.map(({ binding, scopes }) => this.#processBindings([binding], scopes)));
     }
 }
 class Formatter {
-    _language = 'en-GB';
+    #language = 'en-GB';
     set language(language) {
-        this._language = language;
+        this.#language = language;
     }
     get language() {
-        return this._language;
+        return this.#language;
     }
     format(value) {
         return value;
     }
 }
 class NumberFormatter extends Formatter {
-    _cache = new Map();
-    _conf = {
+    #cache = new Map();
+    #conf = {
         notation: 'standard',
     };
     constructor(conf) {
         super();
         if (conf !== undefined) {
-            this._conf = conf;
+            this.#conf = conf;
         }
     }
     set language(language) {
-        if (this._cache.has(language) === false) {
-            this._cache.set(language, new Intl.NumberFormat(language, this._conf));
+        if (this.#cache.has(language) === false) {
+            this.#cache.set(language, new Intl.NumberFormat(language, this.#conf));
         }
         super.language = language;
     }
@@ -162,7 +165,7 @@ class NumberFormatter extends Formatter {
         return super.language;
     }
     format(value) {
-        return this._cache.get(this.language).format(value);
+        return this.#cache.get(this.language).format(value);
     }
 }
 var RelativeDateTimeUnits;
@@ -175,10 +178,10 @@ var RelativeDateTimeUnits;
     RelativeDateTimeUnits[RelativeDateTimeUnits["second"] = 1000] = "second";
 })(RelativeDateTimeUnits || (RelativeDateTimeUnits = {}));
 class RelativeDateTime extends Formatter {
-    _cache = new Map();
+    #cache = new Map();
     set language(language) {
-        if (this._cache.has(language) === false) {
-            this._cache.set(language, new Intl.RelativeTimeFormat(language, { numeric: 'auto' }));
+        if (this.#cache.has(language) === false) {
+            this.#cache.set(language, new Intl.RelativeTimeFormat(language, { numeric: 'auto' }));
         }
         super.language = language;
     }
@@ -189,17 +192,17 @@ class RelativeDateTime extends Formatter {
         const elapsed = value - Date.now();
         for (const [unit, milliseconds] of Object.entries(RelativeDateTimeUnits)) {
             if (Math.abs(elapsed) > milliseconds || unit === 'second') {
-                return this._cache.get(this.language).format(Math.round(elapsed / milliseconds), unit);
+                return this.#cache.get(this.language).format(Math.round(elapsed / milliseconds), unit);
             }
         }
         return '';
     }
 }
 class DateTime extends Formatter {
-    _cache = new Map();
+    #cache = new Map();
     set language(language) {
-        if (this._cache.has(language) === false) {
-            this._cache.set(language, new Intl.DateTimeFormat(language));
+        if (this.#cache.has(language) === false) {
+            this.#cache.set(language, new Intl.DateTimeFormat(language));
         }
         super.language = language;
     }
@@ -207,7 +210,7 @@ class DateTime extends Formatter {
         return super.language;
     }
     format(value) {
-        return this._cache.get(this.language).format(value);
+        return this.#cache.get(this.language).format(value);
     }
 }
 //# sourceMappingURL=localization.js.map

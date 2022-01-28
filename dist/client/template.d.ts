@@ -3,27 +3,17 @@ export declare type DirectiveMap = {
     [key: string]: Constructor<IDirective<any>>;
 };
 export declare const uuidRegex: RegExp;
-export default class Template {
-    private static _directivesMap;
-    private static _map;
-    private static _directives;
-    private static _plugins;
-    private static readonly _directivesCache;
-    private static readonly _templates;
-    private static readonly _bindings;
-    static initialize(map: {
-        [key: string]: {
-            [key: string]: Binding;
-        };
-    }, directives: DirectiveMap, plugins: Array<IPlugin>): Promise<void>;
-    static hydrate<T extends IBase<T>>(scopes: Array<IScope>, fragment: IFragment<T>): Promise<ParsedTemplate<T>>;
-    static render<T extends IBase<T>>(node: Node): Promise<void>;
-    static mapFor(component: string): Map<string, Binding> | undefined;
-    static getDirective<TDirective extends IDirective<any>>(ctor: DirectiveConstructor, node: Node): TDirective | undefined;
-    static getBindingsFor(node: Node): Array<IBinding<any>>;
-    static processBindings<T extends IBase<T>>(bindings: Array<IBinding<T>>, scopes: Array<IScope>): Promise<void>;
-    private static iterator;
-}
+export declare function initialize(map: {
+    [key: string]: {
+        [key: string]: Binding;
+    };
+}, directives: DirectiveMap): Promise<void>;
+export declare function hydrate<T extends IBase<T>>(scopes: Array<IScope>, fragment: IFragment<T>): Promise<ParsedTemplate<T>>;
+export declare function render<T extends IBase<T>>(node: Node): Promise<void>;
+export declare function mapFor(component: string): Map<string, Binding> | undefined;
+export declare function getDirective<TDirective extends IDirective<any>>(ctor: Constructor<IDirective<any>>, node: Node): TDirective | undefined;
+export declare function getBindingsFor(node: Node): Array<IBinding<any>>;
+export declare function processBindings<T extends IBase<T>>(bindings: Array<IBinding<T>>, scopes: Array<IScope>): Promise<void>;
 export declare const plugins: IPluginContainer<{
     localization: LocalizationPlugin;
 }>;

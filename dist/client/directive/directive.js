@@ -1,23 +1,25 @@
-export default class Directive {
-    _node;
-    _binding;
-    _scopes;
+export default class Directive extends EventTarget {
+    #node;
+    #binding;
+    #scopes;
+    events;
     get scopes() {
-        return this._scopes;
+        return this.#scopes;
     }
     get node() {
-        return this._node;
+        return this.#node;
     }
     get binding() {
-        return this._binding;
+        return this.#binding;
     }
     constructor(node, binding, scopes) {
-        this._node = node;
-        this._binding = binding;
-        this._scopes = scopes;
+        super();
+        this.#node = node;
+        this.#binding = binding;
+        this.#scopes = scopes;
     }
     transferTo(node) {
-        this._node = node;
+        this.#node = node;
     }
 }
 //# sourceMappingURL=directive.js.map

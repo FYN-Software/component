@@ -11,10 +11,10 @@ export default abstract class FormAssociated<T extends FormAssociated<T, TEvents
     static formAssociated: boolean = true;
 
     @property()
-    public required: boolean = false;
+    public required!: boolean;
 
     @property()
-    public tabIndex: number = 0;
+    public tabIndex!: number;
 
     @property()
     public type: TType = '' as any;
@@ -26,7 +26,7 @@ export default abstract class FormAssociated<T extends FormAssociated<T, TEvents
     public name: string = '';
 
     @property()
-    public value: TValue = '' as any;
+    public value!: TValue;
 
     @property()
     public error: string = '';
@@ -34,7 +34,7 @@ export default abstract class FormAssociated<T extends FormAssociated<T, TEvents
     @property()
     public inputMode: string = '';
 
-    public constructor(args: ViewModelArgs<FormAssociated<T, TEvents, TValue, TType>&T> = {})
+    public constructor(args: Partial<FormAssociated<T, TEvents, TValue, TType>&T> = {})
     {
         super(args);
 
@@ -54,7 +54,7 @@ export default abstract class FormAssociated<T extends FormAssociated<T, TEvents
 
                 this.emit('change', { old: o, new: n });
             },
-        });
+        } as ObserverConfig<FormAssociated<T, TEvents, TValue, TType>&T>);
     }
 
     public setValidity(state: ValidityState, error: string)

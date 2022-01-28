@@ -10,10 +10,11 @@ export default abstract class Directive
         return this._references.get(this as unknown as DirectiveConstructor);
     }
 
-    public static async parse(template: TemplateConstructor, binding: CachedBinding, node: Attr): Promise<DirectiveParseResult>
+    public static async parse(binding: CachedBinding, node: Attr): Promise<DirectiveParseResult>
     {
         binding.directive = {
             node,
+            fragments: new Map,
             type: this.name.toLowerCase(),
         };
 

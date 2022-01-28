@@ -1,11 +1,12 @@
-import Templating from '../template.js';
+import { hydrate, processBindings } from '../template.js';
 import Directive from './directive.js';
 export default class Template extends Directive {
     _fragment;
     _initialized;
-    constructor(node, binding, scopes, { fragment }) {
+    constructor(node, binding, scopes, { fragments }) {
         super(node, binding, scopes);
-        this._fragment = fragment;
+        this._fragment = fragments[node.getRootNode().host.getAttribute('data-id') ?? '']
+            ?? fragments.__root__;
         this._initialized = this._initialize();
     }
     async _initialize() {
@@ -15,9 +16,9 @@ export default class Template extends Directive {
         const [key, templates] = await this.binding.value;
         const fragment = templates[key] ?? this._fragment;
         this.node.innerHTML = '';
-        const { template, bindings } = await Templating.hydrate(this.scopes, fragment.clone());
+        const { template, bindings } = await hydrate(this.scopes, fragment.clone());
         this.node.appendChild(template);
-        await Templating.processBindings(bindings, this.scopes);
+        await processBindings(bindings, this.scopes);
     }
 }
 //# sourceMappingURL=template.js.map

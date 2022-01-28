@@ -1,26 +1,26 @@
 export default class Fragment<T extends IBase<T>> implements IFragment<T>
 {
-    private readonly _template: Node;
-    private readonly _map: Map<string, Binding>;
+    readonly #template: Node;
+    readonly #map: Map<string, Binding>;
 
     constructor(template: Node, map: Map<string, Binding>)
     {
-        this._template = template;
-        this._map = map;
+        this.#template = template;
+        this.#map = map;
     }
 
     clone(): IFragment<T>
     {
-        return new Fragment(this._template.cloneNode(true), new Map(this._map));
+        return new Fragment(this.#template.cloneNode(true), new Map(this.#map));
     }
 
     get template(): Node
     {
-        return this._template;
+        return this.#template;
     }
 
     get map(): Map<string, Binding>
     {
-        return this._map;
+        return this.#map;
     }
 }

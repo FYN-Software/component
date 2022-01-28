@@ -5,46 +5,50 @@ function getParamNames(func) {
     return functionString.slice(functionString.indexOf('(') + 1, functionString.indexOf(')')).match(ARGUMENT_NAMES) ?? [];
 }
 export default class Binding {
-    _tag;
-    _keys;
-    _code;
-    _nodes = new Set();
-    _value = Promise.resolve(undefined);
-    _callable;
+    #tag;
+    #keys;
+    #nodes = new Set();
+    #value = Promise.resolve(undefined);
+    #callable;
     constructor(tag, callable) {
-        this._tag = tag;
-        this._keys = getParamNames(callable);
-        this._code = callable.toString().replace(STRIP_COMMENTS, '');
-        this._callable = callable;
+        this.#tag = tag;
+        this.#keys = getParamNames(callable);
+        this.#callable = callable;
     }
     get tag() {
-        return this._tag;
+        return this.#tag;
     }
     get keys() {
-        return this._keys;
-    }
-    get code() {
-        return this._code;
+        return this.#keys;
     }
     get nodes() {
-        return this._nodes;
+        return this.#nodes;
     }
     get value() {
-        return this._value;
+        return this.#value;
     }
     async resolve(scopes, plugins) {
-        const args = scopes
-            .reduce((args, scope) => args.concat(Object.entries(scope.properties)
-            .filter(([k]) => this._keys.includes(k))
-            .map(([, p]) => p.value)), [])
-            .concat(plugins.values);
+        const inverseScopes = [...scopes].reverse();
+        const p = Object.fromEntries(plugins.entries);
+        const args = this.#keys.map(key => {
+            let val;
+            for (const scope of inverseScopes) {
+                if (scope.properties.hasOwnProperty(key)) {
+                    val = scope.properties[key];
+                }
+            }
+            if (val === undefined && p.hasOwnProperty(key)) {
+                val = p[key];
+            }
+            return val;
+        });
         try {
-            this._value = this._callable.apply(scopes.first, args);
+            this.#value = this.#callable.apply(scopes[0], args);
         }
         catch (e) {
             console.error(e);
         }
-        return this._value;
+        return this.#value;
     }
 }
 //# sourceMappingURL=binding.js.map

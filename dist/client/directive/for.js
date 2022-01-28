@@ -1,44 +1,49 @@
 import lock from '@fyn-software/core/lock.js';
 import Directive from './directive.js';
-import Template from '../template.js';
+import { hydrate, processBindings } from '../template.js';
+import { delay } from '@fyn-software/core/function/promise.js';
 export default class For extends Directive {
-    static _indices = new WeakMap;
-    _key;
-    _name;
-    _fragment;
-    _items = [];
-    _initialized;
-    constructor(node, binding, scopes, { fragment, name = 'it', key = name }) {
+    #key;
+    #name;
+    #fragment;
+    #items = [];
+    #initialized;
+    constructor(node, binding, scopes, { fragments, name = 'it', key = name }) {
         super(node, binding, scopes);
-        this._name = name;
-        this._key = key;
-        this._fragment = fragment;
-        this._initialized = this._initialize();
+        for (const scope of scopes) {
+            scope.viewModel.on({ changed: () => this.render() });
+        }
+        this.#name = name;
+        this.#key = key;
+        this.#fragment = fragments[node.getRootNode().host?.getAttribute('data-id') ?? '']
+            ?? fragments.__root__;
+        this.#initialized = this.#initialize();
     }
     get fragment() {
-        return this._fragment;
+        return this.#fragment;
     }
     set fragment(fragment) {
-        this._fragment = fragment;
-        this._initialized = this._initialize();
+        this.#fragment = fragment;
+        this.#initialized = this.#initialize();
+        this.emit('templateChange', fragment);
         this.node.innerHTML = '';
         void this.render();
     }
-    async _initialize() {
-        this._items = [];
+    async #initialize() {
+        this.#items = [];
     }
     async render() {
-        await this._initialized;
+        await this.#initialized;
         await lock(this, async () => {
             const value = await this.binding.value;
             let count = 0;
             for await (const [c, k, it] of valueIterator(value)) {
                 count = c + 1;
-                const scope = { properties: { [this._key]: { value: k }, [this._name]: { value: it } } };
+                const scope = { properties: { [this.#key]: k, [this.#name]: it } };
                 const scopes = [...this.scopes, scope];
-                if (this._items.length <= c) {
-                    const { template, bindings } = await Template.hydrate(scopes, this._fragment.clone());
-                    this._items.push({ nodes: Array.from(template.childNodes), bindings });
+                if (this.#items.length <= c) {
+                    const { template, bindings } = await hydrate(scopes, this.#fragment.clone());
+                    this.#items.push({ nodes: Array.from(template.childNodes), bindings });
                     if (template instanceof DocumentFragment) {
                         await Promise.all(Array
                             .from(template.querySelectorAll(':defined'))
@@ -46,53 +51,40 @@ export default class For extends Directive {
                     }
                     this.node.appendChild(template);
                 }
-                const { nodes, bindings } = this._items[c];
-                for (const node of nodes) {
-                    For._indices.set(node, c);
-                }
-                await Template.processBindings(bindings, scopes);
+                await processBindings(this.#items[c].bindings, scopes);
             }
-            const toRemove = this._items.splice(count, this._items.length - count);
+            const toRemove = this.#items.splice(count, this.#items.length - count);
             for (const { nodes } of toRemove) {
                 for (const node of nodes) {
-                    node.remove();
+                    this.node.removeChild(node);
                 }
             }
-            await Promise.delay(0);
+            await delay(0);
             this.node.emit('rendered');
         });
     }
-    static get indices() {
-        return this._indices;
-    }
 }
 async function* valueIterator(value) {
-    try {
-        if (typeof value?.[Symbol.asyncIterator] === 'function') {
-            let i = 0;
-            for await (const v of value) {
-                yield [i, i, v];
-                i++;
-            }
-        }
-        else if (typeof value?.[Symbol.iterator] === 'function') {
-            let i = 0;
-            for (const v of value) {
-                yield [i, i, v];
-                i++;
-            }
-        }
-        else {
-            let i = 0;
-            for await (const [k, v] of Object.entries(value ?? {})) {
-                yield [i, k, v];
-                i++;
-            }
+    if (typeof value?.[Symbol.asyncIterator] === 'function') {
+        let i = 0;
+        for await (const v of value) {
+            yield [i, i, v];
+            i++;
         }
     }
-    catch (e) {
-        console.trace(value);
-        throw e;
+    else if (typeof value?.[Symbol.iterator] === 'function') {
+        let i = 0;
+        for (const v of value) {
+            yield [i, i, v];
+            i++;
+        }
+    }
+    else {
+        let i = 0;
+        for await (const [k, v] of Object.entries(value ?? {})) {
+            yield [i, k, v];
+            i++;
+        }
     }
 }
 //# sourceMappingURL=for.js.map

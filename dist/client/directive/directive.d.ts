@@ -1,7 +1,6 @@
-export default abstract class Directive<T extends IBase<T>> implements IDirective<T> {
-    private _node;
-    private readonly _binding;
-    private readonly _scopes;
+export default abstract class Directive<T extends IBase<T> = any, TEvents extends EventDefinition = {}> extends EventTarget implements IDirective<T, TEvents> {
+    #private;
+    readonly events: TEvents;
     get scopes(): Array<IScope>;
     get node(): Node;
     get binding(): IBinding<T>;
