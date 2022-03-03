@@ -41,7 +41,7 @@
     },
     "dependencies": {
         "fast-glob": "3.2.11",
-        "magic-string": "0.25.8",
+        "magic-string": "0.26.1",
         "tslib": "2.3.1"
     }
 }
